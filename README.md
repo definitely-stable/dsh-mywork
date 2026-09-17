@@ -12,9 +12,10 @@ review, память и доска. Репозиторий содержит ка
 ```text
 packages/contracts     @dsh-mywork/contracts    — доменные контракты, имена сервисов, порты
 packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация, часы
+packages/storage       @dsh-mywork/storage      — durable state: SQLite, schemaVersion, миграции, outbox/inbox
 packages/adapter-sdk   @dsh-mywork/adapter-sdk  — манифесты возможностей адаптеров, ошибки, детерминированные fake-реализации
 packages/controller    @dsh-mywork/controller   — Cordis-плагин (bundle) и его patch-слой
-tests/                 доменные тесты (node:test, без LLM и без процессов-потомков)
+tests/                 доменные тесты (node:test, без LLM; один тест поднимает процесс-потомок)
 scripts/               smoke, локальная упаковка и проверка изолированного профиля
 ```
 
@@ -29,6 +30,16 @@ authority §8) и чистыми переходами состояний в `cor
 `STALE_FENCE`, `LEASE_LOST`, `TASK_CONFLICT`, `UNSCHEDULABLE`, `SECURITY_DENIED`).
 Домен не импортирует DSH, Beads и конкретные memory-провайдеры — это проверяется
 тестом `tests/boundaries.test.mjs`.
+
+## Runtime state
+
+Runtime-данные не лежат в репозитории: `@dsh-mywork/storage` открывает SQLite под
+`$DSH_HOME/dsh-mywork/state/` (§7 архитектуры), в WAL, с явной версией схемы
+(`PRAGMA user_version`) и журналом миграций. Мутация и события, которые она
+породила, коммитятся одной транзакцией (`BEGIN IMMEDIATE`), а потребитель
+записывает `eventId` в `inbox_dedup`, поэтому повторная доставка события не
+применяет эффект второй раз. Тесты поднимают свои базы во временных каталогах и
+живого профиля DSH не касаются.
 
 ## Требования
 
