@@ -1,0 +1,24 @@
+{
+  "name": "@dsh-mywork/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public contracts of dsh-mywork: the domain model, service names, ports, and controller service shape",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}
