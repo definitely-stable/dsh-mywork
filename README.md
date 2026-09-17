@@ -11,7 +11,7 @@ review, память и доска. Репозиторий содержит ка
 
 ```text
 packages/contracts     @dsh-mywork/contracts    — доменные контракты, имена сервисов, порты
-packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация, часы
+packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация §6 и Team Work §13, граф, часы
 packages/storage       @dsh-mywork/storage      — durable state: SQLite, schemaVersion, миграции, outbox/inbox
 packages/adapter-sdk   @dsh-mywork/adapter-sdk  — каталог портов §36, registry и capability negotiation §37/§44, conformance kit §39, ошибки и fakes
 packages/controller    @dsh-mywork/controller   — Cordis-плагин (bundle) и его patch-слой
@@ -30,6 +30,30 @@ authority §8) и чистыми переходами состояний в `cor
 `STALE_FENCE`, `LEASE_LOST`, `TASK_CONFLICT`, `UNSCHEDULABLE`, `SECURITY_DENIED`).
 Домен не импортирует DSH, Beads и конкретные memory-провайдеры — это проверяется
 тестом `tests/boundaries.test.mjs`.
+
+## Конфигурация и Team Work
+
+Рабочая область конфигурируется в одном из режимов §6: `global` (использует
+глобальные Team, workflow, blueprints, memory routes и pool policies), `isolated`
+(владеет своими namespace'ами Team Work, Task Graph и memory, настройками
+workflow, ревизиями агентов и лимитами) и `inherit` — режим по умолчанию,
+который применяет цепочку overlays `platform-default → global → team → workflow →
+workspace → task`. `core.resolveWorkspaceConfig` сводит цепочку в одно
+resolved-состояние: объекты (blueprint-пины, лимиты §14, namespace'ы) сливаются по
+ключам, скаляры и массивы заменяются верхним слоем. Слой, которому режим не
+делегирует домен (workspace-слой в `global`), — типизированный отказ
+(`CONTRACT_MISMATCH`), а не молчаливое игнорирование; runtime-namespace
+workspace-scoped в любом режиме (§52), поэтому его не может задать ни один слой
+(`SECURITY_DENIED`).
+
+Resolved-состояние получает `ConfigRevision`: реестр `createConfigRevisionRegistry`
+выдаёт номер по каноническому fingerprint'у, поэтому одинаковое состояние
+сохраняет ревизию, а изменённое получает следующую. При admission попытки
+`core.resolveAttemptRevisions` фиксирует набор ревизий (§35) — опубликованная
+позже ревизия blueprint'а влияет только на следующий запуск, а runtime-дескриптор
+и сессия остаются на попытке, не на durable identity (ADR-004). Границы
+зависимостей графа задач проверяет `core.assertWorkspaceLocalEdges`: ребро между
+workspace'ами запрещено (§52), а artifact/reference-ссылки — нет.
 
 ## Runtime state
 
