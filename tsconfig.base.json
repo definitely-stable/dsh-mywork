@@ -29,6 +29,7 @@
     "paths": {
       "@dsh-mywork/contracts": ["./packages/contracts/src/index.ts"],
       "@dsh-mywork/core": ["./packages/core/src/index.ts"],
+      "@dsh-mywork/storage": ["./packages/storage/src/index.ts"],
       "@dsh-mywork/adapter-sdk": ["./packages/adapter-sdk/src/index.ts"],
       "@dsh-mywork/adapter-sdk/testing": ["./packages/adapter-sdk/src/testing.ts"]
     }
