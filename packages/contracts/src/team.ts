@@ -18,6 +18,7 @@ import type {
   RoleId,
   SessionId,
   SkillId,
+  TeamId,
   WorkspaceId,
 } from './ids.ts'
 
@@ -62,6 +63,9 @@ export interface ModelPolicy {
 /** Reasoning effort requested from the model. */
 export type ReasoningEffort = 'low' | 'medium' | 'high'
 
+/** Every reasoning effort, weakest first. */
+export const REASONING_EFFORTS: readonly ReasoningEffort[] = Object.freeze(['low', 'medium', 'high'])
+
 /** How a role may use skills (§13.1). */
 export interface SkillPolicy {
   /** Skills the role may load. */
@@ -94,6 +98,20 @@ export interface RoleContract {
   readonly reviewContract: string
 }
 
+/**
+ * Fields of {@link RoleContract}. The contract is a closed shape: a value that
+ * carries anything else is refused, so a misspelled or smuggled field cannot
+ * travel on a published revision.
+ */
+export const ROLE_CONTRACT_FIELDS: readonly string[] = Object.freeze([
+  'purpose',
+  'requiredCapabilities',
+  'workflowPermissions',
+  'prohibitedActions',
+  'outputContract',
+  'reviewContract',
+])
+
 /** Evolvable part of a role (§13.2). */
 export interface RoleStrategy {
   /** How the role researches a task. */
@@ -122,6 +140,33 @@ export interface Role {
   readonly strategyRevision: Revision
 }
 
+/** Fields of {@link RoleStrategy}; like the contract, the strategy is a closed shape. */
+export const ROLE_STRATEGY_FIELDS: readonly string[] = Object.freeze([
+  'researchApproach',
+  'strategyModules',
+  'modelPolicy',
+  'skillPolicy',
+  'learningPolicy',
+])
+
+/** Fields of {@link ModelPolicy}. */
+export const MODEL_POLICY_FIELDS: readonly string[] = Object.freeze(['preferred', 'fallback', 'escalation'])
+
+/** Fields of {@link SkillPolicy}. */
+export const SKILL_POLICY_FIELDS: readonly string[] = Object.freeze(['allowed', 'denied'])
+
+/** Fields of {@link LearningPolicy}. */
+export const LEARNING_POLICY_FIELDS: readonly string[] = Object.freeze(['strategyEvolution', 'memoryPromotion'])
+
+/** Fields of {@link Role}. */
+export const ROLE_FIELDS: readonly string[] = Object.freeze([
+  'id',
+  'contract',
+  'contractRevision',
+  'strategy',
+  'strategyRevision',
+])
+
 /** Concrete configuration of a role (§13.3). */
 export interface AgentBlueprint {
   /** Blueprint identifier. */
@@ -143,6 +188,19 @@ export interface AgentBlueprint {
   /** Elastic pool the instance is drawn from (§14). */
   readonly pool: string
 }
+
+/** Fields of {@link AgentBlueprint}. The blueprint is a closed shape (§13.3). */
+export const AGENT_BLUEPRINT_FIELDS: readonly string[] = Object.freeze([
+  'id',
+  'revision',
+  'roleId',
+  'modelPolicy',
+  'reasoning',
+  'preset',
+  'permissions',
+  'skills',
+  'pool',
+])
 
 /** Durable agent identity: the "employee" (§13.4). */
 export interface AgentIdentity {
@@ -171,6 +229,46 @@ export interface AgentIdentity {
   /** Aggregate revision; every accepted identity change increments it. */
   readonly revision: Revision
 }
+
+/**
+ * Fields that describe a live runtime handle and must never appear on the
+ * durable identity (ADR-004: "Agent Identity долговечна; Session краткоживущая",
+ * §13.4, §13.5). An identity keeps *references* to the sessions it used
+ * ({@link AgentIdentity.sessionRefs}) and never the live handle itself, so the
+ * runtime can be replaced without rewriting the employee.
+ *
+ * The identity is also a closed shape ({@link IDENTITY_FIELDS}): a field that is
+ * neither one of those names nor one of these runtime names is refused, because
+ * a denylist alone would let a differently named handle through.
+ */
+export const IDENTITY_RUNTIME_FIELDS: readonly string[] = Object.freeze([
+  'attemptId',
+  'instanceId',
+  'runtime',
+  'runtimeState',
+  'session',
+  'sessionId',
+])
+
+/**
+ * Fields of {@link AgentIdentity} — exactly what §13.4 keeps on the durable
+ * employee. A new §13.4 field is added to the interface and to this list
+ * together; anything else on an identity is a contract violation.
+ */
+export const IDENTITY_FIELDS: readonly string[] = Object.freeze([
+  'id',
+  'name',
+  'roleId',
+  'blueprintId',
+  'blueprintRevision',
+  'status',
+  'workspaceOverlays',
+  'sessionRefs',
+  'performanceRefs',
+  'experienceRefs',
+  'learningProvenance',
+  'revision',
+])
 
 /** Agent instance / runtime handle lifecycle state (§13.5). */
 export type AgentInstanceState =
@@ -222,4 +320,63 @@ export interface AgentInstance {
   readonly state: AgentInstanceState
   /** Clock reading of the transition into {@link AgentInstance.state}. */
   readonly since: EpochMs
+}
+
+/** Limits of one elastic pool (§14). */
+export interface PoolLimits {
+  /** Instances kept warm while the pool is idle. */
+  readonly minActive: number
+  /** Instances the pool may run at once. */
+  readonly maxActive: number
+}
+
+/** Additional concurrency limit of one role (§14). */
+export interface RoleLimits {
+  /** Instances of the role that may be active at once. */
+  readonly maxActive: number
+}
+
+/** Limits the workspace imposes on top of the pools (§14). */
+export interface WorkspaceLimits {
+  /** Attempts of the worker roles that may run at once. */
+  readonly maxWorkers: number
+  /** Attempts of the reviewer roles that may run at once. */
+  readonly maxReviewers: number
+}
+
+/**
+ * Pool, role, and workspace limits (§14). They are configuration, not runtime
+ * state: the pool enforcement itself reads them from the resolved
+ * configuration of the workspace it fills.
+ */
+export interface PoolPolicies {
+  /** Pools by name; §14 names `workers`, `reviewers`, `planners`, `optimizers`. */
+  readonly pools: Readonly<Record<string, PoolLimits>>
+  /** Per-role limits, keyed by role. */
+  readonly roles: Readonly<Record<RoleId, RoleLimits>>
+  /** Workspace-wide limits. */
+  readonly workspace: WorkspaceLimits
+}
+
+/**
+ * One team: the roster and the limits a workspace runs with (§6.1, §13, §14).
+ * The team document names roles, blueprints, and durable identities; the
+ * revisions themselves stay in the registry (§8, §35), so a team pins which
+ * revision each role and blueprint is currently at.
+ */
+export interface Team {
+  /** Team identifier; the resolved configuration names it. */
+  readonly id: TeamId
+  /** Human-readable name. */
+  readonly name: string
+  /** Immutable team revision; a changed roster publishes a new one. */
+  readonly revision: Revision
+  /** Roles the team runs. */
+  readonly roleIds: readonly RoleId[]
+  /** Blueprints the team may mount. */
+  readonly blueprintIds: readonly BlueprintId[]
+  /** Durable identities that belong to the team. */
+  readonly agentIds: readonly AgentId[]
+  /** Pool, role, and workspace limits (§14). */
+  readonly limits: PoolPolicies
 }

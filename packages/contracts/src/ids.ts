@@ -35,6 +35,12 @@ export type AgentInstanceId = string
 /** Identifier of a role. */
 export type RoleId = string
 
+/** Identifier of a team (§6.1, §13). */
+export type TeamId = string
+
+/** Identifier of a workflow definition (§6.1, §6.3). */
+export type WorkflowId = string
+
 /** Identifier of an agent blueprint. */
 export type BlueprintId = string
 
