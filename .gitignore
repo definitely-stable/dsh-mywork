@@ -2,5 +2,7 @@
 /.tmp/
 /.pnpm-store/
 node_modules/
-lib/
+# Build output of the workspace packages only: a bare `lib/` would also hide
+# `tests/lib/` and `scripts/lib/`, which are source.
+packages/*/lib/
 *.tgz
