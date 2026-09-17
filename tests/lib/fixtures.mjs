@@ -121,3 +121,72 @@ export function reviewFixture(overrides = {}) {
 export function instanceFixture(overrides = {}) {
   return { id: 'I-1', agentId: 'Neo-1', state: 'sleeping', since: 1_000, ...overrides }
 }
+
+/**
+ * Role fixture: a worker role whose contract is the ceiling for its blueprints.
+ * @param overrides - fields to replace.
+ */
+export function roleFixture(overrides = {}) {
+  return {
+    id: 'backend-developer',
+    contractRevision: 4,
+    strategyRevision: 7,
+    contract: {
+      purpose: 'Implement backend changes',
+      requiredCapabilities: ['workspace.read', 'shell'],
+      workflowPermissions: ['workspace.read', 'workspace.write', 'shell', 'tests'],
+      prohibitedActions: ['approve own work'],
+      outputContract: 'A diff plus the commands that verify it',
+      reviewContract: 'An independent reviewer sees the diff and the evidence',
+    },
+    strategy: {
+      researchApproach: ['read the failing test first'],
+      strategyModules: ['small-diff'],
+      modelPolicy: { preferred: 'deepseek/flash', fallback: ['glm/air'], escalation: [] },
+      skillPolicy: { allowed: ['testing'], denied: [] },
+      learningPolicy: { strategyEvolution: true, memoryPromotion: false },
+    },
+    ...overrides,
+  }
+}
+
+/**
+ * Blueprint fixture for {@link roleFixture}.
+ * @param overrides - fields to replace.
+ */
+export function blueprintFixture(overrides = {}) {
+  return {
+    id: 'backend-developer-default',
+    revision: 17,
+    roleId: 'backend-developer',
+    modelPolicy: { preferred: 'deepseek/flash', fallback: ['glm/air'], escalation: ['frontier/pro'] },
+    reasoning: 'high',
+    preset: 'code',
+    permissions: ['workspace.read', 'workspace.write', 'shell', 'tests'],
+    skills: ['dotnet', 'git'],
+    pool: 'workers',
+    ...overrides,
+  }
+}
+
+/**
+ * Durable agent identity fixture (§13.4).
+ * @param overrides - fields to replace.
+ */
+export function identityFixture(overrides = {}) {
+  return {
+    id: 'Neo-1',
+    name: 'Neo-1',
+    roleId: 'backend-developer',
+    blueprintId: 'backend-developer-default',
+    blueprintRevision: 17,
+    status: 'sleeping',
+    workspaceOverlays: [],
+    sessionRefs: [],
+    performanceRefs: [],
+    experienceRefs: [],
+    learningProvenance: [],
+    revision: 3,
+    ...overrides,
+  }
+}
