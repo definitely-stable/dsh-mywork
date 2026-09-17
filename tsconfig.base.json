@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "lib": ["es2024"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+
+    "noEmit": true,
+
+    "paths": {
+      "@dsh-mywork/contracts": ["./packages/contracts/src/index.ts"],
+      "@dsh-mywork/core": ["./packages/core/src/index.ts"],
+      "@dsh-mywork/adapter-sdk": ["./packages/adapter-sdk/src/index.ts"],
+      "@dsh-mywork/adapter-sdk/testing": ["./packages/adapter-sdk/src/testing.ts"]
+    }
+  }
+}

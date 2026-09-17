@@ -1,0 +1,6 @@
+/.work/
+/.tmp/
+/.pnpm-store/
+node_modules/
+lib/
+*.tgz

@@ -1,0 +1,241 @@
+#!/usr/bin/env node
+/**
+ * End-to-end check of the published shape: pack the controller bundle, install
+ * it into an isolated DSH home with the real `dsh` CLI, verify the composed
+ * configuration, and boot the profile so the plugin mounts and unloads.
+ *
+ * The user's own profile is never addressed: every child process runs with
+ * `DSH_HOME` pointing at a fresh directory under `.tmp/`, and the script hashes
+ * the real profile manifests before and after to prove they did not change.
+ *
+ * Usage: node scripts/verify-profile.mjs [--dsh-bin <path-or-command>] [--keep]
+ */
+
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { homedir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import { packController, repoRoot } from './pack.mjs'
+import { quoteCommandArg, runCaptured } from './lib/process.mjs'
+
+/** Profile name created inside the isolated home. */
+const PROFILE = 'mywork-verify'
+
+/** Bundle package the verification installs. */
+const BUNDLE = '@dsh-mywork/controller'
+
+/** Diagnostic text the controller writes when `diagnostics: true`. */
+const MOUNT_LINE = 'dsh-mywork: controller mounted'
+const STOP_LINE = 'dsh-mywork: controller stopped'
+
+const argv = process.argv.slice(2)
+
+/**
+ * Value of `--name value` or `--name=value`.
+ * @param {string} name - option name without dashes.
+ * @returns {string | undefined} the value when present.
+ */
+function option(name) {
+  const inline = argv.find(argument => argument.startsWith(`--${name}=`))
+  if (inline !== undefined) return inline.slice(name.length + 3)
+  const index = argv.indexOf(`--${name}`)
+  return index === -1 ? undefined : argv[index + 1]
+}
+
+const keep = argv.includes('--keep')
+const workDir = join(repoRoot, '.tmp', 'verify-profile')
+const home = join(workDir, 'home')
+const logsDir = join(workDir, 'logs')
+const profileDir = join(home, 'profiles', PROFILE)
+
+let logIndex = 0
+
+/**
+ * Resolve the DSH CLI to spawn: an explicit path, `DSH_BIN`, or the launcher
+ * DSH installs for the current user.
+ * @returns {{ command: string, prefix: string[], shell: boolean, label: string }}
+ *   the spawn specification, where `label` is printed for the run record.
+ */
+function resolveDsh() {
+  const candidate = option('dsh-bin') ?? process.env.DSH_BIN ?? defaultDshBin()
+  if (candidate === undefined) {
+    fail(
+      'cannot locate the dsh CLI: pass --dsh-bin <path>, set DSH_BIN, or install dsh '
+      + `(looked for ${join(homedir(), '.dsh', 'bin', 'dsh.cmd')})`,
+    )
+  }
+  if (candidate.endsWith('.js') || candidate.endsWith('.mjs')) {
+    return { command: process.execPath, prefix: [candidate], shell: false, label: `${process.execPath} ${candidate}` }
+  }
+  const shell = candidate.endsWith('.cmd') || candidate.endsWith('.bat')
+  return { command: candidate, prefix: [], shell, label: candidate }
+}
+
+/**
+ * The launcher DSH installs for the current user, when present.
+ * @returns {string | undefined} absolute path of the launcher.
+ */
+function defaultDshBin() {
+  for (const name of ['dsh.cmd', 'dsh.exe', 'dsh']) {
+    const candidate = join(homedir(), '.dsh', 'bin', name)
+    if (existsSync(candidate)) return candidate
+  }
+  return undefined
+}
+
+/** Print the failure and exit, keeping the work directory for diagnosis. */
+function fail(message) {
+  console.error(`FAIL ${message}`)
+  console.error(`     the work directory is kept for diagnosis: ${workDir}`)
+  process.exit(1)
+}
+
+/**
+ * Assert a condition or fail the verification, printing the captured streams.
+ * @param {boolean} condition - the assertion.
+ * @param {string} message - failure description.
+ * @param {{ status?: number, stdout?: string, stderr?: string, outPath?: string, errPath?: string }} [captured]
+ *   the failing command's result, when the assertion is about a command.
+ */
+function expect(condition, message, captured) {
+  if (!condition) {
+    if (captured !== undefined) {
+      console.error(`     exit=${String(captured.status)}`)
+      console.error(`     stdout: ${JSON.stringify((captured.stdout ?? '').slice(-2000))}`)
+      console.error(`     stderr: ${JSON.stringify((captured.stderr ?? '').slice(-2000))}`)
+      console.error(`     logs: ${String(captured.outPath)}\n           ${String(captured.errPath)}`)
+    }
+    fail(message)
+  }
+}
+
+/**
+ * Content hash of a file, or undefined when it does not exist.
+ * @param {string} path - file to hash.
+ * @returns {string | undefined} the digest.
+ */
+function hashFile(path) {
+  return existsSync(path) ? createHash('sha256').update(readFileSync(path)).digest('hex') : undefined
+}
+
+/**
+ * Real-profile files that must stay byte-identical across the verification.
+ * @returns {Map<string, string | undefined>} path → digest.
+ */
+function realProfileFingerprint() {
+  const candidates = [
+    join(homedir(), '.dsh', 'profiles', 'web', 'package.json'),
+    join(homedir(), '.dsh', 'profiles', 'web', 'cordis.patch.yml'),
+    join(homedir(), '.dsh', 'settings.yaml'),
+  ]
+  return new Map(candidates.map(path => [path, hashFile(path)]))
+}
+
+const dsh = resolveDsh()
+console.log(`dsh: ${dsh.label}`)
+console.log(`home: ${home} (isolated; the user profile is not used)`)
+
+const beforeRealProfile = realProfileFingerprint()
+
+rmSync(workDir, { recursive: true, force: true })
+mkdirSync(home, { recursive: true })
+
+/**
+ * Spawn the DSH CLI with the isolated home.
+ * @param {string[]} args - CLI arguments.
+ * @param {string} logName - log file stem.
+ * @param {NodeJS.ProcessEnv} [extraEnv] - additional environment entries.
+ */
+function dshRun(args, logName, extraEnv = {}) {
+  logIndex += 1
+  const stem = `${String(logIndex).padStart(2, '0')}-${logName}`
+  const options = {
+    cwd: repoRoot,
+    env: { ...process.env, DSH_HOME: home, ...extraEnv },
+    logDir: logsDir,
+    logName: stem,
+  }
+  if (dsh.shell) {
+    // A `.cmd` launcher needs a shell; pass one command line instead of an
+    // argument vector, which Node 24 deprecates (DEP0190) and would re-quote.
+    const line = [dsh.command, ...dsh.prefix, ...args].map(quoteCommandArg).join(' ')
+    return runCaptured(line, [], { ...options, shell: true })
+  }
+  return runCaptured(dsh.command, [...dsh.prefix, ...args], { ...options, shell: false })
+}
+
+// 1. Build the artifact an installed consumer receives.
+const tarball = packController({ outDir: join(workDir, 'pack') })
+console.log(`ok   packed ${tarball}`)
+
+// 2. Create the test profile from the keyless sdk-minimal template. Booting it
+//    with stdin closed exits immediately after mounting the composition, which
+//    doubles as the baseline that the isolated home works before our bundle.
+const created = dshRun(['--profile', PROFILE, '--from-default-profile', 'sdk-minimal'], 'create-profile')
+expect(created.status === 0, `creating the profile from the sdk-minimal template exited with ${String(created.status)}`, created)
+expect(existsSync(join(profileDir, 'package.json')), `profile manifest was not created at ${profileDir}`)
+console.log(`ok   created isolated profile ${PROFILE} from the sdk-minimal template`)
+
+// 3. Install the packed bundle through the real plugin path.
+const installed = dshRun(['plugin', '--profile', PROFILE, 'add', tarball], 'plugin-add')
+expect(installed.status === 0, `dsh plugin add exited with ${String(installed.status)}`, installed)
+console.log('ok   dsh plugin add installed the packed bundle')
+
+// 4. The publication rule: a dependency declaring dsh.bundle joins the layers.
+const manifest = JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8'))
+const bundles = manifest.dsh?.profile?.bundles ?? []
+expect(manifest.dependencies?.[BUNDLE] !== undefined, `profile manifest does not depend on ${BUNDLE}`)
+expect(bundles.includes(BUNDLE), `profile bundles ${JSON.stringify(bundles)} do not include ${BUNDLE}`)
+console.log(`ok   profile bundles reconciled: ${JSON.stringify(bundles)}`)
+
+// 5. Enable the controller's lifecycle diagnostics through the documented user
+//    layer, which also proves row configuration reaches the plugin.
+writeFileSync(
+  join(profileDir, 'cordis.patch.yml'),
+  [
+    '# Verification overlay (written by scripts/verify-profile.mjs): enable the',
+    '# controller lifecycle diagnostics for this isolated profile only.',
+    '- id: mywork-controller',
+    '  config:',
+    '    diagnostics: true',
+    '',
+  ].join('\n'),
+)
+
+// 6. Compose the profile and check the layer and the row.
+const composed = dshRun(['--profile', PROFILE, '--dump-config'], 'dump-config')
+expect(composed.status === 0, `dump-config exited with ${String(composed.status)}`, composed)
+expect(composed.stdout.includes(`# == ${BUNDLE}`), `composed config has no ${BUNDLE} layer`, composed)
+expect(composed.stdout.includes('id: mywork-controller'), 'composed config has no mywork-controller row', composed)
+expect(composed.stdout.includes(`name: '${BUNDLE}'`), `composed row does not resolve ${BUNDLE}`, composed)
+expect(composed.stdout.includes('diagnostics: true'), 'profile overlay did not reach the row config', composed)
+console.log('ok   composed profile contains the controller layer, row, and overlay config')
+
+// 7. Boot the profile: the row mounts, and the clean EOF shutdown unloads it.
+const booted = dshRun(['--profile', PROFILE], 'boot')
+const bootOutput = `${booted.stdout}\n${booted.stderr}`
+expect(booted.status === 0, `profile boot exited with ${String(booted.status)}`, booted)
+expect(bootOutput.includes(MOUNT_LINE), 'booting the profile did not mount the controller', booted)
+expect(bootOutput.includes(STOP_LINE), 'unloading the profile did not stop the controller', booted)
+console.log('ok   profile boot mounted and unloaded the controller')
+for (const line of bootOutput.split('\n').filter(line => line.includes('dsh-mywork:'))) {
+  console.log(`     ${line.trim()}`)
+}
+
+// 8. The user's working profile must be untouched.
+const afterRealProfile = realProfileFingerprint()
+for (const [path, hash] of beforeRealProfile) {
+  expect(afterRealProfile.get(path) === hash, `real profile file changed during verification: ${path}`)
+}
+console.log(`ok   user profile untouched (${beforeRealProfile.size} fingerprint(s) unchanged)`)
+
+if (keep) {
+  console.log(`kept: ${workDir}`)
+} else {
+  rmSync(workDir, { recursive: true, force: true })
+  console.log('ok   removed the isolated work directory')
+}
+
+console.log('verify:profile: PASS')
