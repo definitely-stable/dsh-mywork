@@ -213,6 +213,49 @@ await step('adapter manifests validate before registration', () => {
   assert.equal(adapterSdk.isAdapterError(new Error('plain')), false)
 })
 
+/** State shared by the adapter-registry steps. */
+let adaptersMounted
+
+await step('the controller publishes myworkAdapters and accepts a compatible adapter', async () => {
+  const ctx = new Context()
+  const fiber = ctx.plugin(controller, { diagnostics: false })
+  await fiber.await()
+  const adapters = ctx.get(contracts.MYWORK_ADAPTERS_SERVICE)
+  assert.ok(adapters !== undefined, 'myworkAdapters must be published while mounted')
+  const handle = adapters.register(testing.fakeAdapterRegistration({ id: 'smoke-memory' }))
+  assert.equal(adapters.size, 1)
+  const resolved = adapters.resolve('memory', { capabilities: ['retain', 'recall'] })
+  assert.equal(resolved.ok, true, 'a capability-compatible adapter must resolve')
+  assert.equal(resolved.adapter, handle.adapter)
+  assert.deepEqual(
+    adapters.list('memory').map(manifest => manifest.adapterId),
+    ['smoke-memory'],
+  )
+  adaptersMounted = { ctx, fiber, adapters, handle }
+})
+
+await step('an incompatible revision or a required capability is refused explicitly', () => {
+  const { adapters } = adaptersMounted
+  assert.throws(
+    () => adapters.register(testing.fakeAdapterRegistration({ id: 'too-new', contractVersion: 'memory/v2' })),
+    error => adapterSdk.isAdapterRefusal(error) && error.code === 'CONTRACT_MISMATCH',
+  )
+  const missing = adapters.resolve('memory', { capabilities: ['reflect'] })
+  assert.equal(missing.ok, false)
+  assert.equal(missing.refusal.code, 'CAPABILITY_UNSUPPORTED')
+  assert.deepEqual(missing.refusal.details.missing, ['reflect'])
+  const absent = adapters.resolve('taskgraph')
+  assert.equal(absent.ok, false)
+  assert.equal(absent.refusal.code, 'ADAPTER_UNAVAILABLE')
+})
+
+await step('unload drops the registrations together with the service', async () => {
+  const { ctx, fiber, handle } = adaptersMounted
+  await fiber.dispose()
+  assert.equal(ctx.get(contracts.MYWORK_ADAPTERS_SERVICE), undefined, 'the service must be gone after unload')
+  assert.equal(handle.unregister(), false, 'unload must have removed the registration')
+})
+
 if (failures > 0) {
   console.error(`smoke: ${failures} step(s) failed`)
   process.exitCode = 1
