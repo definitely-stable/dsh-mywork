@@ -234,8 +234,27 @@ export {
   AGENT_INSTANCE_STATES_WITH_ATTEMPT,
   AGENT_INSTANCE_TRANSITIONS,
   allowedAgentInstanceTransitions,
+  applyStrategyLearning,
+  assertBlueprintWithinRoleContract,
+  assertDurableIdentity,
   canTransitionAgentInstance,
+  resolveAttemptRevisions,
+  reviseBlueprint,
+  reviseRoleContract,
   transitionAgentInstance,
   type AgentInstanceTransition,
   type AgentInstanceTransitionCommand,
+  type AttemptAdmissionInput,
+  type AttemptRevisionResolution,
+  type BlueprintChange,
+  type RoleStrategyLearning,
 } from './team.ts'
+export {
+  canonicalForm,
+  createConfigRevisionRegistry,
+  resolveNamespaces,
+  resolveWorkspaceConfig,
+  type ConfigRevisionRegistry,
+  type WorkspaceConfigResolution,
+} from './config.ts'
+export { assertWorkspaceLocalEdges, type DependencyEdge, type GraphNode } from './graph.ts'
