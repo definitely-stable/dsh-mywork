@@ -17,6 +17,13 @@ export const MYWORK_CONTROLLER_SERVICE = 'myworkController'
  */
 export const MYWORK_CLOCK_SERVICE = 'myworkClock'
 
+/**
+ * Cordis service name of the adapter registry (architecture §44). The
+ * controller publishes it; an adapter row registers its declaration through it.
+ * The registry's own types live in `@dsh-mywork/adapter-sdk`.
+ */
+export const MYWORK_ADAPTERS_SERVICE = 'myworkAdapters'
+
 /** Lifecycle phase of a controller instance. */
 export type ControllerStatus = 'starting' | 'mounted' | 'stopped'
 

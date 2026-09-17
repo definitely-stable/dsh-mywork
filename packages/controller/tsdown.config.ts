@@ -15,7 +15,7 @@ export default defineConfig({
   // (docs/user/develop/basic/publish.md; the installed task-board plugin
   // follows the same rule).
   deps: {
-    alwaysBundle: ['@dsh-mywork/contracts', '@dsh-mywork/core'],
+    alwaysBundle: ['@dsh-mywork/adapter-sdk', '@dsh-mywork/contracts', '@dsh-mywork/core'],
     neverBundle: ['@deepseek-ai/cordis'],
   },
 })

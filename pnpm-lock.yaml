@@ -192,6 +192,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: 4.0.2
         version: 4.0.2
+      '@dsh-mywork/adapter-sdk':
+        specifier: workspace:*
+        version: link:../adapter-sdk
       '@dsh-mywork/contracts':
         specifier: workspace:*
         version: link:../contracts

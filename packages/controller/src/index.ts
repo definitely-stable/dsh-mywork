@@ -1,15 +1,30 @@
 /**
  * Host entry of the MyWork controller plugin.
  *
- * `apply` publishes the `myworkController` service on the host context and
- * registers the shutdown effect that settles it when the plugin unloads. The
- * package is a DSH bundle: `cordis.patch.yml` inserts this row into any profile
- * that lists `@dsh-mywork/controller`.
+ * `apply` publishes two services on the host context — `myworkController` (the
+ * control-plane snapshot) and `myworkAdapters` (the adapter registry of §44) —
+ * and registers the shutdown effects that settle them when the plugin unloads.
+ * The package is a DSH bundle: `cordis.patch.yml` inserts this row into any
+ * profile that lists `@dsh-mywork/controller`.
  * @module @dsh-mywork/controller
  */
 
 import { Service, type Context } from '@deepseek-ai/cordis'
 import {
+  createAdapterRegistry,
+  type AdapterCapabilityManifest,
+  type AdapterKey,
+  type AdapterKind,
+  type AdapterRegistration,
+  type AdapterRegistrationHandle,
+  type AdapterRegistry,
+  type AdapterRegistryObserver,
+  type AdapterRequirement,
+  type AdapterResolution,
+  type MyWorkAdapters,
+} from '@dsh-mywork/adapter-sdk'
+import {
+  MYWORK_ADAPTERS_SERVICE,
   MYWORK_CLOCK_SERVICE,
   MYWORK_CONTROLLER_SERVICE,
   type ClockPort,
@@ -57,6 +72,8 @@ export interface Config {
 export function apply(ctx: Context, config?: Config): void {
   const service = new MyWorkControllerService(ctx, resolveControllerConfig(config), resolveClock(ctx))
   ctx.effect(() => () => service.stop(), 'mywork controller shutdown')
+  const adapters = new MyWorkAdaptersService(ctx)
+  ctx.effect(() => () => adapters.close(), 'mywork adapters shutdown')
 }
 
 /**
@@ -116,5 +133,91 @@ export class MyWorkControllerService extends Service implements MyWorkController
   /** Write one lifecycle diagnostic line; stderr keeps stdout protocol-clean. */
   private write(line: string): void {
     process.stderr.write(`${line}\n`)
+  }
+}
+
+/**
+ * The adapter registry published as `myworkAdapters` (architecture §44).
+ *
+ * An adapter row registers its declaration here from its own `apply` and keeps
+ * the returned handle; when the controller unloads, every registration that is
+ * still open is removed with it, so a stopped plugin leaves no adapter behind.
+ */
+export class MyWorkAdaptersService extends Service implements MyWorkAdapters<undefined> {
+  // TypeScript-private, not `#`-private: Cordis hands services to callers
+  // through a proxy, and an ECMAScript private field is unreachable through it.
+  private readonly registry: AdapterRegistry<undefined>
+
+  /**
+   * @param ctx - the context the service is registered in; the owning fiber
+   *   unregisters it on unload.
+   * @param observer - optional observability hooks for the registry (§38).
+   */
+  constructor(ctx: Context, observer?: AdapterRegistryObserver) {
+    super(ctx, MYWORK_ADAPTERS_SERVICE)
+    this.registry = createAdapterRegistry<undefined>(observer === undefined ? {} : { observer })
+  }
+
+  /** Number of adapters registered right now. */
+  get size(): number {
+    return this.registry.size
+  }
+
+  /**
+   * Accept an adapter declaration.
+   * @param registration - declaration plus the factory that builds the instance.
+   * @param context - passed to the registration's factory.
+   * @throws {TypeError} when the declaration is malformed.
+   * @throws {AdapterRefusal} `CONTRACT_MISMATCH` for an incompatible contract revision, `TASK_CONFLICT` for a duplicate id.
+   */
+  register<TPort>(
+    registration: AdapterRegistration<TPort, undefined>,
+    context?: undefined,
+  ): AdapterRegistrationHandle<TPort> {
+    return this.registry.register(registration, context)
+  }
+
+  /**
+   * Remove one adapter.
+   * @param adapter - kind and id of the adapter.
+   */
+  unregister(adapter: AdapterKey): boolean {
+    return this.registry.unregister(adapter)
+  }
+
+  /**
+   * Negotiate a port: first adapter of the kind that implements a compatible
+   * revision and declares every required capability.
+   * @param kind - port family the caller needs.
+   * @param requirement - revision and capabilities the caller needs.
+   */
+  resolve<TPort = unknown>(kind: AdapterKind, requirement?: AdapterRequirement): AdapterResolution<TPort> {
+    return this.registry.resolve<TPort>(kind, requirement)
+  }
+
+  /**
+   * Like {@link MyWorkAdaptersService.resolve}, but throws the refusal.
+   * @param kind - port family the caller needs.
+   * @param requirement - revision and capabilities the caller needs.
+   * @throws {AdapterRefusal} the refusal `resolve` would have returned.
+   */
+  require<TPort = unknown>(kind: AdapterKind, requirement?: AdapterRequirement): TPort {
+    return this.registry.require<TPort>(kind, requirement)
+  }
+
+  /**
+   * Declarations of the registered adapters, in registration order.
+   * @param kind - optional port family filter.
+   */
+  list(kind?: AdapterKind): readonly AdapterCapabilityManifest[] {
+    return this.registry.list(kind)
+  }
+
+  /**
+   * Remove every registration; registered as the plugin's shutdown effect.
+   * @returns how many adapters were removed.
+   */
+  close(): number {
+    return this.registry.clear()
   }
 }
