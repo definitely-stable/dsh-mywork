@@ -1,0 +1,14 @@
+# The dsh-mywork controller bundle patch: a profile that lists
+# `@dsh-mywork/controller` in `dsh.profile.bundles` gains this row.
+#
+# The row names the package instead of a path, so the module resolves from the
+# profile's installed copy — the same publication shape as the shipped bundles
+# (docs/user/develop/basic/publish.md). Configure the row from a profile's own
+# `cordis.patch.yml`; a later layer wins per row:
+#
+#   - id: mywork-controller
+#     config:
+#       diagnostics: true
+- insert:
+    - id: mywork-controller
+      name: '@dsh-mywork/controller'
