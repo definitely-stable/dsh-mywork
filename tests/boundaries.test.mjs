@@ -113,6 +113,18 @@ const sources = {
   core: collect(join(repoRoot, 'packages', 'core', 'src'), ['.ts']),
 }
 
+/** The infrastructure layer: a separate boundary with its own allowed imports. */
+const storageSources = collect(join(repoRoot, 'packages', 'storage', 'src'), ['.ts'])
+
+/** Product names the infrastructure layer must not depend on either. */
+const FORBIDDEN_FOR_STORAGE = [
+  '@deepseek-ai/cordis',
+  'beads',
+  'hindsight',
+  'openviking',
+  'better-sqlite3',
+]
+
 test('the domain packages have sources to check', () => {
   assert.ok(sources.contracts.length >= 8, `contracts sources: ${sources.contracts.length}`)
   assert.ok(sources.core.length >= 7, `core sources: ${sources.core.length}`)
@@ -178,3 +190,53 @@ test('the built packages carry exactly the imports they are allowed to', () => {
     assert.deepEqual(found, expected, `${relative} imports`)
   }
 })
+
+test('the storage layer builds on Node builtins and the contracts package only', () => {
+  assert.ok(storageSources.length >= 7, `storage sources: ${storageSources.length}`)
+  const seen = new Set()
+  for (const file of storageSources) {
+    for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
+      seen.add(specifier)
+      const allowed = specifier.startsWith('./')
+        || specifier.startsWith('node:')
+        || specifier === '@dsh-mywork/contracts'
+      assert.ok(allowed, `${file} must not import "${specifier}"`)
+    }
+  }
+  // Guard the extraction: a scan that matched nothing would pass vacuously.
+  assert.ok(seen.has('node:sqlite'), `expected the SQLite driver import, found ${[...seen].join(', ')}`)
+})
+
+test('the storage layer depends on no product, no DSH package, and no domain module', () => {
+  for (const file of storageSources) {
+    for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
+      const lowered = specifier.toLowerCase()
+      const hit = FORBIDDEN_FOR_STORAGE.find(forbidden => lowered.includes(forbidden))
+      assert.equal(hit, undefined, `storage: ${file} must not import "${hit}" through "${specifier}"`)
+      assert.equal(specifier.startsWith('@dsh-mywork/') && specifier !== '@dsh-mywork/contracts', false,
+        `storage: ${file} must not depend on the domain layer through "${specifier}"`)
+    }
+  }
+  const storage = manifestOf('storage')
+  assert.equal(storage.dependencies, undefined, 'storage must have no runtime dependency')
+  assert.deepEqual(Object.keys(storage.devDependencies), ['@dsh-mywork/contracts'])
+})
+
+test('the domain packages do not import the storage layer', () => {
+  for (const [pkg, files] of Object.entries(sources)) {
+    for (const file of files) {
+      for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
+        assert.equal(specifier.includes('storage'), false, `${pkg}: ${file} must not import "${specifier}"`)
+      }
+    }
+  }
+})
+
+test('the built storage package carries only Node builtin imports', () => {
+  const found = specifiersOf(readFileSync(join(repoRoot, 'packages/storage/lib/index.js'), 'utf8'))
+  assert.ok(found.length > 0, 'expected the built storage bundle to import its Node builtins')
+  for (const specifier of found) {
+    assert.match(specifier, /^node:/, `packages/storage/lib/index.js must stay self-contained, found "${specifier}"`)
+  }
+})
+
