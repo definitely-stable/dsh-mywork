@@ -13,7 +13,7 @@ review, память и доска. Репозиторий содержит ка
 packages/contracts     @dsh-mywork/contracts    — доменные контракты, имена сервисов, порты
 packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация, часы
 packages/storage       @dsh-mywork/storage      — durable state: SQLite, schemaVersion, миграции, outbox/inbox
-packages/adapter-sdk   @dsh-mywork/adapter-sdk  — манифесты возможностей адаптеров, ошибки, детерминированные fake-реализации
+packages/adapter-sdk   @dsh-mywork/adapter-sdk  — каталог портов §36, registry и capability negotiation §37/§44, conformance kit §39, ошибки и fakes
 packages/controller    @dsh-mywork/controller   — Cordis-плагин (bundle) и его patch-слой
 tests/                 доменные тесты (node:test, без LLM; один тест поднимает процесс-потомок)
 scripts/               smoke, локальная упаковка и проверка изолированного профиля
@@ -92,3 +92,27 @@ dsh --profile mywork
 Плагин публикует сервис `myworkController` и снимает его при выгрузке
 (`ctx.effect`). Строка конфигурации `diagnostics: true` включает одну
 диагностическую строку на mount/stop в stderr.
+
+## Адаптеры
+
+Второй сервис плагина — `myworkAdapters` (§44): registry, в который адаптер
+регистрирует своё объявление, а policy запрашивает порт по kind и требуемым
+capabilities, никогда по имени провайдера. Несовместимая версия контракта
+(`memory/v2` при `memory/v1`) и отсутствующая/ложная capability дают явный
+отказ: `CONTRACT_MISMATCH` и `CAPABILITY_UNSUPPORTED` из канонического словаря
+§42. При выгрузке плагина сервис и все регистрации снимаются вместе с ним.
+
+```ts
+// Сервис опубликован контроллером: ctx.get('myworkAdapters') (§44).
+adapters.register({
+  kind: 'memory',
+  id: 'openviking',
+  contractVersion: 'memory/v1',
+  capabilities: { retain: true, recall: true, reflect: false },
+  create: () => new OpenVikingAdapter(ctx),
+})
+```
+
+Каталог портов §36, правила совместимости версий, conformance kit §39 и
+детерминированные fakes живут в `@dsh-mywork/adapter-sdk`; сам SDK не
+импортирует DSH и ничего не знает о конкретных интеграциях.
