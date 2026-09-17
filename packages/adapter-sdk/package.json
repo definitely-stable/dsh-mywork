@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Adapter SDK: capability manifests, adapter errors, and deterministic fakes",
+  "description": "Adapter SDK: stable port catalog, capability negotiation and registry, contract revisions, conformance kit, and deterministic fakes",
   "license": "MIT",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",

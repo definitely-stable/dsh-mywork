@@ -6,7 +6,10 @@
  */
 
 import type { AgentRuntimeHandle, AgentRuntimePort, AgentRuntimeStatus, AgentStartRequest, ClockPort } from '@dsh-mywork/contracts'
+import type { AdapterKind } from './capabilities.ts'
+import { portContractVersion } from './contract-version.ts'
 import { AdapterError } from './errors.ts'
+import type { AdapterRegistration } from './registry.ts'
 
 /** One pending {@link FakeClock.sleep} registration. */
 interface Sleeper {
@@ -151,5 +154,73 @@ export class FakeAgentRuntime implements AgentRuntimePort {
     const run = this.#runs.get(handle.runId)
     if (run === undefined) throw new AdapterError('invalid-ref', `dsh-mywork: unknown run "${handle.runId}"`)
     return run
+  }
+}
+
+/** Options accepted by {@link fakeAdapterRegistration}. */
+export interface FakeAdapterOptions {
+  /** Port family the fake registers as. Default `memory`. */
+  readonly kind?: AdapterKind
+  /** Adapter id. Default `fake-adapter`. */
+  readonly id?: string
+  /** Contract revision; defaults to the port's current revision for `kind`. */
+  readonly contractVersion?: string
+  /** Capability flags; defaults to retain/recall supported and reflect not. */
+  readonly capabilities?: Readonly<Record<string, boolean>>
+  /** Failure {@link FakeAdapter.invoke} raises instead of answering. */
+  readonly failWith?: AdapterError
+}
+
+/**
+ * Scripted adapter instance: records the operations it was asked to perform and
+ * can fail on demand, so registry and conformance tests never need a real
+ * integration.
+ */
+export class FakeAdapter {
+  #calls: string[] = []
+  #failWith: AdapterError | undefined
+
+  /**
+   * @param options - scripted failure, if any.
+   */
+  constructor(options: { failWith?: AdapterError } = {}) {
+    this.#failWith = options.failWith
+  }
+
+  /** Operations invoked so far, in order. */
+  get operations(): readonly string[] {
+    return [...this.#calls]
+  }
+
+  /**
+   * Record one operation and answer with the given value.
+   * @param operation - operation name.
+   * @param value - value to answer with.
+   * @returns the value, unless a failure was scripted.
+   * @throws {AdapterError} the scripted failure.
+   */
+  async invoke<T>(operation: string, value: T): Promise<T> {
+    this.#calls.push(operation)
+    if (this.#failWith !== undefined) throw this.#failWith
+    return value
+  }
+}
+
+/**
+ * A registrable fake adapter: a declaration whose contract revision already
+ * matches its port, so it exercises the compatible path of the registry.
+ * @param options - declaration and scripted failure.
+ */
+export function fakeAdapterRegistration(
+  options: FakeAdapterOptions = {},
+): AdapterRegistration<FakeAdapter, undefined> {
+  const kind = options.kind ?? 'memory'
+  const failWith = options.failWith
+  return {
+    kind,
+    id: options.id ?? 'fake-adapter',
+    contractVersion: options.contractVersion ?? portContractVersion(kind),
+    capabilities: options.capabilities ?? Object.freeze({ retain: true, recall: true, reflect: false }),
+    create: (): FakeAdapter => (failWith === undefined ? new FakeAdapter() : new FakeAdapter({ failWith })),
   }
 }

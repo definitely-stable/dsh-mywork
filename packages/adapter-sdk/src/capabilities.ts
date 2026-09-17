@@ -1,34 +1,49 @@
 /**
- * Adapter capability negotiation (architecture §37): every adapter declares
- * what it supports, and core branches on the declaration instead of on a
- * provider identity.
+ * Adapter capability schema (architecture §36, §37): the port families MyWork
+ * defines, the manifest every adapter declares, and the validation a
+ * declaration passes before the registry accepts it.
  * @module
  */
 
-/** Adapter families MyWork defines a port for. */
+import { parseContractVersion } from './contract-version.ts'
+
+/**
+ * Port families, in the order §36 lists the stable ports. One kind corresponds
+ * to one port: `agent-runtime` to `AgentRuntimePort`, `memory` to
+ * `MemoryProviderPort`, and so on. The port interfaces themselves live in
+ * `@dsh-mywork/contracts` and arrive with the card that binds the integration.
+ */
 export type AdapterKind =
-  | 'memory'
-  | 'taskgraph'
   | 'agent-runtime'
+  | 'session'
+  | 'model-catalog'
+  | 'taskgraph'
   | 'task-board'
-  | 'artifact-store'
   | 'context-provider'
+  | 'memory'
   | 'skill-provider'
   | 'workspace'
+  | 'artifact-store'
+  | 'event-bus'
+  | 'lease-store'
 
-/** Every adapter family, in the order the architecture lists them. */
+/** Every port family, in the order §36 lists the stable ports. */
 export const ADAPTER_KINDS: readonly AdapterKind[] = Object.freeze([
-  'memory',
-  'taskgraph',
   'agent-runtime',
+  'session',
+  'model-catalog',
+  'taskgraph',
   'task-board',
-  'artifact-store',
   'context-provider',
+  'memory',
   'skill-provider',
   'workspace',
+  'artifact-store',
+  'event-bus',
+  'lease-store',
 ])
 
-/** Identity and declared capabilities of one adapter. */
+/** Identity and declared capabilities of one adapter (architecture §37). */
 export interface AdapterCapabilityManifest {
   /** Stable adapter identifier, e.g. `beads` or `dsh-session`. */
   readonly adapterId: string
@@ -44,10 +59,14 @@ export interface AdapterCapabilityManifest {
  * Validate an adapter declaration and freeze it.
  *
  * A malformed manifest is a programming error, not a runtime condition: the
- * registry refuses it before any work is assigned to the adapter.
+ * registry refuses it before any work is assigned to the adapter. The check
+ * here is structural — the revision must be one, and it must belong to the port
+ * family the adapter claims. Whether that revision is *compatible* with the one
+ * MyWork implements is decided by the registry, which answers with
+ * `CONTRACT_MISMATCH`.
  * @param manifest - the declaration to validate.
  * @returns the same declaration, deeply frozen.
- * @throws {TypeError} when an identifier is empty or a capability flag is not a boolean.
+ * @throws {TypeError} when an identifier is empty, the kind is unknown, the revision is malformed or names another port, or a capability flag is not a boolean.
  */
 export function defineAdapterManifest(manifest: AdapterCapabilityManifest): AdapterCapabilityManifest {
   if (typeof manifest.adapterId !== 'string' || manifest.adapterId.trim() === '') {
@@ -56,8 +75,16 @@ export function defineAdapterManifest(manifest: AdapterCapabilityManifest): Adap
   if (!ADAPTER_KINDS.includes(manifest.kind)) {
     throw new TypeError(`dsh-mywork: adapter "${manifest.adapterId}" declares unknown kind "${String(manifest.kind)}"`)
   }
-  if (typeof manifest.contractVersion !== 'string' || manifest.contractVersion.trim() === '') {
-    throw new TypeError(`dsh-mywork: adapter "${manifest.adapterId}" requires a non-empty contractVersion`)
+  const parsed = parseContractVersion(manifest.contractVersion)
+  if (parsed === undefined) {
+    throw new TypeError(
+      `dsh-mywork: adapter "${manifest.adapterId}" requires a contractVersion like "memory/v1", received "${String(manifest.contractVersion)}"`,
+    )
+  }
+  if (parsed.family !== manifest.kind) {
+    throw new TypeError(
+      `dsh-mywork: adapter "${manifest.adapterId}" declares kind "${manifest.kind}" but implements "${manifest.contractVersion}"`,
+    )
   }
   const capabilities: Record<string, boolean> = {}
   for (const [capability, supported] of Object.entries(manifest.capabilities)) {
@@ -80,10 +107,23 @@ export function defineAdapterManifest(manifest: AdapterCapabilityManifest): Adap
 }
 
 /**
- * Whether an adapter declares a capability as supported.
+ * Whether an adapter declares a capability as supported. An absent key is not
+ * supported: capability negotiation never assumes a default.
  * @param manifest - the adapter's declaration.
  * @param capability - capability name to test.
  */
 export function supportsCapability(manifest: AdapterCapabilityManifest, capability: string): boolean {
   return manifest.capabilities[capability] === true
+}
+
+/**
+ * Every capability the adapter declares as supported, in declaration order.
+ * @param manifest - the adapter's declaration.
+ */
+export function supportedCapabilities(manifest: AdapterCapabilityManifest): readonly string[] {
+  return Object.freeze(
+    Object.entries(manifest.capabilities)
+      .filter(([, supported]) => supported)
+      .map(([capability]) => capability),
+  )
 }
