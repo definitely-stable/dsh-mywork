@@ -287,6 +287,9 @@ function applyTaskTransition(
     ...(task.epicId === undefined ? {} : { epicId: task.epicId }),
     ...(task.roleRequirement === undefined ? {} : { roleRequirement: task.roleRequirement }),
     ...(task.priority === undefined ? {} : { priority: task.priority }),
+    // The holder the graph recorded survives a transition: dropping it here would
+    // make a claimed task look unheld to the reconciler that reads it next (§49).
+    ...(task.assignee === undefined ? {} : { assignee: task.assignee }),
     ...(boundAttemptId === undefined ? {} : { activeAttemptId: boundAttemptId }),
     ...(command.to === 'done' ? { completedAt: command.at } : {}),
   }

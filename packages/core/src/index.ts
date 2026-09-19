@@ -290,6 +290,11 @@ export {
   observeBlockerGates,
   openBlockerGates,
 } from './blocker.ts'
+export {
+  assigneeOf,
+  reconcileClaim,
+  type ClaimReconciliationInput,
+} from './claim.ts'
 export { assertCredentialReference, authorizeOperation, isWithinRoot } from './security.ts'
 export {
   applyDropIntent,
