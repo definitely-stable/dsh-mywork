@@ -271,6 +271,15 @@ importers:
         specifier: workspace:*
         version: link:../storage
 
+  packages/scheduler:
+    devDependencies:
+      '@dsh-mywork/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@dsh-mywork/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/storage:
     devDependencies:
       '@dsh-mywork/contracts':
