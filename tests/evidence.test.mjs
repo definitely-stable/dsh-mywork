@@ -403,8 +403,9 @@ test('every §34 event type is accepted and an unknown one is refused', async ()
 
   // Guard the loop below: on an empty vocabulary it would assert nothing. The
   // count is 11 of §34 plus the three ADR028 §5.18 additions the plan-mutation
-  // path writes: gate.decided, plan.mutation.applied, plan.mutation.recovered.
-  assert.equal(contracts.AUDIT_EVENT_TYPES.length, 14)
+  // path writes (gate.decided, plan.mutation.applied, plan.mutation.recovered)
+  // and the two the claim saga writes (claim.recorded, claim.recovered).
+  assert.equal(contracts.AUDIT_EVENT_TYPES.length, 16)
   for (const [index, type] of contracts.AUDIT_EVENT_TYPES.entries()) {
     audit.append(auditEntry({ auditId: `au-${index}`, type }))
   }

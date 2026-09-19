@@ -57,6 +57,14 @@ const DECLARED_BUT_NOT_YET_PRODUCED = [
   'evidence.discarded',
   'board.placement.changed',
   'board.view.revised',
+  // The claim saga's own four: it is a stored operation driven by a store and a
+  // graph port, not a pure transition, so its events are produced by
+  // `@dsh-mywork/execution` and asserted in `tests/claim-saga.test.mjs`.
+  'claim.intent.recorded',
+  'attempt.lease.granted',
+  'claim.completed',
+  'claim.recovered',
+  'attempt.lease.revoked',
 ]
 
 test('every declared event type is produced by the domain', () => {

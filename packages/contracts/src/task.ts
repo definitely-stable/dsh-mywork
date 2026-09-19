@@ -91,6 +91,13 @@ export interface Task {
   readonly dependsOn: readonly TaskId[]
   /** Role the task requires (authority: Task Graph metadata). */
   readonly roleRequirement?: RoleId
+  /**
+   * Identity the Task Graph records as holding the task, i.e. the assignee a
+   * claim set (§9, §49). It is the graph's own view, so it is authoritative for
+   * "who holds this task" and is what lets a reconciler tell a live claim from a
+   * lost one without a worker to ask. Absent when nobody holds the task.
+   */
+  readonly assignee?: string
   /** Priority, higher first (authority: Task Graph). */
   readonly priority?: number
   /** Attempt currently bound to the task; present only in `assigned`/`executing`. */

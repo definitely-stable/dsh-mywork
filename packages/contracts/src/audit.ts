@@ -56,6 +56,10 @@ export type AuditEventType =
   | 'plan.mutation.applied'
   /** A staged plan mutation failed verification and needs an operator (ADR024). */
   | 'plan.mutation.recovered'
+  /** A claim saga recorded its intent before the graph was touched (§9). */
+  | 'claim.recorded'
+  /** A claim saga was settled after an interruption, by recovery or revocation (§9, §49). */
+  | 'claim.recovered'
 
 /** Every audit event type, in the order §34 lists them. */
 export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = Object.freeze([
@@ -73,6 +77,8 @@ export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = Object.freeze([
   'gate.decided',
   'plan.mutation.applied',
   'plan.mutation.recovered',
+  'claim.recorded',
+  'claim.recovered',
 ])
 
 /**

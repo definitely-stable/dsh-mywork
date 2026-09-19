@@ -46,6 +46,16 @@ export type MyWorkEventType =
   | 'board.placement.changed'
   /** A board view definition was revised (ADR017). */
   | 'board.view.revised'
+  /** A claim saga recorded its intent before touching the graph (§9 step 1). */
+  | 'claim.intent.recorded'
+  /** A claim saga issued an attempt with its lease and fence token (§9 step 3, §17). */
+  | 'attempt.lease.granted'
+  /** A claim saga finished: intent, claim, attempt, and projection agree (§9 step 5). */
+  | 'claim.completed'
+  /** A claim saga was settled after an interruption (§9, §49). */
+  | 'claim.recovered'
+  /** A lease was taken away from an attempt: revocation or a newer fence (§17, §49). */
+  | 'attempt.lease.revoked'
 
 /** Every event type, so consumers and the outbox can enumerate them. */
 export const MYWORK_EVENT_TYPES: readonly MyWorkEventType[] = Object.freeze([
@@ -66,6 +76,11 @@ export const MYWORK_EVENT_TYPES: readonly MyWorkEventType[] = Object.freeze([
   'evidence.discarded',
   'board.placement.changed',
   'board.view.revised',
+  'claim.intent.recorded',
+  'attempt.lease.granted',
+  'claim.completed',
+  'claim.recovered',
+  'attempt.lease.revoked',
 ])
 
 /**
