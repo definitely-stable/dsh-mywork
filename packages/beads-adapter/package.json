@@ -1,0 +1,33 @@
+{
+  "name": "@dsh-mywork/beads-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Capability-aware Beads 1.3.0 TaskGraph adapter (architecture §11; ADR023, ADR024)",
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./plugin": {
+      "types": "./lib/plugin.d.ts",
+      "default": "./lib/plugin.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@dsh-mywork/adapter-sdk": "workspace:*",
+    "@dsh-mywork/contracts": "workspace:*",
+    "@dsh-mywork/core": "workspace:*"
+  }
+}
