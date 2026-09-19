@@ -69,6 +69,37 @@ export interface ResolvedCatalogModel {
 export const CATALOG_UNKNOWN_MODEL = 'UNKNOWN_MODEL'
 
 /**
+ * One registered provider that did not answer during a catalog read.
+ *
+ * It is data, not a port failure: §29 keeps "the provider is not registered"
+ * (absent) and "the provider did not answer" (outage) apart, and both a routing
+ * decision and a scheduler tick read the distinction from an observation.
+ */
+export interface CatalogOutage {
+  /** Provider route key that failed. */
+  readonly provider: string
+  /** Failure text, verbatim, for diagnostics. */
+  readonly detail: string
+}
+
+/**
+ * One observation of the model catalog (§29, §53).
+ *
+ * A snapshot is what a caller read once: the registered providers, the models
+ * they advertised, and the providers that did not answer. Consumers that must not
+ * touch a port — the scheduler is one, because §3.2 keeps it off the model path —
+ * decide against a snapshot instead of reading the catalog themselves.
+ */
+export interface CatalogSnapshot {
+  /** Providers registered when the catalog was read. */
+  readonly providers: readonly CatalogProvider[]
+  /** Models the registered providers advertised, provider-tagged. */
+  readonly models: readonly CatalogModel[]
+  /** Registered providers that did not answer. */
+  readonly outages: readonly CatalogOutage[]
+}
+
+/**
  * The catalog MyWork routes on (§36 `ModelCatalogPort`).
  *
  * An implementation answers about registered providers only. A call that cannot

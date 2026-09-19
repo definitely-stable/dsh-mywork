@@ -11,6 +11,7 @@
 
 import type { BlueprintId, Revision, RoleId, TeamId, WorkflowId, WorkspaceId } from './ids.ts'
 import type { WorkspaceLimits } from './team.ts'
+import type { WorkspaceSchedulingLimits } from './scheduler.ts'
 
 /** Workspace configuration modes (§6, §62 item 4). */
 export type WorkspaceConfigMode =
@@ -153,6 +154,13 @@ export interface PoolPolicyOverlay {
   readonly roles?: Readonly<Record<RoleId, RoleLimitOverlay>>
   /** Workspace-wide limits. */
   readonly workspace?: Partial<WorkspaceLimits>
+  /**
+   * Weighted-fair share each workspace holds in the global pools (§16.4), keyed
+   * by workspace. It lives in the `pools` domain because it is the same
+   * scheduling policy §14 states, and the domain is global-only in `global`
+   * mode: a workspace cannot weight itself against its peers.
+   */
+  readonly workspaceScheduling?: Readonly<Record<WorkspaceId, WorkspaceSchedulingLimits>>
 }
 
 /** Values one layer contributes (§6.3). */
