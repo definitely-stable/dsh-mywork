@@ -25,6 +25,8 @@ export type RevisionKind =
   | 'config'
   /** Memory revisions. */
   | 'memory'
+  /** Board view definition revisions (ADR017). */
+  | 'board-view'
 
 /** Every revision family, in the order the architecture lists them. */
 export const REVISION_KINDS: readonly RevisionKind[] = Object.freeze([
@@ -36,6 +38,7 @@ export const REVISION_KINDS: readonly RevisionKind[] = Object.freeze([
   'context-snapshot',
   'config',
   'memory',
+  'board-view',
 ])
 
 /** One revision of one immutable revision family. */

@@ -24,6 +24,22 @@ export type MyWorkEventType =
   | 'review.state.changed'
   /** An agent instance moved from one state to another. */
   | 'agent.instance.state.changed'
+  /** A workflow definition was revised (ADR020, §5.18). */
+  | 'workflow.revised'
+  /** A typed gate was decided by a human or an admitted policy (§5.18). */
+  | 'gate.decided'
+  /** A staged plan mutation was applied (ADR024). */
+  | 'plan.mutation.applied'
+  /** A staged plan mutation was rolled back or recovered (ADR024). */
+  | 'plan.mutation.recovered'
+  /** An imported legacy board was committed (ADR025). */
+  | 'import.committed'
+  /** Evidence was discarded and is no longer retrievable (§5.18). */
+  | 'evidence.discarded'
+  /** A card was moved on the board projection (ADR017). */
+  | 'board.placement.changed'
+  /** A board view definition was revised (ADR017). */
+  | 'board.view.revised'
 
 /** Every event type, so consumers and the outbox can enumerate them. */
 export const MYWORK_EVENT_TYPES: readonly MyWorkEventType[] = Object.freeze([
@@ -33,6 +49,14 @@ export const MYWORK_EVENT_TYPES: readonly MyWorkEventType[] = Object.freeze([
   'attempt.state.changed',
   'review.state.changed',
   'agent.instance.state.changed',
+  'workflow.revised',
+  'gate.decided',
+  'plan.mutation.applied',
+  'plan.mutation.recovered',
+  'import.committed',
+  'evidence.discarded',
+  'board.placement.changed',
+  'board.view.revised',
 ])
 
 /**

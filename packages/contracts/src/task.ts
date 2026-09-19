@@ -7,7 +7,6 @@
  */
 
 import type { AttemptId, EpochMs, Revision, RoleId, TaskId, WorkspaceId } from './ids.ts'
-
 /** Task states (architecture §18.1). */
 export type TaskState =
   /** Captured but not planned yet. */
@@ -98,19 +97,4 @@ export interface Task {
   readonly activeAttemptId?: AttemptId
   /** Clock reading of the transition into `done`. */
   readonly completedAt?: EpochMs
-}
-
-/**
- * Task Board projection row (architecture §8). It is a control surface: losing
- * it loses no authority, and it never writes task state.
- */
-export interface TaskBoardPlacement {
-  /** Task the placement describes. */
-  readonly taskId: TaskId
-  /** Board column the task is displayed in. */
-  readonly column: string
-  /** Order inside the column. */
-  readonly order: number
-  /** Revision of the board snapshot the row came from. */
-  readonly boardRevision: Revision
 }

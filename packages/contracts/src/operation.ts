@@ -59,6 +59,20 @@ export type MyWorkErrorCode =
   | 'UNSCHEDULABLE'
   /** The caller is not allowed to perform this operation (authority, role contract). */
   | 'SECURITY_DENIED'
+  /** A planner tried to mutate an existing task instead of adding one (§5.1). */
+  | 'PLANNER_SCOPE_DENIED'
+  /** No ordering key fits between two neighbours; the zone must be renumbered (§5.3). */
+  | 'ORDER_RENUMBER_REQUIRED'
+  /** The caller's expected zone revision is not the current one (§5.3). */
+  | 'STALE_COLUMN_REVISION'
+  /** The command needs an evidence request before it may proceed (§5.12). */
+  | 'EVIDENCE_REQUEST_REQUIRED'
+  /** A plan mutation could not be applied as one unit and was staged (ADR024). */
+  | 'PLAN_MUTATION_STAGED'
+  /** A staged plan mutation failed verification and needs an operator (ADR024). */
+  | 'PLAN_MUTATION_RECOVERY'
+  /** The change would create a dependency cycle and was refused. */
+  | 'ENTITY_CYCLE'
 
 /** Every error code, in the order the architecture lists them. */
 export const MYWORK_ERROR_CODES: readonly MyWorkErrorCode[] = Object.freeze([
@@ -75,6 +89,13 @@ export const MYWORK_ERROR_CODES: readonly MyWorkErrorCode[] = Object.freeze([
   'BUDGET_EXCEEDED',
   'UNSCHEDULABLE',
   'SECURITY_DENIED',
+  'PLANNER_SCOPE_DENIED',
+  'ORDER_RENUMBER_REQUIRED',
+  'STALE_COLUMN_REVISION',
+  'EVIDENCE_REQUEST_REQUIRED',
+  'PLAN_MUTATION_STAGED',
+  'PLAN_MUTATION_RECOVERY',
+  'ENTITY_CYCLE',
 ])
 
 /**

@@ -41,8 +41,14 @@ export type AuthorityDomain =
   | 'task.priority'
   /** Role requirement stored as task metadata. */
   | 'task.role-requirement'
-  /** Task UI layout/order. */
+  /** Task UI layout/order (ADR017: projection only). */
   | 'task.board-placement'
+  /** Board view definitions: layout, filters, saved views (ADR017). */
+  | 'board.view'
+  /** Card placement inside a view: zone, order, pinning (ADR017). */
+  | 'board.placement'
+  /** Provenance of an imported or externally executed task (ADR025). */
+  | 'task.provenance'
   /** Current execution attempt. */
   | 'attempt.current'
   /** Lease and fence token. */
@@ -100,6 +106,13 @@ export const AUTHORITY_MATRIX: Readonly<Record<AuthorityDomain, AuthorityRow>> =
   'task.priority': { domain: 'task.priority', owners: ['task-graph'], projection: false },
   'task.role-requirement': { domain: 'task.role-requirement', owners: ['task-graph'], projection: false },
   'task.board-placement': { domain: 'task.board-placement', owners: ['task-board'], projection: true },
+  // ADR017: the board's own representation lives in MyWork DB, and the Task
+  // Board remains a projection over it — losing the projection loses no
+  // authority, because the view and the placement rebuild from the graph.
+  'board.view': { domain: 'board.view', owners: ['mywork-db'], projection: true },
+  'board.placement': { domain: 'board.placement', owners: ['mywork-db'], projection: true },
+  // ADR025: an imported card keeps its provenance but transfers no authority.
+  'task.provenance': { domain: 'task.provenance', owners: ['mywork-db'], projection: false },
   'attempt.current': { domain: 'attempt.current', owners: ['mywork-db'], projection: false },
   'lease.fence': { domain: 'lease.fence', owners: ['mywork-db', 'lease-store'], projection: false },
   'agent.session-ids': { domain: 'agent.session-ids', owners: ['mywork-db'], projection: false },

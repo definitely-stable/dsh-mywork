@@ -61,3 +61,9 @@ export type CorrelationId = string
 
 /** Identifier of one event on the MyWork event stream (§43). */
 export type EventId = string
+
+/** Identifier of one artifact in the Artifact Store (§32). */
+export type ArtifactId = string
+
+/** Identifier of one append-only audit row (§34). */
+export type AuditId = string

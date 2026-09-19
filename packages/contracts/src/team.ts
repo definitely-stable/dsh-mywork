@@ -22,7 +22,15 @@ import type {
   WorkspaceId,
 } from './ids.ts'
 
-/** What an agent is allowed to do in a workspace (§13.3). */
+/**
+ * What an agent is allowed to do in a workspace (§13.3).
+ *
+ * The first seven are the workspace-facing permissions of §13.3. The rest name
+ * the remaining domains §31 requires runtime enforcement for, so one vocabulary
+ * covers every operation a role can attempt: an operation that has no
+ * permission here is an operation no role may perform (§31: enforcement, not
+ * prompt).
+ */
 export type Permission =
   /** Read files in the workspace. */
   | 'workspace.read'
@@ -38,6 +46,16 @@ export type Permission =
   | 'git.write'
   /** Approve a review. A worker never holds this for its own attempt (§13.2). */
   | 'review.approve'
+  /** Reach the network (§31 `network`). */
+  | 'network'
+  /** Call MCP servers and their tools (§31 `mcp`). */
+  | 'mcp'
+  /** Resolve a credential reference the harness owns (§31 `secrets`, never the secret itself). */
+  | 'secrets.use'
+  /** Move a task through its own transitions (§31 `task transitions`). */
+  | 'task.transition'
+  /** Reach a production environment (§31 `production`, gated by §28). */
+  | 'production'
 
 /** Every permission, so capability negotiation can enumerate them. */
 export const PERMISSIONS: readonly Permission[] = Object.freeze([
@@ -48,6 +66,11 @@ export const PERMISSIONS: readonly Permission[] = Object.freeze([
   'git.read',
   'git.write',
   'review.approve',
+  'network',
+  'mcp',
+  'secrets.use',
+  'task.transition',
+  'production',
 ])
 
 /** Model routing policy (§13.1, §13.3). */
