@@ -258,3 +258,24 @@ export {
   type WorkspaceConfigResolution,
 } from './config.ts'
 export { assertWorkspaceLocalEdges, type DependencyEdge, type GraphNode } from './graph.ts'
+export { assertCredentialReference, authorizeOperation, isWithinRoot } from './security.ts'
+export {
+  applyDropIntent,
+  assertSinglePlacement,
+  boardOrdering,
+  isOrderKey,
+  isTaskZone,
+  legalDropTargets,
+  midpointKey,
+  projectTaskZone,
+  renumberKeys,
+  resolveInsertion,
+  taskStatesOfZone,
+  zoneOfState,
+  type BoardProjection,
+  type InsertionResolution,
+  type OrderedCard,
+  type PlacementChange,
+  type ProjectedZone,
+} from './board.ts'
+export { SURFACE_TARGETS, resolveSurfacePolicy, suppressesMotion, type SurfaceTarget } from './theme.ts'
