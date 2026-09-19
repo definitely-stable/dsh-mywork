@@ -1,9 +1,10 @@
 /**
  * Framework-free MyWork policy: the domain state machines (task, attempt,
  * review, agent instance), authority and concurrency guards, configuration
- * resolution, the controller lifecycle, and the system clock. Cordis-specific
- * wiring lives in `@dsh-mywork/controller`, so everything here is pure and
- * directly unit-testable.
+ * resolution, the controller lifecycle, the system clock, model routing (§29),
+ * and the budget gate (§30). Cordis-specific wiring lives in
+ * `@dsh-mywork/controller`, so everything here is pure and directly
+ * unit-testable.
  * @module @dsh-mywork/core
  */
 
@@ -316,3 +317,26 @@ export {
   type ProjectedZone,
 } from './board.ts'
 export { SURFACE_TARGETS, resolveSurfacePolicy, suppressesMotion, type SurfaceTarget } from './theme.ts'
+export {
+  formatModelRoute,
+  parseModelRoute,
+  readModelCatalog,
+  routeModel,
+  selectModelRoute,
+  type CatalogOutage,
+  type CatalogSnapshot,
+  type ModelRouteSelection,
+} from './routing.ts'
+export {
+  addAmounts,
+  amountValue,
+  chargeConsumption,
+  decideBudgetAdmission,
+  knownAmount,
+  modelCallCost,
+  modelRateOf,
+  readCallTokens,
+  unknownAmount,
+  type BudgetCharge,
+  type BudgetSettlement,
+} from './budget.ts'
