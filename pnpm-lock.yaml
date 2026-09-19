@@ -229,6 +229,21 @@ importers:
         specifier: workspace:*
         version: link:../storage
 
+  packages/execution:
+    devDependencies:
+      '@dsh-mywork/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@dsh-mywork/core':
+        specifier: workspace:*
+        version: link:../core
+      '@dsh-mywork/evidence':
+        specifier: workspace:*
+        version: link:../evidence
+      '@dsh-mywork/storage':
+        specifier: workspace:*
+        version: link:../storage
+
   packages/lease:
     devDependencies:
       '@dsh-mywork/contracts':
