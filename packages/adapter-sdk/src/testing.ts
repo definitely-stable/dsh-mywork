@@ -5,7 +5,17 @@
  * @module @dsh-mywork/adapter-sdk/testing
  */
 
-import type { AgentRuntimeHandle, AgentRuntimePort, AgentRuntimeStatus, AgentStartRequest, ClockPort } from '@dsh-mywork/contracts'
+import type {
+  AgentRuntimeHandle,
+  AgentRuntimePort,
+  AgentRuntimeStatus,
+  AgentStartRequest,
+  CatalogModel,
+  ClockPort,
+  ModelCatalogPort,
+  ResolvedCatalogModel,
+} from '@dsh-mywork/contracts'
+import { CATALOG_UNKNOWN_MODEL } from '@dsh-mywork/contracts'
 import type { AdapterKind } from './capabilities.ts'
 import { portContractVersion } from './contract-version.ts'
 import { AdapterError } from './errors.ts'
@@ -155,6 +165,146 @@ export class FakeAgentRuntime implements AgentRuntimePort {
     if (run === undefined) throw new AdapterError('invalid-ref', `dsh-mywork: unknown run "${handle.runId}"`)
     return run
   }
+}
+
+/** Options accepted by {@link FakeModelCatalog}. */
+export interface FakeModelCatalogOptions {
+  /** Providers the fake registers, in order. Default: one provider `fake`. */
+  readonly providers?: readonly { readonly id: string; readonly name: string }[]
+  /**
+   * Models per provider id. A model with a `contextWindow` publishes one; a model
+   * without it publishes none, which is the undisclosed-capacity case §29 has to
+   * refuse rather than assume.
+   */
+  readonly models?: Readonly<Record<string, readonly {
+    readonly id: string
+    readonly name?: string
+    readonly contextWindow?: number
+  }[]>>
+  /** Providers that answer every call with a failure instead of a catalog. */
+  readonly outages?: readonly string[]
+}
+
+/**
+ * Model catalog backed by a literal, with an outage switch
+ * (architecture §29, §62 item 7).
+ *
+ * It answers exactly what it was constructed with — no default window, no
+ * implicit model, no invented provider — so a routing test can pin the boundary
+ * between "the catalog said so" and "the policy assumed so". Every question it
+ * was asked is recorded **before** it answers, so a test can tell a question
+ * nobody asked apart from an answer that was a refusal, and an outage names the
+ * call it interrupted: a listing failure and an exact-model failure are
+ * different sentences, so a test can see which path routing took.
+ */
+export class FakeModelCatalog implements ModelCatalogPort {
+  readonly #providers: readonly { readonly id: string; readonly name: string }[]
+  readonly #models: Readonly<Record<string, readonly {
+    readonly id: string
+    readonly name?: string
+    readonly contextWindow?: number
+  }[]>>
+  #outages: readonly string[]
+  #listed: string[] = []
+  #asked: string[] = []
+
+  /**
+   * @param options - the literal catalog and the providers that are in outage.
+   */
+  constructor(options: FakeModelCatalogOptions = {}) {
+    this.#providers = Object.freeze(
+      (options.providers ?? [{ id: 'fake', name: 'Fake provider' }]).map(provider => Object.freeze({ ...provider })),
+    )
+    this.#models = options.models ?? {}
+    this.#outages = Object.freeze([...(options.outages ?? [])])
+  }
+
+  /** Provider ids the fake registers. */
+  get providerIds(): readonly string[] {
+    return this.#providers.map(provider => provider.id)
+  }
+
+  /** Provider ids whose models were listed, in call order. */
+  get listedProviders(): readonly string[] {
+    return [...this.#listed]
+  }
+
+  /** Routes whose exact info was asked for, as `provider/model`, in call order — answered or not. */
+  get askedRoutes(): readonly string[] {
+    return [...this.#asked]
+  }
+
+  /** Mark one provider as unavailable for the rest of this fake's life. */
+  outage(provider: string): void {
+    if (this.#outages.includes(provider)) return
+    this.#outages = Object.freeze([...this.#outages, provider])
+  }
+
+  /** {@link ModelCatalogPort.listProviders}. */
+  listProviders(): readonly { readonly id: string; readonly name: string }[] {
+    return this.#providers
+  }
+
+  /**
+   * {@link ModelCatalogPort.listModels}.
+   * @param provider - provider route key.
+   * @throws {AdapterError} `unavailable` when the provider is in outage, `invalid-ref` when it is not registered.
+   */
+  async listModels(provider: string): Promise<readonly CatalogModel[]> {
+    if (!this.providerIds.includes(provider)) {
+      throw new AdapterError('invalid-ref', `dsh-mywork: provider "${provider}" is not registered`)
+    }
+    // The provider WAS asked; a recording taken only after the answer would hide
+    // a catalog read that never happened.
+    this.#listed.push(provider)
+    if (this.#outages.includes(provider)) {
+      throw new AdapterError('unavailable', `dsh-mywork: provider "${provider}" did not answer the catalog listing`)
+    }
+    const models = this.#models[provider]
+    if (models === undefined) return Object.freeze([])
+    return Object.freeze(models.map(model => Object.freeze({
+      provider,
+      id: model.id,
+      name: model.name ?? model.id,
+    })))
+  }
+
+  /**
+   * {@link ModelCatalogPort.resolveModelInfo}.
+   * @param provider - provider route key.
+   * @param model - exact model id.
+   * @throws {AdapterError} `unavailable` when the provider is in outage, `invalid-ref` when it is not registered, and a {@link CATALOG_UNKNOWN_MODEL} rejection when it serves no such model.
+   */
+  async resolveModelInfo(provider: string, model: string): Promise<ResolvedCatalogModel> {
+    if (!this.providerIds.includes(provider)) {
+      throw new AdapterError('invalid-ref', `dsh-mywork: provider "${provider}" is not registered`)
+    }
+    // Recorded before the answer, so "was never asked" and "was asked and refused"
+    // are two different observations for a test.
+    this.#asked.push(`${provider}/${model}`)
+    if (this.#outages.includes(provider)) {
+      throw new AdapterError('unavailable', `dsh-mywork: provider "${provider}" did not answer the exact model lookup`)
+    }
+    const known = (this.#models[provider] ?? []).find(entry => entry.id === model)
+    if (known === undefined) {
+      // The code the port reads: the provider answered, and the route does not
+      // exist. DSH raises the same one for a model a route does not configure.
+      throw unknownModel(provider, model)
+    }
+    return Object.freeze({
+      provider,
+      id: model,
+      name: known.name ?? model,
+      ...(known.contextWindow === undefined ? {} : { contextWindow: known.contextWindow }),
+    })
+  }
+}
+
+/** Rejection of a route a provider does not serve, carrying the port's absence code. */
+function unknownModel(provider: string, model: string): Error {
+  return Object.assign(new Error(`dsh-mywork: fake provider "${provider}" serves no model "${model}"`), {
+    code: CATALOG_UNKNOWN_MODEL,
+  })
 }
 
 /** Options accepted by {@link fakeAdapterRegistration}. */
