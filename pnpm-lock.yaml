@@ -185,6 +185,18 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/beads-adapter:
+    devDependencies:
+      '@dsh-mywork/adapter-sdk':
+        specifier: workspace:*
+        version: link:../adapter-sdk
+      '@dsh-mywork/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@dsh-mywork/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/contracts: {}
 
   packages/controller:
@@ -207,6 +219,27 @@ importers:
       '@dsh-mywork/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/evidence:
+    devDependencies:
+      '@dsh-mywork/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@dsh-mywork/storage':
+        specifier: workspace:*
+        version: link:../storage
+
+  packages/lease:
+    devDependencies:
+      '@dsh-mywork/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@dsh-mywork/core':
+        specifier: workspace:*
+        version: link:../core
+      '@dsh-mywork/storage':
+        specifier: workspace:*
+        version: link:../storage
 
   packages/storage:
     devDependencies:

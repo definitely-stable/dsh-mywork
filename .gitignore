@@ -1,8 +1,18 @@
 /.work/
 /.tmp/
 /.pnpm-store/
+/.dsh/
+/.analysis/
+/.forge/
 node_modules/
 # Build output of the workspace packages only: a bare `lib/` would also hide
 # `tests/lib/` and `scripts/lib/`, which are source.
 packages/*/lib/
 *.tgz
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*
