@@ -168,6 +168,23 @@ test('ownership of an attempt is continuous within a task', () => {
   assert.equal(kept.value.task.activeAttemptId, 'A-1', 'the running attempt must be kept')
 })
 
+test('the holder the graph recorded survives a transition', () => {
+  // `assignee` is the graph's own view of who holds the task (§8), and §49's
+  // reconciler reads it to tell a live claim from a lost one. A transition that
+  // dropped it would make a claimed task look unheld to the next reader — which
+  // is exactly the state a reconciler must never be handed.
+  const claimed = taskFixture({ state: 'assigned', revision: 4, activeAttemptId: 'A-1', assignee: 'worker-a' })
+
+  const moved = core.transitionTask(claimed, { to: 'executing', at: 10 }, M)
+  assert.equal(moved.ok, true, moved.ok ? '' : moved.error.message)
+  assert.equal(moved.value.task.assignee, 'worker-a', 'a transition must not lose the holder')
+
+  // A task nobody holds carries no holder, rather than an invented one.
+  const bare = core.transitionTask(taskFixture({ state: 'ready', revision: 2 }), { to: 'blocked', at: 11 }, M)
+  assert.equal(bare.ok, true, bare.ok ? '' : bare.error.message)
+  assert.equal('assignee' in bare.value.task, false, 'an unheld task must not gain a holder')
+})
+
 test('the attempt binding of a state is enforced by the transition itself', () => {
   const executing = taskFixture({ state: 'executing', revision: 5, activeAttemptId: 'A-1' })
   const withAttempt = core.transitionTask(executing, command('awaiting-review', 11, { activeAttemptId: 'A-1' }), M)

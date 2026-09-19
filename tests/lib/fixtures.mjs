@@ -23,6 +23,7 @@ const entries = {
   adapterSdk: 'packages/adapter-sdk/lib/index.js',
   beads: 'packages/beads-adapter/lib/index.js',
   planner: 'packages/planner/lib/index.js',
+  execution: 'packages/execution/lib/index.js',
 }
 
 const missing = Object.values(entries).filter(relative => !existsSync(join(repoRoot, relative)))
@@ -58,6 +59,9 @@ export const adapterSdk = await import(pathToFileURL(join(repoRoot, entries.adap
 
 /** `@dsh-mywork/planner` as built: the Task Setter. */
 export const planner = await import(pathToFileURL(join(repoRoot, entries.planner)).href)
+
+/** `@dsh-mywork/execution` as built: the claim saga, attempts, leases, and fences. */
+export const execution = await import(pathToFileURL(join(repoRoot, entries.execution)).href)
 
 /**
  * Operation identity for fixture calls.

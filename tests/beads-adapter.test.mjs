@@ -689,8 +689,13 @@ test('an unreadable task resolves nothing rather than guessing', () => {
     attemptExists: true,
     task: undefined,
   })
-  // Revoking on absent evidence would kill live work.
-  assert.notEqual(decision.action, 'revoke-claim')
+  // Revoking on absent evidence would kill live work — and so would calling it
+  // `complete`, which would tell a caller the saga had been resolved when nothing
+  // was observed at all. The action has to name the uncertainty, so a caller that
+  // branches on "did this settle the saga?" cannot read an unread graph as a
+  // finished one.
+  assert.equal(decision.action, 'undecided')
+  assert.match(decision.reason, /could not be read/)
 })
 
 test('matching claim and attempt complete the saga', () => {
@@ -702,6 +707,64 @@ test('matching claim and attempt complete the saga', () => {
     task: { id: 'mw-1', assignee: 'worker-a' },
   })
   assert.equal(decision.action, 'complete')
+})
+
+test('the holder survives the adapter read, so the reconciler can see who holds a task', async () => {
+  // The decision above is only as good as the task it is handed. `Task` carries
+  // the graph's own view of the holder, and the adapter has to project the
+  // backend's `assignee` onto it — otherwise every reconciler is told "nobody
+  // holds this" no matter what the graph says, and §49's "attempt exists, agent
+  // does not" becomes unanswerable.
+  const runner = scriptedRunner({
+    context: { code: 0, stdout: 'Repository:\n  beads dir:    /tmp/w/.beads\n  repo root:    /tmp/w\n', stderr: '' },
+    show: {
+      code: 0,
+      stdout: JSON.stringify([{ id: 'mw-1', status: 'in_progress', assignee: 'worker-a', revision: 1 }]),
+      stderr: '',
+    },
+    dep: { code: 0, stdout: '[]', stderr: '' },
+  })
+  const adapter = new beads.BeadsTaskGraphAdapter({ runner, cwd: '/tmp/w' })
+  const task = await adapter.get('mw-1')
+  assert.equal(task.assignee, 'worker-a', 'the graph holder must reach the domain task')
+
+  // And the reconciler reaches the right decision from that very task.
+  const decision = beads.reconcileClaim({
+    taskId: task.id,
+    operationId: 'op-1',
+    claimant: 'worker-a',
+    attemptExists: true,
+    task,
+  })
+  assert.equal(decision.action, 'complete')
+
+  const moved = beads.reconcileClaim({
+    taskId: task.id,
+    operationId: 'op-1',
+    claimant: 'worker-z',
+    attemptExists: true,
+    task,
+  })
+  assert.equal(moved.action, 'revoke-claim', 'a claim held by someone else must revoke the attempt')
+})
+
+test('a task nobody claimed carries no assignee rather than an empty one', async () => {
+  const runner = scriptedRunner({
+    context: { code: 0, stdout: 'Repository:\n  beads dir:    /tmp/w/.beads\n  repo root:    /tmp/w\n', stderr: '' },
+    show: { code: 0, stdout: JSON.stringify([{ id: 'mw-1', status: 'open', assignee: '', revision: 1 }]), stderr: '' },
+    dep: { code: 0, stdout: '[]', stderr: '' },
+  })
+  const adapter = new beads.BeadsTaskGraphAdapter({ runner, cwd: '/tmp/w' })
+  const task = await adapter.get('mw-1')
+  assert.equal('assignee' in task, false, 'an unheld task must not claim a holder')
+  const decision = beads.reconcileClaim({
+    taskId: task.id,
+    operationId: 'op-1',
+    claimant: 'worker-a',
+    attemptExists: false,
+    task,
+  })
+  assert.equal(decision.action, 'abandon-intent')
 })
 
 // ---------------------------------------------------------------------------

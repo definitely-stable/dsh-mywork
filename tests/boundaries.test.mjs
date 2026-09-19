@@ -418,6 +418,96 @@ test('the built lease package carries no external import at all', () => {
 })
 
 /**
+ * The execution layer: the claim saga. It sits above the kernel like the lease and
+ * evidence layers and follows the same rules — the caller composes the migrations
+ * and hands in an open store — so it gets the same checks. Naming it explicitly is
+ * the point: without an entry here the package could import a SQLite driver, name
+ * a product, or depend on another layer, and the suite would stay green.
+ */
+const executionSources = collect(join(repoRoot, 'packages', 'execution', 'src'), ['.ts'])
+
+test('the execution layer builds on its own modules, the contracts, core, and the kernel types', () => {
+  assert.ok(executionSources.length >= 5, `execution sources: ${executionSources.length}`)
+  const seen = new Set()
+  for (const file of executionSources) {
+    const source = readFileSync(file, 'utf8')
+    for (const specifier of specifiersOf(source)) {
+      seen.add(specifier)
+      const allowed = specifier.startsWith('./')
+        || specifier === '@dsh-mywork/contracts'
+        || specifier === '@dsh-mywork/core'
+        || specifier === '@dsh-mywork/evidence'
+        || specifier === '@dsh-mywork/storage'
+        || specifier === 'node:crypto'
+      assert.ok(allowed, `${file} must not import "${specifier}"`)
+    }
+    // The kernel is a TYPE-ONLY dependency here, exactly as it is for the lease and
+    // evidence layers: a value import would couple the saga to the SQLite driver.
+    for (const { typeOnly, specifier } of importsOf(source)) {
+      if (specifier === '@dsh-mywork/storage') {
+        assert.ok(typeOnly, `${file} must import "@dsh-mywork/storage" as types only`)
+      }
+    }
+  }
+  // Guard the extraction: a scan that matched nothing would pass vacuously.
+  assert.ok(seen.has('@dsh-mywork/contracts'), `expected the contract import, found ${[...seen].join(', ')}`)
+  assert.ok(seen.has('@dsh-mywork/storage'), `expected the kernel type import, found ${[...seen].join(', ')}`)
+  assert.ok(seen.has('@dsh-mywork/core'), `expected the core predicate import, found ${[...seen].join(', ')}`)
+})
+
+test('the execution layer depends on no product, no DSH package, and no other layer', () => {
+  for (const file of executionSources) {
+    for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
+      const lowered = specifier.toLowerCase()
+      const hit = FORBIDDEN_FOR_STORAGE.find(forbidden => lowered.includes(forbidden))
+      assert.equal(hit, undefined, `execution: ${file} must not import "${hit}" through "${specifier}"`)
+      assert.equal(
+        specifier.startsWith('@dsh-mywork/')
+          && !['@dsh-mywork/contracts', '@dsh-mywork/storage', '@dsh-mywork/core', '@dsh-mywork/evidence'].includes(specifier),
+        false,
+        `execution: ${file} must not depend on another layer through "${specifier}"`,
+      )
+    }
+  }
+  const manifest = manifestOf('execution')
+  assert.equal(manifest.dependencies, undefined, 'execution must have no runtime dependency')
+  assert.deepEqual(
+    Object.keys(manifest.devDependencies),
+    ['@dsh-mywork/contracts', '@dsh-mywork/core', '@dsh-mywork/evidence', '@dsh-mywork/storage'],
+  )
+})
+
+test('the built execution package inlines its layers and imports only its own builtin', () => {
+  // The scanner is textual and the bundle keeps its doc comments, so prose can
+  // contain the word "from" — only real module specifiers are considered, which is
+  // what the `node:` / `@` / relative prefixes below select.
+  const found = specifiersOf(readFileSync(join(repoRoot, 'packages/execution/lib/index.js'), 'utf8'))
+  const modules = found.filter(specifier => specifier.startsWith('node:') || specifier.startsWith('@') || specifier.startsWith('.'))
+  // The workspace layers must be inlined; the only external module allowed is the
+  // Node builtin the saga uses for its unique evidence suffix.
+  assert.deepEqual(modules, ['node:crypto'], `packages/execution/lib/index.js imports ${modules.join(', ')}`)
+  // Guard against the scan being vacuous on the wrong file.
+  const bundle = readFileSync(join(repoRoot, 'packages/execution/lib/index.js'), 'utf8')
+  assert.ok(bundle.includes('claim_intent'), 'expected the built bundle to carry the claim schema')
+  assert.ok(bundle.includes('attempt_task_live_lease'), 'expected the built bundle to carry the lease invariant')
+  assert.ok(bundle.includes('@dsh-mywork/contracts') === false, 'the contracts package must be inlined, not imported')
+})
+
+test('the domain packages do not import the execution layer', () => {
+  for (const [pkg, files] of Object.entries(sources)) {
+    for (const file of files) {
+      for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
+        assert.equal(
+          specifier === '@dsh-mywork/execution' || specifier.includes('packages/execution'),
+          false,
+          `${pkg}: ${file} must not import the execution layer through "${specifier}"`,
+        )
+      }
+    }
+  }
+})
+
+/**
  * Board and projection modules (ADR017, ADR018, ADR022). They are part of the
  * domain layer, so the same boundary applies; naming them explicitly keeps the
  * check from silently passing when a module is renamed away.
