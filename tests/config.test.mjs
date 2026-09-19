@@ -311,3 +311,52 @@ test('cross-workspace dependency edges are refused, artifact references are not'
     'a duplicate task id is a caller error',
   )
 })
+
+test('the §16.4 workspace shares resolve in the pools domain and stay global-only', () => {
+  const scheduling = { z2p: { weight: 2, maxWorkers: 4 }, muxtv: { weight: 1, maxWorkers: 3 } }
+  const resolved = core.resolveWorkspaceConfig(
+    {
+      workspaceId: 'z2p',
+      layers: [
+        layer('platform-default', 1, { pools: { workspaceScheduling: scheduling } }),
+        layer('global', 2, { pools: { workspaceScheduling: { muxtv: { weight: 3, maxWorkers: 3 } } } }),
+      ],
+      revisions: registry(),
+    },
+    M,
+  )
+  assert.equal(resolved.ok, true, resolved.ok ? '' : resolved.error.message)
+  assert.deepEqual(resolved.value.pools.workspaceScheduling, {
+    z2p: { weight: 2, maxWorkers: 4 },
+    muxtv: { weight: 3, maxWorkers: 3 },
+  }, 'the share merges per workspace and per field, like every other object domain (§6.3)')
+  assert.equal(Object.isFrozen(resolved.value.pools.workspaceScheduling.muxtv), true)
+
+  const isolated = core.resolveWorkspaceConfig(
+    {
+      workspaceId: 'W-1',
+      mode: 'isolated',
+      layers: [layer('workspace', 1, { pools: { workspaceScheduling: scheduling } })],
+      revisions: registry(),
+    },
+    M,
+  )
+  assert.equal(isolated.ok, true, 'an isolated workspace states its own pools, as it does for §14')
+
+  const malformed = [
+    { pools: { workspaceScheduling: { z2p: { weight: 0, maxWorkers: 4 } } } },
+    { pools: { workspaceScheduling: { z2p: { maxWorkers: 4 } } } },
+    { pools: { workspaceScheduling: { z2p: { weight: 2, maxActive: 4 } } } },
+    { pools: { workspaceScheduling: { z2p: { weight: -1, maxWorkers: 4 } } } },
+    { pools: { workspaceScheduling: { '': { weight: 1, maxWorkers: 1 } } } },
+    { pools: { workspaceScheduling: { z2p: 2 } } },
+    { pools: { workspaceSchedule: { z2p: { weight: 1, maxWorkers: 1 } } } },
+  ]
+  for (const pools of malformed) {
+    assert.throws(
+      () => core.resolveWorkspaceConfig({ workspaceId: 'W-1', layers: [layer('global', 1, { pools })], revisions: registry() }, M),
+      TypeError,
+      `expected a TypeError for ${JSON.stringify(pools)}`,
+    )
+  }
+})

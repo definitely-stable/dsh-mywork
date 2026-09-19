@@ -24,6 +24,7 @@ const entries = {
   beads: 'packages/beads-adapter/lib/index.js',
   planner: 'packages/planner/lib/index.js',
   execution: 'packages/execution/lib/index.js',
+  scheduler: 'packages/scheduler/lib/index.js',
 }
 
 const missing = Object.values(entries).filter(relative => !existsSync(join(repoRoot, relative)))
@@ -62,6 +63,9 @@ export const planner = await import(pathToFileURL(join(repoRoot, entries.planner
 
 /** `@dsh-mywork/execution` as built: the claim saga, attempts, leases, and fences. */
 export const execution = await import(pathToFileURL(join(repoRoot, entries.execution)).href)
+
+/** `@dsh-mywork/scheduler` as built: the event-driven kick and the safety reconcile. */
+export const scheduler = await import(pathToFileURL(join(repoRoot, entries.scheduler)).href)
 
 /**
  * Operation identity for fixture calls.
