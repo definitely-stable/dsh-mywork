@@ -11,7 +11,7 @@ review, память и доска. Репозиторий содержит ка
 
 ```text
 packages/contracts     @dsh-mywork/contracts    — доменные контракты, имена сервисов, порты
-packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация §6 и Team Work §13, граф, часы
+packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация §6 и Team Work §13, граф, часы, routing §29 и бюджет §30
 packages/storage       @dsh-mywork/storage      — durable state: SQLite, schemaVersion, миграции, outbox/inbox
 packages/lease         @dsh-mywork/lease        — controller lease §5.3, монотонный epoch и lifecycle §16.1/§49
 packages/adapter-sdk   @dsh-mywork/adapter-sdk  — каталог портов §36, registry и capability negotiation §37/§44, conformance kit §39, ошибки и fakes
@@ -116,6 +116,53 @@ MCP-инструмент с файловым эффектом ограничен
 непрозрачный идентификатор, смешивающий регистр и цифры, отклоняется, даже если
 это просто id. Гейты §28 (release, миграции, production) не решаются правом: гейт
 отказывает (`human-gate`), потому что их решает человек.
+
+## Model routing и бюджет (§29, §30)
+
+Политика §13.1 называет `preferred`, `fallback` и `escalation`, а маршрут выбирает
+живой каталог: строка контроллера находит сервис DSH `llm`, оборачивает его
+(`listProviders` / `listModels` / `resolveModelInfo`, включая вложенный
+`context.contextWindow`) в порт `model-catalog` §36 и регистрирует его в
+`myworkAdapters`, поэтому policy запрашивает каталог по kind, а не по имени DSH.
+`core.routeModel`/`core.selectModelRoute` идут по кандидатам в порядке политики и
+различают три отказа, которые ведут к разным решениям: провайдер не
+зарегистрирован — `route-absent`; зарегистрирован, но не ответил — `provider-outage`;
+ответил кодом DSH `UNKNOWN_MODEL` — снова `route-absent`, а не outage. Окно
+контекста берётся из каталога: если оно не опубликовано или меньше требуемого,
+кандидат отклоняется (`context-window-undisclosed` / `context-window-too-small`), а
+не считается подходящим, и в provenance неизвестное окно остаётся отсутствующим, а
+не нулевым.
+
+Escalation — только по явному разрешению запроса (`allowEscalation`), поэтому
+значение по умолчанию для разработки `DEVELOPMENT_MODEL_POLICY` —
+`opencode-go/deepseek-v4.1-flash` с пустыми `fallback` и `escalation`: платная
+frontier-модель не выбирается автоматически. Каждое успешное решение несёт
+`ModelRouteProvenance` (фактический маршрут, роль в политике, триггер §29, окно и
+все рассмотренные кандидаты), так что маршрут нельзя получить без записи о нём;
+сохраняет эту запись путь admission (MW-014/MW-015).
+
+§30 реализован как `core.decideBudgetAdmission`: восемь лимитов
+(`maxTokensPerTask`, `maxCostPerTask`, `maxAttempts`, `maxReviewLoops`,
+`maxPlannerCalls`, `maxOptimizerCostPerDay`, `workspaceDailyBudget`,
+`providerDailyBudget`) проверяются в порядке §30, и первый сработавший возвращает
+`limit`, `scope`, `declared`, `used`, `requested` и причину. Граница включительная:
+расход, ровно попадающий в потолок, допускается, следующий — нет. Неизвестное не
+становится нулём: `core.readCallTokens` даёт `unknown` с причиной, если провайдер не
+сообщил usage, `core.modelCallCost` — если у маршрута нет тарифа, а сама сумма
+остаётся неизвестной (`addAmounts`). Такой лимит становится непроверяемым, и
+admission по нему отклоняется с `limit-unverifiable` (или `scope-not-measured`,
+если для scope не передан ledger), а не проходит «на всякий случай»; запись о
+расходе (`core.chargeConsumption`) записывает пропущенное измерение как `unknown`,
+а не как ноль, поэтому «потратили, но не записали» не растворяется в ленте.
+Имена лимитов — закрытая форма: опечатка в имени (`maxTokensPerTasks`) —
+`TypeError`, а не «лимитов не объявлено». Что делать с исчерпанным бюджетом —
+pause, escalate или human decision — решает caller: в §30 это политика workflow, а
+не решение бюджетного гейта.
+
+Проверки: `tests/routing.test.mjs` (каталог, outage против отсутствия маршрута,
+граница окна, withheld escalation, привязка к реальному `llm`) и
+`tests/budget.test.mjs` (граница лимита, неизвестные usage/cost, остановка
+admission). FakeProvider — `FakeModelCatalog` в `@dsh-mywork/adapter-sdk/testing`.
 
 ## Controller lease и lifecycle (§5.3, §16.1, §49)
 
