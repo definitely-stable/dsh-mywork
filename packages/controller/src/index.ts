@@ -44,6 +44,18 @@ import {
   type ControllerConfig,
   type ControllerState,
 } from '@dsh-mywork/core'
+import { mountModelCatalog } from './model-catalog.ts'
+
+/** The §29 catalog binding the controller mounts, re-exported as its public surface. */
+export {
+  DSH_LLM_SERVICE,
+  DSH_MODEL_CATALOG_ADAPTER_ID,
+  DSH_MODEL_CATALOG_CAPABILITIES,
+  DSH_MODEL_CATALOG_KIND,
+  DshModelCatalog,
+  mountModelCatalog,
+  type DshLlmRegistry,
+} from './model-catalog.ts'
 
 /** Plugin display name used by the Cordis loader in diagnostics. */
 export const name = '@dsh-mywork/controller'
@@ -74,6 +86,10 @@ export function apply(ctx: Context, config?: Config): void {
   ctx.effect(() => () => service.stop(), 'mywork controller shutdown')
   const adapters = new MyWorkAdaptersService(ctx)
   ctx.effect(() => () => adapters.close(), 'mywork adapters shutdown')
+  // §29/§36: the DSH LLM registry becomes a port the policy can negotiate. A
+  // profile without it still mounts the controller — the binding reports the
+  // absence instead of failing the row.
+  mountModelCatalog(ctx, adapters)
 }
 
 /**
