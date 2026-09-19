@@ -277,6 +277,10 @@ export class BeadsTaskGraphAdapter implements TaskGraphPort {
     }
     const priority = optionalPriorityFromBeads(row.priority ?? undefined)
     const revision = toRevision(row.revision)
+    // The holder is part of the graph's own view of a task (§8), and §49's
+    // reconciliation reads it to tell a live claim from a lost one — a task whose
+    // assignee is dropped here would look unheld to every reconciler downstream.
+    const assignee = row.assignee === null || row.assignee === undefined || row.assignee === '' ? undefined : row.assignee
     return Object.freeze({
       id: row.id,
       // The workspace a task belongs to is MyWork's notion; the graph has no
@@ -288,6 +292,7 @@ export class BeadsTaskGraphAdapter implements TaskGraphPort {
       revision,
       dependsOn: Object.freeze([]),
       ...(priority === undefined ? {} : { priority }),
+      ...(assignee === undefined ? {} : { assignee }),
     })
   }
 
