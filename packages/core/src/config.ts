@@ -283,12 +283,12 @@ function readMemoryRoutes(raw: unknown, layer: ConfigLayer): void {
   }
 }
 
-/** Validate the pool policies of one layer (§14). */
+/** Validate the pool policies of one layer (§14, §16.4). */
 function readPools(raw: unknown, layer: ConfigLayer): void {
   if (raw === undefined) return
   const record = requireObject(raw, `pools of configuration layer "${layer}"`)
   for (const key of Object.keys(record)) {
-    if (!['pools', 'roles', 'workspace'].includes(key)) {
+    if (!['pools', 'roles', 'workspace', 'workspaceScheduling'].includes(key)) {
       throw new TypeError(`dsh-mywork: pools of configuration layer "${layer}" carry unknown section "${key}"`)
     }
   }
@@ -328,6 +328,44 @@ function readPools(raw: unknown, layer: ConfigLayer): void {
   }
   if (workspace.maxWorkers !== undefined) requireCounter(workspace.maxWorkers, 'pools.workspace.maxWorkers')
   if (workspace.maxReviewers !== undefined) requireCounter(workspace.maxReviewers, 'pools.workspace.maxReviewers')
+  readWorkspaceScheduling(record.workspaceScheduling, layer)
+}
+
+/**
+ * Validate the weighted-fair shares of one layer (§16.4).
+ *
+ * The weight is required to be a positive integer: a workspace weighted `0`
+ * would silently never be scheduled, and a share that small is a decision the
+ * `workspace.enabled` flag states explicitly instead.
+ */
+function readWorkspaceScheduling(raw: unknown, layer: ConfigLayer): void {
+  if (raw === undefined) return
+  const record = requireObject(raw, `pools.workspaceScheduling of configuration layer "${layer}"`)
+  for (const [workspaceId, value] of Object.entries(record)) {
+    if (workspaceId.trim() === '') {
+      throw new TypeError(`dsh-mywork: configuration layer "${layer}" weights a workspace without an id`)
+    }
+    const share = requireObject(value, `workspaceScheduling "${workspaceId}" of configuration layer "${layer}"`)
+    for (const key of Object.keys(share)) {
+      if (!['weight', 'maxWorkers'].includes(key)) {
+        throw new TypeError(
+          `dsh-mywork: workspaceScheduling "${workspaceId}" of configuration layer "${layer}" carries unknown field "${key}"`,
+        )
+      }
+    }
+    if (share.weight === undefined) {
+      throw new TypeError(
+        `dsh-mywork: workspaceScheduling "${workspaceId}" of configuration layer "${layer}" must state a weight`,
+      )
+    }
+    const weight = requireCounter(share.weight, `workspaceScheduling "${workspaceId}".weight`)
+    if (weight === 0) {
+      throw new TypeError(
+        `dsh-mywork: workspaceScheduling "${workspaceId}" of configuration layer "${layer}" must state a positive weight`,
+      )
+    }
+    requireCounter(share.maxWorkers, `workspaceScheduling "${workspaceId}".maxWorkers`)
+  }
 }
 
 /** Validate the namespace overrides of one layer. */

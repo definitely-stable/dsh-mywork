@@ -2,9 +2,9 @@
  * Framework-free MyWork policy: the domain state machines (task, attempt,
  * review, agent instance), authority and concurrency guards, configuration
  * resolution, the controller lifecycle, the system clock, model routing (§29),
- * and the budget gate (§30). Cordis-specific wiring lives in
- * `@dsh-mywork/controller`, so everything here is pure and directly
- * unit-testable.
+ * the budget gate (§30), and the deterministic scheduler policy (§14, §15, §16,
+ * §27). Cordis-specific wiring lives in `@dsh-mywork/controller`, so everything
+ * here is pure and directly unit-testable.
  * @module @dsh-mywork/core
  */
 
@@ -340,3 +340,14 @@ export {
   type BudgetCharge,
   type BudgetSettlement,
 } from './budget.ts'
+export {
+  countSchedulerOccupancy,
+  planSchedulerTick,
+  readRouteAvailability,
+  resolveSchedulerLimits,
+  resolveSchedulerPolicy,
+  schedulerRank,
+  type RouteAvailability,
+  type RouteRefusal,
+  type SchedulerRankInput,
+} from './scheduler.ts'

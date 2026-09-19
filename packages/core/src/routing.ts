@@ -17,7 +17,8 @@
 
 import type {
   CatalogModel,
-  CatalogProvider,
+  CatalogOutage,
+  CatalogSnapshot,
   ModelCatalogPort,
   ModelPolicy,
   ModelRoute,
@@ -30,23 +31,15 @@ import type {
 } from '@dsh-mywork/contracts'
 import { CATALOG_UNKNOWN_MODEL } from '@dsh-mywork/contracts'
 
-/** One registered provider that did not answer during a catalog read. */
-export interface CatalogOutage {
-  /** Provider route key that failed. */
-  readonly provider: string
-  /** Failure text, verbatim, for diagnostics. */
-  readonly detail: string
-}
-
-/** One observation of the model catalog. */
-export interface CatalogSnapshot {
-  /** Providers registered when the catalog was read. */
-  readonly providers: readonly CatalogProvider[]
-  /** Models the registered providers advertised, provider-tagged. */
-  readonly models: readonly CatalogModel[]
-  /** Registered providers that did not answer. */
-  readonly outages: readonly CatalogOutage[]
-}
+/**
+ * The observation of the catalog and the outage record inside it.
+ *
+ * Both are vocabulary rather than policy — a caller that observes the catalog
+ * holds them, and the scheduler reads them without ever touching a port — so they
+ * are defined in `@dsh-mywork/contracts` and re-exported here, where routing has
+ * always published them.
+ */
+export type { CatalogOutage, CatalogSnapshot }
 
 /** A routing request bound to the catalog it is decided against. */
 export interface ModelRouteSelection {
