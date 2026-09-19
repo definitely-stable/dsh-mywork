@@ -4,6 +4,10 @@
 /.dsh/
 /.analysis/
 /.forge/
+# Archive snapshots of the workspace (e.g. DSH-MyWork.rar, 41 MB) must never be committed.
+/*.rar
+/*.zip
+/*.7z
 node_modules/
 # Build output of the workspace packages only: a bare `lib/` would also hide
 # `tests/lib/` and `scripts/lib/`, which are source.
