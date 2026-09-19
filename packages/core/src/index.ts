@@ -257,7 +257,39 @@ export {
   type ConfigRevisionRegistry,
   type WorkspaceConfigResolution,
 } from './config.ts'
-export { assertWorkspaceLocalEdges, type DependencyEdge, type GraphNode } from './graph.ts'
+export { assertWorkspaceLocalEdges, findDependencyCycle, type CycleEdge, type DependencyEdge, type GraphNode } from './graph.ts'
+export {
+  classifyPlanMutation,
+  dependencySatisfiedBy,
+  invertPlanSteps,
+  isAdditiveOnly,
+  isAtomicComposite,
+  isEmptyPlanMutation,
+  materializePlanPart,
+  parsePlanExternalRef,
+  planEdgeKey,
+  planExternalRef,
+  planMutationParts,
+  planSteps,
+  planTouchedTasks,
+  resolvePlanEdges,
+  resolvedEdgePair,
+  reviewPlanMutation,
+  splitPlanEdgeKey,
+  validatePlanMutation,
+  verifyPlanIntegrity,
+  type PlanInversion,
+  type PlanObservation,
+  type PlanTaskSnapshot,
+  type PlanVerificationInput,
+} from './plan.ts'
+export {
+  deriveBlockerGates,
+  gateIdOf,
+  isFrozenBlocker,
+  observeBlockerGates,
+  openBlockerGates,
+} from './blocker.ts'
 export { assertCredentialReference, authorizeOperation, isWithinRoot } from './security.ts'
 export {
   applyDropIntent,

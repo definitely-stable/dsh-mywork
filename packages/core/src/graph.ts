@@ -123,6 +123,61 @@ export function assertWorkspaceLocalEdges(
   return ok(Object.freeze(edges), meta)
 }
 
+/** Minimal edge shape the cycle finder reads. */
+export interface CycleEdge {
+  /** Task that depends on another. */
+  readonly from: string
+  /** Task it waits for. */
+  readonly to: string
+}
+
+/**
+ * Find a dependency cycle in one set of edges.
+ *
+ * ADR024 requires a cycle to be rejected *before* anything is applied, and a
+ * cyclic graph to be detected again afterwards: the two checks are the same
+ * algorithm over different edge sets, so it lives here once — the adapter's
+ * pre-write refusal and the planner's integrity verification both call it.
+ *
+ * The walk is deterministic: nodes are visited in first-appearance order, and the
+ * returned path starts and ends with the repeated node (`['A','B','A']`), so two
+ * runs over the same edges answer with the same path and an operator can read it.
+ * @param edges - edges to check; duplicates are harmless.
+ * @returns the cycle path, or `undefined` when the graph is acyclic.
+ */
+export function findDependencyCycle(edges: readonly CycleEdge[]): readonly string[] | undefined {
+  const adjacency = new Map<string, string[]>()
+  for (const edge of edges) {
+    const targets = adjacency.get(edge.from)
+    if (targets === undefined) adjacency.set(edge.from, [edge.to])
+    else targets.push(edge.to)
+  }
+  const visited = new Set<string>()
+  const inStack = new Set<string>()
+  let cycle: readonly string[] | undefined
+
+  const walk = (node: string, path: readonly string[]): boolean => {
+    if (inStack.has(node)) {
+      const start = path.indexOf(node)
+      cycle = start === -1 ? Object.freeze([...path, node]) : Object.freeze([...path.slice(start), node])
+      return true
+    }
+    if (visited.has(node)) return false
+    visited.add(node)
+    inStack.add(node)
+    for (const next of adjacency.get(node) ?? []) {
+      if (walk(next, [...path, node])) return true
+    }
+    inStack.delete(node)
+    return false
+  }
+
+  for (const node of adjacency.keys()) {
+    if (walk(node, [])) break
+  }
+  return cycle
+}
+
 /** Reject a missing or blank identifier. */
 function requireIdentifier(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim() === '') {

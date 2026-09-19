@@ -51,6 +51,12 @@ export type ArtifactKind =
   | 'context-snapshot'
   /** A checkpoint taken for recovery. */
   | 'checkpoint'
+  /**
+   * The detail of a gate decision (§5.5, ADR028 §5.18). A decision's reason is
+   * prose, and §34 keeps prose out of the audit row: the row names this artifact
+   * instead. Added additively; no existing kind is reinterpreted.
+   */
+  | 'gate-decision'
 
 /** Every artifact kind, in the order §32 lists them. */
 export const ARTIFACT_KINDS: readonly ArtifactKind[] = Object.freeze([
@@ -65,6 +71,7 @@ export const ARTIFACT_KINDS: readonly ArtifactKind[] = Object.freeze([
   'planner-dag',
   'context-snapshot',
   'checkpoint',
+  'gate-decision',
 ])
 
 /**

@@ -16,7 +16,7 @@
  */
 
 import { AdapterRefusal } from '@dsh-mywork/adapter-sdk'
-import { MyWorkError } from '@dsh-mywork/core'
+import { findDependencyCycle, MyWorkError } from '@dsh-mywork/core'
 import type {
   PlanMutationCommand,
   TaskDependency,
@@ -241,6 +241,11 @@ export interface CycleCheck {
  * checked here rather than left to Beads' own per-edge check because a staged
  * mutation applies edges one at a time: a cycle formed by the *combination* would
  * only appear partway through, after some edges had already landed.
+ *
+ * The walk itself lives in `@dsh-mywork/core` (`findDependencyCycle`), because the
+ * planner verifies the *resulting* graph with the same algorithm: one
+ * implementation means the refusal before a write and the verification after it
+ * cannot drift apart.
  * @param existing - edges currently in the graph.
  * @param additions - edges the mutation proposes to add.
  */
@@ -248,36 +253,8 @@ export function detectCycle(
   existing: readonly TaskDependency[],
   additions: readonly TaskDependency[],
 ): CycleCheck {
-  const adjacency = new Map<string, string[]>()
-  for (const edge of [...existing, ...additions]) {
-    const targets = adjacency.get(edge.from)
-    if (targets === undefined) adjacency.set(edge.from, [edge.to])
-    else targets.push(edge.to)
-  }
-  const visited = new Set<string>()
-  const inStack = new Set<string>()
-  let cycle: string[] | undefined
-
-  const walk = (node: string, path: string[]): boolean => {
-    if (inStack.has(node)) {
-      const start = path.indexOf(node)
-      cycle = start === -1 ? [...path, node] : [...path.slice(start), node]
-      return true
-    }
-    if (visited.has(node)) return false
-    visited.add(node)
-    inStack.add(node)
-    for (const next of adjacency.get(node) ?? []) {
-      if (walk(next, [...path, node])) return true
-    }
-    inStack.delete(node)
-    return false
-  }
-
-  for (const node of adjacency.keys()) {
-    if (walk(node, [])) break
-  }
+  const cycle = findDependencyCycle([...existing, ...additions].map(edge => ({ from: edge.from, to: edge.to })))
   return cycle === undefined
     ? Object.freeze({ cyclic: false })
-    : Object.freeze({ cyclic: true, path: Object.freeze(cycle) })
+    : Object.freeze({ cyclic: true, path: Object.freeze([...cycle]) })
 }

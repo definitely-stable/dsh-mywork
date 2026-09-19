@@ -22,6 +22,7 @@ const entries = {
   adapterTesting: 'packages/adapter-sdk/lib/testing.js',
   adapterSdk: 'packages/adapter-sdk/lib/index.js',
   beads: 'packages/beads-adapter/lib/index.js',
+  planner: 'packages/planner/lib/index.js',
 }
 
 const missing = Object.values(entries).filter(relative => !existsSync(join(repoRoot, relative)))
@@ -54,6 +55,9 @@ export const beads = await import(pathToFileURL(join(repoRoot, entries.beads)).h
 
 /** `@dsh-mywork/adapter-sdk` as built: the registry and negotiation surface. */
 export const adapterSdk = await import(pathToFileURL(join(repoRoot, entries.adapterSdk)).href)
+
+/** `@dsh-mywork/planner` as built: the Task Setter. */
+export const planner = await import(pathToFileURL(join(repoRoot, entries.planner)).href)
 
 /**
  * Operation identity for fixture calls.

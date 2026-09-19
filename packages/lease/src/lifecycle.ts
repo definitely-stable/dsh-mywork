@@ -72,6 +72,13 @@ export interface ControllerLifecycleInfo {
   readonly activatedAt?: EpochMs
   /** Whether mutations may be admitted right now. */
   readonly admitting: boolean
+  /**
+   * True when activation found a durable hold and left admission closed because
+   * of it: a staged plan mutation that has not settled (§5.2, ADR024). Present
+   * only while the hold explains the closed gate, so a projection can name the
+   * reason instead of showing an unexplained pause.
+   */
+  readonly admissionHeld?: boolean
 }
 
 /**
@@ -101,6 +108,19 @@ export interface ControllerLifecycleOptions<TStore = unknown> {
    * per successful activation, before the controller admits any work.
    */
   readonly reconcile: (stores: ControllerStores<TStore>) => Promise<ReconcileReport> | ReconcileReport
+  /**
+   * Whether a durable hold keeps admission closed after this activation.
+   *
+   * ADR020 makes the admission pause one mechanism shared by the staged plan
+   * mutation and the manual workflow pause. The hold is a row, not a flag, so a
+   * controller that was killed in the middle of a staged operation comes back
+   * paused: this hook reads that row, `activate` leaves admission closed while it
+   * stands, and `resumeAdmission` opens it once the operation has settled.
+   *
+   * Absent means no hold is consulted, which is what every deployment without a
+   * planner gets — and keeps this layer free of any dependency on one.
+   */
+  readonly admissionHold?: (stores: ControllerStores<TStore>) => Promise<boolean> | boolean
   /** Close both stores; called during disposal. */
   readonly closeStores: (stores: ControllerStores<TStore>) => Promise<void> | void
 }
@@ -121,6 +141,7 @@ export class ControllerLifecycle<TStore = unknown> {
   private activatedAt: EpochMs | undefined
   private stores: ControllerStores<TStore> | undefined
   private report: ReconcileReport | undefined
+  private heldByAdmission = false
 
   /**
    * @param options - identity, clock, lease store, and store factories.
@@ -143,6 +164,7 @@ export class ControllerLifecycle<TStore = unknown> {
       ...(this.epoch === undefined ? {} : { epoch: this.epoch }),
       ...(this.activatedAt === undefined ? {} : { activatedAt: this.activatedAt }),
       admitting: this.admissionOpen,
+      ...(this.heldByAdmission ? { admissionHeld: true } : {}),
     })
   }
 
@@ -213,6 +235,7 @@ export class ControllerLifecycle<TStore = unknown> {
     try {
       this.stores = await this.options.openStores()
       this.report = await this.options.reconcile(this.stores)
+      this.heldByAdmission = (await this.options.admissionHold?.(this.stores)) ?? false
     } catch (error) {
       // Leadership without open stores is useless and would block a healthy
       // successor until expiry, so it is given back before the failure surfaces.
@@ -220,6 +243,29 @@ export class ControllerLifecycle<TStore = unknown> {
       throw error
     }
     this.phase = 'active'
+    // A durable hold keeps admission closed: the staged plan mutation that took
+    // it has not settled, and §5.2 keeps the pause until an operator decides.
+    this.admissionOpen = !this.heldByAdmission
+    return this.info()
+  }
+
+  /**
+   * Open admission after a hold was released.
+   *
+   * The caller releases the durable hold first (the operation settled) and then
+   * calls this, so the in-memory gate never claims a pause is over while the row
+   * still says otherwise. Idempotent for a controller that is already admitting.
+   * @returns the resulting lifecycle snapshot.
+   * @throws {LeaseError} `lease-lost` when this controller is not active.
+   */
+  resumeAdmission(): ControllerLifecycleInfo {
+    if (this.phase !== 'active' || this.epoch === undefined) {
+      throw new LeaseError(
+        'lease-lost',
+        `dsh-mywork: controller "${this.options.instanceId}" is not active, so it cannot resume admission`,
+      )
+    }
+    this.heldByAdmission = false
     this.admissionOpen = true
     return this.info()
   }
@@ -263,6 +309,9 @@ export class ControllerLifecycle<TStore = unknown> {
     if (this.phase === 'disposed' || this.phase === 'disposing') return
     this.phase = 'disposing'
     this.admissionOpen = false
+    // The gate is closed by the disposal itself now, not by the hold, so the
+    // snapshot stops blaming the staged operation for it.
+    this.heldByAdmission = false
     const stores = this.stores
     this.stores = undefined
     if (stores !== undefined) {

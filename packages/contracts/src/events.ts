@@ -32,6 +32,12 @@ export type MyWorkEventType =
   | 'plan.mutation.applied'
   /** A staged plan mutation was rolled back or recovered (ADR024). */
   | 'plan.mutation.recovered'
+  /** A staged plan mutation was journalled and the queue paused (ADR024). */
+  | 'plan.mutation.staged'
+  /** Admission was paused, by a staged plan mutation or a manual workflow pause (ADR020, ADR024). */
+  | 'admission.paused'
+  /** Admission was resumed after the pause was settled (ADR020, ADR024). */
+  | 'admission.resumed'
   /** An imported legacy board was committed (ADR025). */
   | 'import.committed'
   /** Evidence was discarded and is no longer retrievable (§5.18). */
@@ -53,6 +59,9 @@ export const MYWORK_EVENT_TYPES: readonly MyWorkEventType[] = Object.freeze([
   'gate.decided',
   'plan.mutation.applied',
   'plan.mutation.recovered',
+  'plan.mutation.staged',
+  'admission.paused',
+  'admission.resumed',
   'import.committed',
   'evidence.discarded',
   'board.placement.changed',

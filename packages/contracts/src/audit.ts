@@ -50,6 +50,12 @@ export type AuditEventType =
   | 'human.override'
   /** The controller failed over to another instance. */
   | 'controller.failover'
+  /** A typed gate was decided by a human or an admitted policy (ADR028 §5.18). */
+  | 'gate.decided'
+  /** A staged plan mutation was applied and verified (ADR024). */
+  | 'plan.mutation.applied'
+  /** A staged plan mutation failed verification and needs an operator (ADR024). */
+  | 'plan.mutation.recovered'
 
 /** Every audit event type, in the order §34 lists them. */
 export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = Object.freeze([
@@ -64,6 +70,9 @@ export const AUDIT_EVENT_TYPES: readonly AuditEventType[] = Object.freeze([
   'optimizer.promoted',
   'human.override',
   'controller.failover',
+  'gate.decided',
+  'plan.mutation.applied',
+  'plan.mutation.recovered',
 ])
 
 /**

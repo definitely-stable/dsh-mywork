@@ -401,8 +401,10 @@ test('every §34 event type is accepted and an unknown one is refused', async ()
   const store = await openEvidenceDatabase(dir)
   const audit = evidence.createAuditLog(store)
 
-  // Guard the loop below: on an empty vocabulary it would assert nothing.
-  assert.equal(contracts.AUDIT_EVENT_TYPES.length, 11)
+  // Guard the loop below: on an empty vocabulary it would assert nothing. The
+  // count is 11 of §34 plus the three ADR028 §5.18 additions the plan-mutation
+  // path writes: gate.decided, plan.mutation.applied, plan.mutation.recovered.
+  assert.equal(contracts.AUDIT_EVENT_TYPES.length, 14)
   for (const [index, type] of contracts.AUDIT_EVENT_TYPES.entries()) {
     audit.append(auditEntry({ auditId: `au-${index}`, type }))
   }
