@@ -29,6 +29,33 @@ function take(result, into) {
   return result.value
 }
 
+/** Event types the pure transitions produce today. */
+const DOMAIN_PRODUCED_EVENT_TYPES = [
+  'task.state.changed',
+  'task.attempt.admitted',
+  'task.review.requested',
+  'attempt.state.changed',
+  'review.state.changed',
+  'agent.instance.state.changed',
+]
+
+/**
+ * Event types §5.18 declares but that no built transition produces yet: their
+ * writers are the workflow, gate, plan-mutation, import, evidence, and board
+ * cards. The board placement event is produced by `applyDropIntent`'s callers,
+ * not by a state machine, so it is listed here too.
+ */
+const DECLARED_BUT_NOT_YET_PRODUCED = [
+  'workflow.revised',
+  'gate.decided',
+  'plan.mutation.applied',
+  'plan.mutation.recovered',
+  'import.committed',
+  'evidence.discarded',
+  'board.placement.changed',
+  'board.view.revised',
+]
+
 test('every declared event type is produced by the domain', () => {
   const events = []
 
@@ -62,7 +89,17 @@ test('every declared event type is produced by the domain', () => {
   take(core.transitionAgentInstance(instance, { to: 'sleeping', at: 1_010 }, M), events)
 
   const produced = [...new Set(events.map(event => event.type))].sort()
-  assert.deepEqual(produced, [...contracts.MYWORK_EVENT_TYPES].sort(), 'declared and produced event types must match')
+  // The domain transitions produce §43's six event types plus the board
+  // placement event. The v0.2 additions (workflow, gates, plan mutation, import,
+  // evidence, board view) belong to cards that are not built yet, so they are
+  // declared here and produced there; the union is asserted to be exactly the
+  // declared vocabulary so nothing can be added or dropped silently.
+  assert.deepEqual(produced, [...DOMAIN_PRODUCED_EVENT_TYPES].sort(), 'declared and produced event types must match')
+  assert.deepEqual(
+    [...contracts.MYWORK_EVENT_TYPES].sort(),
+    [...DOMAIN_PRODUCED_EVENT_TYPES, ...DECLARED_BUT_NOT_YET_PRODUCED].sort(),
+    'the declared vocabulary must be the produced set plus the pending additions',
+  )
   // task: admit + state change, executing, awaiting-review (state change + review requested) = 5
   // attempt: leased + four state changes = 5; review: three; instance: four.
   assert.equal(events.length, 17, 'every accepted transition must produce at least one event')
@@ -122,6 +159,11 @@ test('a stamped event keeps the envelope fields of the architecture', () => {
 })
 
 test('the error vocabulary is exactly the one the architecture lists', () => {
+  // The first thirteen are §42. The next four are the v0.2 additions of §5.18,
+  // and the last three are the staged-plan codes ADR024 names for the TaskGraph
+  // adapter (`PLAN_MUTATION_STAGED`, `PLAN_MUTATION_RECOVERY`) and the cycle
+  // refusal. Keeping them in one pinned list is what makes an accidental removal
+  // or rename fail loudly.
   assert.deepEqual([...contracts.MYWORK_ERROR_CODES], [
     'ADAPTER_UNAVAILABLE',
     'CAPABILITY_UNSUPPORTED',
@@ -136,5 +178,12 @@ test('the error vocabulary is exactly the one the architecture lists', () => {
     'BUDGET_EXCEEDED',
     'UNSCHEDULABLE',
     'SECURITY_DENIED',
+    'PLANNER_SCOPE_DENIED',
+    'ORDER_RENUMBER_REQUIRED',
+    'STALE_COLUMN_REVISION',
+    'EVIDENCE_REQUEST_REQUIRED',
+    'PLAN_MUTATION_STAGED',
+    'PLAN_MUTATION_RECOVERY',
+    'ENTITY_CYCLE',
   ])
 })

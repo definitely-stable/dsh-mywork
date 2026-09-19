@@ -17,7 +17,11 @@ const entries = {
   contracts: 'packages/contracts/lib/index.js',
   core: 'packages/core/lib/index.js',
   storage: 'packages/storage/lib/index.js',
+  evidence: 'packages/evidence/lib/index.js',
+  lease: 'packages/lease/lib/index.js',
   adapterTesting: 'packages/adapter-sdk/lib/testing.js',
+  adapterSdk: 'packages/adapter-sdk/lib/index.js',
+  beads: 'packages/beads-adapter/lib/index.js',
 }
 
 const missing = Object.values(entries).filter(relative => !existsSync(join(repoRoot, relative)))
@@ -36,8 +40,20 @@ export const core = await import(pathToFileURL(join(repoRoot, entries.core)).hre
 /** `@dsh-mywork/storage` as built. */
 export const storage = await import(pathToFileURL(join(repoRoot, entries.storage)).href)
 
+/** `@dsh-mywork/evidence` as built. */
+export const evidence = await import(pathToFileURL(join(repoRoot, entries.evidence)).href)
+
+/** `@dsh-mywork/lease` as built. */
+export const lease = await import(pathToFileURL(join(repoRoot, entries.lease)).href)
+
 /** `@dsh-mywork/adapter-sdk/testing` as built: the deterministic fakes. */
 export const adapterTesting = await import(pathToFileURL(join(repoRoot, entries.adapterTesting)).href)
+
+/** `@dsh-mywork/beads-adapter` as built: the Beads TaskGraph adapter. */
+export const beads = await import(pathToFileURL(join(repoRoot, entries.beads)).href)
+
+/** `@dsh-mywork/adapter-sdk` as built: the registry and negotiation surface. */
+export const adapterSdk = await import(pathToFileURL(join(repoRoot, entries.adapterSdk)).href)
 
 /**
  * Operation identity for fixture calls.

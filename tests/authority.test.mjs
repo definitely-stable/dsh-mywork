@@ -20,6 +20,12 @@ const EXPECTED_OWNERS = {
   'task.priority': ['task-graph'],
   'task.role-requirement': ['task-graph'],
   'task.board-placement': ['task-board'],
+  // ADR017 adds the board's own representation (view and placement) to MyWork
+  // DB; ADR025 adds import provenance, which is NOT a projection: an imported
+  // card keeps a real provenance record rather than a view of another store's.
+  'board.view': ['mywork-db'],
+  'board.placement': ['mywork-db'],
+  'task.provenance': ['mywork-db'],
   'attempt.current': ['mywork-db'],
   'lease.fence': ['mywork-db', 'lease-store'],
   'agent.session-ids': ['mywork-db'],
@@ -35,6 +41,13 @@ const EXPECTED_OWNERS = {
   'registry.revisions': ['mywork-registry'],
   'audit.log': ['mywork-audit'],
 }
+
+/**
+ * Domains ADR017 makes projections of the MyWork DB: the board reads them, the
+ * DB writes them, and losing the board loses no authority. `task.board-placement`
+ * predates ADR017 and stays owned by the Task Board itself.
+ */
+const PROJECTION_DOMAINS = ['task.board-placement', 'board.view', 'board.placement']
 
 test('the matrix reproduces every authority row of the architecture', () => {
   assert.deepEqual([...core.authorityDomains()].sort(), Object.keys(EXPECTED_OWNERS).sort())
@@ -52,6 +65,18 @@ test('the Task Board is a projection, not a competing authority', () => {
   assert.equal(denied.ok, false)
   assert.equal(denied.error.code, 'SECURITY_DENIED')
   assert.deepEqual(denied.error.details.owners, ['task-graph'])
+})
+
+test('every projection domain is flagged as one, and no other domain is', () => {
+  // The flag is what tells a reader "losing this store loses no authority", so
+  // it must be set exactly on the projections the architecture names.
+  for (const domain of PROJECTION_DOMAINS) {
+    assert.equal(core.isProjectionDomain(domain), true, `${domain} must be a projection`)
+  }
+  const flagged = core.authorityDomains().filter(domain => core.isProjectionDomain(domain))
+  assert.deepEqual([...flagged].sort(), [...PROJECTION_DOMAINS].sort())
+  // Provenance is a real record owned by MyWork DB, not a view of another store.
+  assert.equal(core.isProjectionDomain('task.provenance'), false)
 })
 
 test('each domain has at least one owner and every owner is known', () => {
