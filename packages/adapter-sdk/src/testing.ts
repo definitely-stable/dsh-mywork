@@ -17,6 +17,13 @@ import type {
   AgentStartRequest,
   CatalogModel,
   ClockPort,
+  ContextCandidate,
+  ContextDiscoveryRequest,
+  ContextLevel,
+  ContextMaterialized,
+  ContextMaterializeRequest,
+  ContextProviderCapabilities,
+  ContextProviderPort,
   ModelCatalogPort,
   ResolvedCatalogModel,
   SessionEvent,
@@ -608,6 +615,243 @@ function unknownModel(provider: string, model: string): Error {
   return Object.assign(new Error(`dsh-mywork: fake provider "${provider}" serves no model "${model}"`), {
     code: CATALOG_UNKNOWN_MODEL,
   })
+}
+
+/** One item a {@link FakeContextProvider} holds. */
+export interface FakeContextItem {
+  /** Stable address of the item. */
+  readonly uri: string
+  /** Context class it claims (§21.3). */
+  readonly kind: string
+  /** Level it is disclosed at. Default `L1`. */
+  readonly level?: ContextLevel
+  /** Trust the source states (§21.4). Absent means the fabric sees none. */
+  readonly trust?: string
+  /** Revision the source publishes. */
+  readonly revision?: string
+  /** Content hash the source publishes. */
+  readonly contentHash?: string
+  /** Size estimate in tokens. Absent means the source measured nothing. */
+  readonly estimatedTokens?: number
+  /** Relevance the source claims. */
+  readonly relevance?: number
+  /** Inline body disclosed at discovery time. */
+  readonly content?: { readonly mediaType: string; readonly text: string }
+  /** Body served only when the fabric asks for it (§21.2 L2 on request). */
+  readonly body?: {
+    readonly mediaType: string
+    readonly text: string
+    /** Revision of the body; absent means the item's own revision. */
+    readonly revision?: string
+    /** Content hash of the body; absent means the item's own hash. */
+    readonly contentHash?: string
+    /** Size estimate of the body; absent means the item's own estimate. */
+    readonly estimatedTokens?: number
+  }
+  /** Start of the validity window. */
+  readonly validFrom?: number
+  /** End of the validity window. */
+  readonly validUntil?: number
+}
+
+/** Options accepted by {@link FakeContextProvider}. */
+export interface FakeContextProviderOptions {
+  /** Provider identity a candidate's `source` carries. Default `fake-context`. */
+  readonly provider?: string
+  /** Levels the provider declares. Default every level. */
+  readonly levels?: readonly ContextLevel[]
+  /** Whether the provider declares on-demand materialization. Default true. */
+  readonly onDemandMaterialization?: boolean
+  /** Classes the provider declares. Default the classes of its items. */
+  readonly classes?: readonly string[]
+  /** Scope families the provider declares. Default `workspace` and `task`. */
+  readonly scopeKinds?: readonly string[]
+  /** Items the provider proposes during discovery. */
+  readonly items?: readonly FakeContextItem[]
+  /** Make `capabilities()` fail with this text. */
+  readonly capabilitiesFailure?: string
+  /** Make `discover()` fail with this text. */
+  readonly discoverFailure?: string
+  /** Make `materialize()` fail with this text for every uri. */
+  readonly materializeFailure?: string
+}
+
+/**
+ * Context provider backed by a literal, with failure switches
+ * (architecture §21.2, §21.5).
+ *
+ * It answers exactly what it was constructed with: an item is disclosed at the
+ * level it was declared at, a body is served only when it was declared, and an
+ * undeclared uri is refused rather than answered with an empty body. Every
+ * request is recorded **before** it is answered, so a test can tell a call
+ * nobody made apart from a call that was refused — which is what the L2
+ * "on request" rule is checked with.
+ */
+export class FakeContextProvider implements ContextProviderPort {
+  readonly #provider: string
+  readonly #levels: readonly ContextLevel[]
+  readonly #onDemandMaterialization: boolean
+  readonly #classes: readonly string[]
+  readonly #scopeKinds: readonly string[]
+  readonly #items: readonly FakeContextItem[]
+  readonly #capabilitiesFailure: string | undefined
+  readonly #discoverFailure: string | undefined
+  readonly #materializeFailure: string | undefined
+  readonly #discovered: ContextDiscoveryRequest[] = []
+  readonly #materialized: ContextMaterializeRequest[] = []
+
+  /**
+   * @param options - the literal items and the failures the fake should raise.
+   */
+  constructor(options: FakeContextProviderOptions = {}) {
+    this.#provider = options.provider ?? 'fake-context'
+    this.#items = Object.freeze((options.items ?? []).map(item => Object.freeze({ ...item })))
+    this.#levels = Object.freeze([...(options.levels ?? ['L0', 'L1', 'L2'])])
+    this.#onDemandMaterialization = options.onDemandMaterialization ?? true
+    this.#classes = Object.freeze([...(options.classes ?? [...new Set(this.#items.map(item => item.kind))])])
+    this.#scopeKinds = Object.freeze([...(options.scopeKinds ?? ['workspace', 'task'])])
+    this.#capabilitiesFailure = options.capabilitiesFailure
+    this.#discoverFailure = options.discoverFailure
+    this.#materializeFailure = options.materializeFailure
+  }
+
+  /** Provider identity candidates carry as their `source`. */
+  get provider(): string {
+    return this.#provider
+  }
+
+  /** Discovery requests this provider was asked, in call order. */
+  get discoveryRequests(): readonly ContextDiscoveryRequest[] {
+    return Object.freeze([...this.#discovered])
+  }
+
+  /** Uris this provider was asked to materialize, in call order — answered or not. */
+  get materializedUris(): readonly string[] {
+    return Object.freeze(this.#materialized.map(request => request.uri))
+  }
+
+  /** Materialization requests this provider was asked, in call order. */
+  get materializeRequests(): readonly ContextMaterializeRequest[] {
+    return Object.freeze([...this.#materialized])
+  }
+
+  /** {@link ContextProviderPort.capabilities}. */
+  async capabilities(): Promise<ContextProviderCapabilities> {
+    if (this.#capabilitiesFailure !== undefined) {
+      throw new AdapterError('unavailable', `dsh-mywork: ${this.#capabilitiesFailure}`)
+    }
+    return Object.freeze({
+      levels: this.#levels,
+      onDemandMaterialization: this.#onDemandMaterialization,
+      classes: this.#classes,
+      scopeKinds: this.#scopeKinds,
+    })
+  }
+
+  /**
+   * {@link ContextProviderPort.discover}.
+   * @param request - the request to answer.
+   * @throws {AdapterError} `unavailable` when the fake was built with a discovery failure.
+   */
+  async discover(request: ContextDiscoveryRequest): Promise<readonly ContextCandidate[]> {
+    // Recorded before the answer, so "never asked" and "asked and refused" stay
+    // two different observations for a test.
+    this.#discovered.push(request)
+    if (this.#discoverFailure !== undefined) {
+      throw new AdapterError('unavailable', `dsh-mywork: ${this.#discoverFailure}`)
+    }
+    return Object.freeze(this.#items.map(item => candidateOf(this.#provider, item)))
+  }
+
+  /**
+   * {@link ContextProviderPort.materialize}.
+   * @param request - the uri, level, and the revision/hash the caller expects.
+   * @throws {AdapterError} `invalid-ref` for an uri or level the fake does not serve, `conflict` when the item has no body or moved past the expected revision or hash, and `unavailable` when the fake was built with a materialization failure.
+   */
+  async materialize(request: ContextMaterializeRequest): Promise<ContextMaterialized> {
+    this.#materialized.push(request)
+    if (this.#materializeFailure !== undefined) {
+      throw new AdapterError('unavailable', `dsh-mywork: ${this.#materializeFailure}`)
+    }
+    const item = this.#items.find(entry => entry.uri === request.uri)
+    if (item === undefined) {
+      throw new AdapterError('invalid-ref', `dsh-mywork: provider "${this.#provider}" holds no item "${request.uri}"`)
+    }
+    if (!this.#levels.includes(request.level)) {
+      throw new AdapterError('invalid-ref', `dsh-mywork: provider "${this.#provider}" does not serve level "${request.level}"`)
+    }
+    if (item.body === undefined) {
+      throw new AdapterError('conflict', `dsh-mywork: item "${request.uri}" carries no body to materialize`)
+    }
+    // The expectation names the revision the caller observed at discovery; the
+    // answer names the revision of the body it fetched. An L0 abstract and the
+    // L2 body it points at are two revisions of one item, so comparing the
+    // expectation against the body would refuse every legitimate fetch.
+    if (request.expectedRevision !== undefined && item.revision !== undefined && request.expectedRevision !== item.revision) {
+      throw new AdapterError('conflict', `dsh-mywork: item "${request.uri}" is at revision "${item.revision}", not "${request.expectedRevision}"`)
+    }
+    if (request.expectedContentHash !== undefined && item.contentHash !== undefined && request.expectedContentHash !== item.contentHash) {
+      throw new AdapterError('conflict', `dsh-mywork: item "${request.uri}" hashes to "${item.contentHash}", not "${request.expectedContentHash}"`)
+    }
+    const revision = item.body.revision ?? item.revision
+    const contentHash = item.body.contentHash ?? item.contentHash ?? hashOf(item.body.text)
+    return Object.freeze({
+      uri: item.uri,
+      level: request.level,
+      ...(revision === undefined ? {} : { revision }),
+      contentHash: contentHash ?? hashOf(item.body.text),
+      content: Object.freeze({ mediaType: item.body.mediaType, text: item.body.text }),
+      ...(item.body.estimatedTokens === undefined ? {} : { estimatedTokens: item.body.estimatedTokens }),
+      provenance: Object.freeze([
+        Object.freeze({
+          source: this.#provider,
+          uri: item.uri,
+          ...(revision === undefined ? {} : { revision }),
+          contentHash,
+        }),
+      ]),
+    })
+  }
+}
+
+/** Build the candidate one literal item is disclosed as. */
+function candidateOf(source: string, item: FakeContextItem): ContextCandidate {
+  return Object.freeze({
+    uri: item.uri,
+    source,
+    kind: item.kind,
+    scopes: Object.freeze([{ kind: 'workspace', id: 'w-fake' }]),
+    level: item.level ?? 'L1',
+    ...(item.relevance === undefined ? {} : { relevance: item.relevance }),
+    ...(item.trust === undefined ? {} : { trust: item.trust }),
+    ...(item.revision === undefined ? {} : { revision: item.revision }),
+    ...(item.contentHash === undefined ? {} : { contentHash: item.contentHash }),
+    ...(item.estimatedTokens === undefined ? {} : { estimatedTokens: item.estimatedTokens }),
+    ...(item.validFrom === undefined ? {} : { validFrom: item.validFrom }),
+    ...(item.validUntil === undefined ? {} : { validUntil: item.validUntil }),
+    provenance: Object.freeze([
+      Object.freeze({
+        source,
+        uri: item.uri,
+        ...(item.revision === undefined ? {} : { revision: item.revision }),
+        ...(item.contentHash === undefined ? {} : { contentHash: item.contentHash }),
+      }),
+    ]),
+    ...(item.content === undefined
+      ? {}
+      : { content: Object.freeze({ mediaType: item.content.mediaType, text: item.content.text }) }),
+    materializeRef: `${source}:${item.uri}`,
+  })
+}
+
+/** Deterministic stand-in hash for a body a test did not hash itself. */
+function hashOf(text: string): string {
+  let hash = 2_166_136_261
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16_777_619)
+  }
+  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, '0')}`
 }
 
 /** Options accepted by {@link fakeAdapterRegistration}. */
