@@ -175,12 +175,13 @@ await step('FakeClock advances, resolves, and cancels deterministically', async 
 })
 
 await step('FakeAgentRuntime records runs and fails like the port contract', async () => {
-  const runtime = new testing.FakeAgentRuntime()
+  const host = new testing.FakeAgentHost()
+  const runtime = new testing.FakeAgentRuntime({ host })
   const handle = await runtime.start({ runId: 'run-1', workspacePath: '/w', prompt: 'do work' })
-  assert.deepEqual(handle, { runId: 'run-1' })
-  assert.deepEqual(await runtime.status(handle), { runId: 'run-1', running: true })
+  assert.deepEqual(handle, { runId: 'run-1', sessionId: 'session-fake-1' })
+  assert.deepEqual(await runtime.status(handle), { runId: 'run-1', sessionId: 'session-fake-1', running: true })
   await runtime.stop(handle)
-  assert.deepEqual(await runtime.status(handle), { runId: 'run-1', running: false })
+  assert.deepEqual(await runtime.status(handle), { runId: 'run-1', sessionId: 'session-fake-1', running: false })
   await runtime.stop(handle)
   assert.deepEqual(runtime.startedRunIds, ['run-1'])
   await assert.rejects(
@@ -191,6 +192,21 @@ await step('FakeAgentRuntime records runs and fails like the port contract', asy
     runtime.status({ runId: 'missing' }),
     error => adapterSdk.isAdapterError(error) && error.code === 'invalid-ref',
   )
+  const events = await runtime.events(handle)
+  assert.ok(events.events.length > 0, 'a started run admits durable events')
+  assert.equal(events.cursor, events.events.at(-1).seq)
+
+  // A second runtime over the same owner is a process restart: the identity in
+  // the handle is enough to read and adopt the run again.
+  const restarted = new testing.FakeAgentRuntime({ host })
+  assert.equal((await restarted.status(handle)).running, false)
+  const resumed = await restarted.resume({
+    runId: 'run-1',
+    sessionId: handle.sessionId,
+    workspacePath: '/w',
+  })
+  assert.deepEqual(resumed, handle)
+  assert.equal((await restarted.status(resumed)).running, true)
 })
 
 await step('adapter manifests validate before registration', () => {

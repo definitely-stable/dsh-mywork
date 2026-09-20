@@ -72,22 +72,19 @@ function recordingObserver() {
   }
 }
 
-/** A runtime that violates the `AgentRuntimePort` contract on purpose. */
-function brokenRuntime() {
-  const runs = new Map()
+/**
+ * A runtime that answers nothing at all, so every §39 check has to notice.
+ */
+function deadRuntime() {
+  const refuse = () => {
+    throw new Error('the dead runtime answers nothing')
+  }
   return {
-    async start(request) {
-      runs.set(request.runId, true)
-      return { runId: request.runId }
-    },
-    async status(handle) {
-      if (!runs.has(handle.runId)) throw new Error('the broken runtime throws a plain error')
-      return { runId: handle.runId, running: runs.get(handle.runId) }
-    },
-    async stop(handle) {
-      if (!runs.has(handle.runId)) throw new Error('the broken runtime throws a plain error')
-      // Deliberately forgets to settle the run: the `stop` check must notice.
-    },
+    start: refuse,
+    resume: refuse,
+    status: refuse,
+    stop: refuse,
+    events: refuse,
   }
 }
 
@@ -329,8 +326,16 @@ test('the common conformance checks fail and skip loudly instead of passing', as
   assert.match(reason, /declares no capability as false/)
 })
 
-test('the agent-runtime suite passes for the fake and reports the §39 names it cannot cover', async () => {
-  const checks = adapterSdk.agentRuntimeChecks({ runtime: new adapterTesting.FakeAgentRuntime(), runIdPrefix: 'suite' })
+test('the agent-runtime suite covers every §39 name for the fake and rejects a dead runtime', async () => {
+  // One owner, one runtime, and a second runtime over the same owner: that is
+  // what a process restart is, and without it the suite would have to skip a
+  // §39 check instead of proving it.
+  const host = new adapterTesting.FakeAgentHost()
+  const checks = adapterSdk.agentRuntimeChecks({
+    runtime: new adapterTesting.FakeAgentRuntime({ host }),
+    runIdPrefix: 'suite',
+    reopen: () => new adapterTesting.FakeAgentRuntime({ host }),
+  })
   const report = await adapterSdk.runConformance({
     kind: 'agent-runtime',
     checks,
@@ -339,20 +344,36 @@ test('the agent-runtime suite passes for the fake and reports the §39 names it 
   })
   assert.equal(report.failed, 0, JSON.stringify(report.results, undefined, 2))
   assert.equal(report.passed, checks.length)
-  assert.deepEqual(report.results.map(result => result.name), ['create', 'create refuses a duplicate run', 'status', 'stop'])
-  assert.deepEqual(report.missing, ['resume', 'late event', 'cancellation', 'process restart'])
+  assert.equal(report.skipped, 0, 'a suite with a restart hook has nothing to skip')
+  assert.deepEqual(report.results.map(result => result.name), [
+    'create',
+    'create refuses a duplicate run',
+    'resume',
+    'stop',
+    'status',
+    'late event',
+    'cancellation',
+    'process restart',
+  ])
+  assert.deepEqual(report.missing, [], 'the runtime card must close the §39 gap it was written for')
+  for (const required of adapterSdk.REQUIRED_CONFORMANCE_CHECKS['agent-runtime']) {
+    assert.ok(
+      report.results.some(result => result.name === required),
+      `§39 requires a check named "${required}"`,
+    )
+  }
 
-  const broken = await adapterSdk.runConformance({
+  const dead = await adapterSdk.runConformance({
     kind: 'agent-runtime',
-    checks: adapterSdk.agentRuntimeChecks({ runtime: brokenRuntime(), runIdPrefix: 'broken' }),
+    checks: adapterSdk.agentRuntimeChecks({ runtime: deadRuntime(), runIdPrefix: 'dead', reopen: deadRuntime }),
     clock: new adapterTesting.FakeClock(0),
   })
   assert.deepEqual(
-    broken.results.filter(result => result.status === 'failed').map(result => result.name),
-    ['create refuses a duplicate run', 'status', 'stop'],
-    'every check must notice a runtime that breaks the port contract',
+    dead.results.filter(result => result.status !== 'failed'),
+    [],
+    'every check must notice a runtime that answers nothing',
   )
-  assert.equal(broken.passed, 1)
+  assert.equal(dead.passed, 0)
 })
 
 test('the controller publishes myworkAdapters and drops every registration on unload', async () => {
