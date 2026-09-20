@@ -25,6 +25,7 @@ const entries = {
   planner: 'packages/planner/lib/index.js',
   execution: 'packages/execution/lib/index.js',
   scheduler: 'packages/scheduler/lib/index.js',
+  memoryNative: 'packages/memory-native/lib/index.js',
 }
 
 const missing = Object.values(entries).filter(relative => !existsSync(join(repoRoot, relative)))
@@ -66,6 +67,9 @@ export const execution = await import(pathToFileURL(join(repoRoot, entries.execu
 
 /** `@dsh-mywork/scheduler` as built: the event-driven kick and the safety reconcile. */
 export const scheduler = await import(pathToFileURL(join(repoRoot, entries.scheduler)).href)
+
+/** `@dsh-mywork/memory-native` as built: the native and disabled memory providers (§23.8). */
+export const memoryNative = await import(pathToFileURL(join(repoRoot, entries.memoryNative)).href)
 
 /**
  * Operation identity for fixture calls.
