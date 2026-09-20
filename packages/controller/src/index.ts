@@ -45,6 +45,7 @@ import {
   type ControllerState,
 } from '@dsh-mywork/core'
 import { mountModelCatalog } from './model-catalog.ts'
+import { mountDshRuntime } from './dsh-session.ts'
 
 /** The §29 catalog binding the controller mounts, re-exported as its public surface. */
 export {
@@ -56,6 +57,36 @@ export {
   mountModelCatalog,
   type DshLlmRegistry,
 } from './model-catalog.ts'
+
+/** The §22/§39 session and agent-runtime binding, re-exported as its public surface. */
+export {
+  DSH_AGENT_RUNTIME_ADAPTER_ID,
+  DSH_AGENT_RUNTIME_CAPABILITIES,
+  DSH_AGENT_RUNTIME_KIND,
+  DSH_AGENTS_SERVICE,
+  DSH_COMMANDS_SERVICE,
+  DSH_REQUEST_ID_PREFIX,
+  DSH_SESSION_ADAPTER_ID,
+  DSH_SESSION_CAPABILITIES,
+  DSH_SESSION_KIND,
+  DSH_SESSION_SERVICE,
+  DshAgentRuntime,
+  DshSessionAdapter,
+  mountDshRuntime,
+  type DshAgent,
+  type DshAgentRegistry,
+  type DshCommandExecution,
+  type DshCommandRuntime,
+  type DshFollowFrame,
+  type DshFollowSnapshot,
+  type DshModelSelection,
+  type DshSessionAddress,
+  type DshSessionApi,
+  type DshSessionController,
+  type DshSessionSummary,
+  type DshWireEvent,
+  type DshWireHeader,
+} from './dsh-session.ts'
 
 /** Plugin display name used by the Cordis loader in diagnostics. */
 export const name = '@dsh-mywork/controller'
@@ -90,6 +121,10 @@ export function apply(ctx: Context, config?: Config): void {
   // profile without it still mounts the controller — the binding reports the
   // absence instead of failing the row.
   mountModelCatalog(ctx, adapters)
+  // §22/§39: the DSH session controller becomes the session and agent-runtime
+  // ports, so one attempt runs in one real, scoped DSH session. Same rule as
+  // above: an absent platform surface is reported, not repaired.
+  mountDshRuntime(ctx, adapters)
 }
 
 /**
