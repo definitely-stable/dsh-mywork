@@ -11,7 +11,7 @@ review, память и доска. Репозиторий содержит ка
 
 ```text
 packages/contracts     @dsh-mywork/contracts    — доменные контракты, имена сервисов, порты
-packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация §6 и Team Work §13, граф, часы, routing §29 и бюджет §30
+packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация §6 и Team Work §13, граф, часы, routing §29, бюджет §30 и Context Fabric §21
 packages/storage       @dsh-mywork/storage      — durable state: SQLite, schemaVersion, миграции, outbox/inbox
 packages/lease         @dsh-mywork/lease        — controller lease §5.3, монотонный epoch и lifecycle §16.1/§49
 packages/adapter-sdk   @dsh-mywork/adapter-sdk  — каталог портов §36, registry и capability negotiation §37/§44, conformance kit §39, ошибки и fakes
@@ -163,6 +163,87 @@ pause, escalate или human decision — решает caller: в §30 это п
 граница окна, withheld escalation, привязка к реальному `llm`) и
 `tests/budget.test.mjs` (граница лимита, неизвестные usage/cost, остановка
 admission). FakeProvider — `FakeModelCatalog` в `@dsh-mywork/adapter-sdk/testing`.
+
+## Context Fabric и snapshots (§21, §35, §53)
+
+§21.1 отдаёт весь model-visible context одному владельцу. Провайдеры возвращают
+*кандидатов* и тела, и у порта `context-provider` нет метода, который что-либо
+публикует: `ContextProviderPort` — это `capabilities` / `discover` /
+`materialize`, а в prompt контекст попадает только через
+`core.assembleContextPrompt`, который принимает исключительно
+`ContextSnapshot`. Провайдер, которого нет в замороженном snapshot, вставить
+ничего не может — это свойство конструкции, а не соглашение.
+
+Конвейер односторонний: `core.discoverContext` → `core.decideContextAdmission` →
+`core.materializeContextSnapshot` → `core.verifyContextSnapshot`. Discovery
+опрашивает все привязки и записывает по одному наблюдению на провайдера;
+недоступный провайдер не срывает проход (его отказ остаётся в `detail`), а
+провайдер, не ответивший про capabilities, не получает ни одного вопроса.
+Классы, о которых просил запрос, фильтрует сам Fabric, что бы адаптер ни сделал с
+запросом.
+
+Бюджет §21.6 считается от реального маршрута: `resolveContextBudget` применяет
+доли политики к окну, которое опубликовал выбранный route, и сначала удерживает
+`workingReserve` и `safetyReserve` — то, что нужно попытке, чтобы работать и
+вообще ответить. Политика по умолчанию — числа §21.6 как они есть
+(`DEFAULT_CONTEXT_POLICY`). Маршрут, не опубликовавший окно, не получает бюджета
+вообще (`context-window-undisclosed`): неизвестное окно не читается как
+нулевое, ровно как неизвестная сумма §30.
+
+Mandatory-контекст (`policy`, `role-contract`, `task-contract`) выбирается при
+любой релевантности, но не подрезается: превышение потолка `mandatory.maxFraction`
+блокирует admission (`mandatory-overflow`, код `CONTEXT_BUDGET_EXCEEDED`), а
+превышение assembly-бюджета — `reserves-overflow`. Неизмеримое или непроверяемое
+mandatory-контекст тоже отказ, а не «пройдёт на всякий случай»:
+`mandatory-tokens-unknown` без оценки токенов и `mandatory-unverifiable` без
+revision и content hash. Явный ноль токенов — измерение пустого элемента, а не
+ошибка: «не измерено» это отсутствие поля. Опциональные items берутся в порядке
+ранга (заявленная релевантность, затем более дешёвый, затем uri — порядок не
+зависит от того, в каком порядке ответили провайдеры) и удерживаются целевыми
+долями `workspaceCanon` / `memory` / `dependencies`; остаток assembly-бюджета
+доступен классам без своей цели. Один uri — один item: два провайдера вправе
+адресовать один элемент (native и внешний memory-провайдер по §62 пп. 25–26), и
+повторный претендент записывается в `dropped` как `duplicate-uri`, а не удваивает
+расход и не срывает попытку. Время материализации обязательно: решение, принятое
+против выдуманных часов, — другое решение.
+
+L2 загружается только по запросу: `requestedFullContent` называет uri, тела
+которых нужно получить, остальные items остаются на уровне discovery и
+рендерятся ссылкой. Если тело уже пришло при discovery на уровне L2, порт не
+спрашивается вовсе — иначе провайдер, честно объявивший
+`onDemandMaterialization: false`, отказывал бы в теле, которое Fabric уже держит.
+Тело, которое провайдер не отдаёт — нет привязки, нет `onDemandMaterialization`,
+отказ порта, устаревшая revision или **ответ на более низком уровне, чем
+запрошено**, — отказывает snapshot целиком (`materialization-failed`): молчаливого
+понижения до обзора нет, и метка уровня в снапшоте всегда описывает то, что
+реально пришло. Тело, оказавшееся больше запланированного — сверх assembly-бюджета
+или сверх целевой доли своего класса, — отказ `materialized-overflow`.
+
+Trust решает размещение, а не отбор. `instruction` получает только класс из
+`INSTRUCTION_CONTEXT_CLASSES` с trust ровно `trusted`; всё остальное — `data`,
+включая untrusted mandatory-контекст (`downgraded: true`), потому что «показать
+как данные» и «сказать, что делать» — разные вещи. Данные рендерятся в
+ограждённой секции, и токен ограждения нейтрализуется **во всём, что пришло от
+источника**: в теле, а также в uri, source, классе и revision, которые Fabric
+подставляет вокруг него. Ограждение, стерегущее только тело, обходится
+метаданными — источник, собравший uri из своих данных, закрыл бы секцию и
+продолжился бы как обычный текст промпта.
+
+Snapshot §21.7 замораживается целиком (`deepFreeze`), фиксирует revisions
+(`task`/`role`/`blueprint`/`workflow` + per-skill), маршрут, tool surface, хеши,
+оценки токенов, отброшенных кандидатов с причинами и provenance каждого item;
+fingerprint — канонический вид, из которого реестр чеканит revision семейства
+`context-snapshot` (§35). Маршрут копируется в снапшот, а не кладётся по ссылке:
+заморозка снапшота не должна достигать объектов вызывающего. Повторная
+материализация не переписывает snapshot: `verifyContextSnapshot` сравнивает
+замороженные revision/hash с тем, что источник говорит сейчас, и различает три
+состояния наблюдения — строка («источник опубликовал это»), `null` («источник не
+публикует там, где снапшот заморозил значение» → дрейф `unverifiable`) и
+отсутствие поля («вызывающий не смотрел» → не доказательство ни в какую сторону).
+
+Проверки: `tests/context.test.mjs` (бюджет от окна, граница потолка, ранжирование
+и цели, L2 по запросу, downgrade по trust, неизменяемость snapshot, drift).
+Fake — `FakeContextProvider` в `@dsh-mywork/adapter-sdk/testing`.
 
 ## Controller lease и lifecycle (§5.3, §16.1, §49)
 
