@@ -65,55 +65,8 @@ export interface ClockPort {
   sleep(ms: number, signal?: AbortSignal): Promise<void>
 }
 
-/** One unit of agent work handed to a runtime. */
-export interface AgentStartRequest {
-  /** Caller-owned run identifier; the runtime rejects a duplicate. */
-  readonly runId: string
-  /** Workspace the run may touch. */
-  readonly workspacePath: string
-  /** Task text handed to the agent. */
-  readonly prompt: string
-}
-
-/** Opaque reference to a started run. */
-export interface AgentRuntimeHandle {
-  /** Run identifier the handle refers to. */
-  readonly runId: string
-}
-
-/** Observed state of one run. */
-export interface AgentRuntimeStatus {
-  /** Run identifier the status describes. */
-  readonly runId: string
-  /** True while the runtime still owns the run. */
-  readonly running: boolean
-}
-
-/**
- * Agent runtime port (architecture §36). Attempts, leases, and fences are
- * modelled in `./attempt.ts`; binding this port to them is part of the adapter
- * SDK and runtime work, not of the domain contracts.
- */
-export interface AgentRuntimePort {
-  /**
-   * Start one run.
-   * @param request - run identity, workspace, and prompt.
-   * @returns a handle for {@link status} and {@link stop}.
-   */
-  start(request: AgentStartRequest): Promise<AgentRuntimeHandle>
-  /**
-   * Read the run's state.
-   * @param handle - handle returned by {@link start}.
-   */
-  status(handle: AgentRuntimeHandle): Promise<AgentRuntimeStatus>
-  /**
-   * Stop the run; idempotent for an already stopped run.
-   * @param handle - handle returned by {@link start}.
-   */
-  stop(handle: AgentRuntimeHandle): Promise<void>
-}
-
 export * from './ids.ts'
+export * from './agent-runtime.ts'
 export * from './revisions.ts'
 export * from './operation.ts'
 export * from './events.ts'
