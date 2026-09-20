@@ -21,6 +21,8 @@
  */
 
 import type {
+  AgentResumeRequest,
+  AgentRunScope,
   AgentRuntimeHandle,
   AgentRuntimePort,
   AgentStartRequest,
@@ -412,24 +414,48 @@ export interface AgentRuntimeChecksOptions {
   readonly runtime: AgentRuntimePort
   /** Prefix for the run ids the checks create; distinct suites must not collide. */
   readonly runIdPrefix?: string
+  /**
+   * Scope the checks assert, when the deployment has one to offer. Absent runs
+   * the suite against the deployment's own defaults, which is what a conformance
+   * run against a real platform has to do: a check may not require a deployment
+   * to know a preset or a route invented here.
+   */
+  readonly scope?: AgentRunScope
+  /**
+   * Build a runtime that drives the same durable owner while holding no process
+   * state — a process restart. Without it the `process restart` check reports
+   * itself skipped instead of passing on a property nothing tested.
+   */
+  readonly reopen?: () => AgentRuntimePort
 }
 
 /**
- * The `AgentRuntimePort` checks §39 declares that the current port contract can
- * express: `create`, `status`, and `stop`, plus the refusal of a duplicate run.
- * `resume`, `late event`, `cancellation`, and `process restart` need port
- * operations the interface does not have yet, so they stay in
- * {@link REQUIRED_CONFORMANCE_CHECKS} as `missing` until the runtime card adds
- * them.
- * @param options - the runtime under test.
+ * The `AgentRuntimePort` checks §39 declares: `create`, `resume`, `stop`,
+ * `status`, `late event`, `cancellation`, and `process restart`, plus the
+ * duplicate-run refusal the port's own contract states.
+ *
+ * What the suite can prove through the port alone is proved here; what needs the
+ * platform's own vocabulary stays with the adapter that speaks it. So `status`
+ * asserts the owner's answer rather than the scope a caller asked for, and
+ * `process restart` needs {@link AgentRuntimeChecksOptions.reopen} to say what a
+ * restart is for this deployment.
+ * @param options - the runtime under test, its scope, and its restart hook.
  */
 export function agentRuntimeChecks(options: AgentRuntimeChecksOptions): readonly ConformanceCheck[] {
   const runtime = options.runtime
   const prefix = options.runIdPrefix ?? 'conformance'
+  const scope = options.scope
   const request = (runId: string): AgentStartRequest => ({
     runId,
     workspacePath: '/conformance',
     prompt: 'conformance probe',
+    ...(scope === undefined ? {} : { scope }),
+  })
+  const resumeOf = (runId: string, sessionId: string): AgentResumeRequest => ({
+    runId,
+    sessionId,
+    workspacePath: '/conformance',
+    ...(scope === undefined ? {} : { scope }),
   })
 
   return Object.freeze([
@@ -439,8 +465,13 @@ export function agentRuntimeChecks(options: AgentRuntimeChecksOptions): readonly
         const runId = `${prefix}-create`
         const handle = await runtime.start(request(runId))
         expect(handle.runId === runId, 'start must return a handle for the requested run')
+        expect(
+          typeof handle.sessionId === 'string' && handle.sessionId.length > 0,
+          'start must report the real session identity its owner minted',
+        )
         const status = await runtime.status(handle)
         expect(status.running === true, 'a started run must report itself as running')
+        expect(status.sessionId === handle.sessionId, 'status must answer for the session the handle names')
       },
     },
     {
@@ -452,25 +483,139 @@ export function agentRuntimeChecks(options: AgentRuntimeChecksOptions): readonly
       },
     },
     {
-      name: 'status',
+      name: 'resume',
       async run() {
-        const unknown: AgentRuntimeHandle = { runId: `${prefix}-unknown` }
-        await expectAdapterError(() => runtime.status(unknown), 'invalid-ref', 'reading an unknown run')
-        const handle = await runtime.start(request(`${prefix}-status`))
+        const runId = `${prefix}-resume`
+        const handle = await runtime.start(request(runId))
+        // A run that already settled is the case resume exists for: the session
+        // outlives the turn, so the record is adopted, not recreated.
         await runtime.stop(handle)
-        const status = await runtime.status(handle)
-        expect(status.running === false, 'a settled run must report itself as not running')
+        const resumed = await runtime.resume(resumeOf(runId, handle.sessionId))
+        expect(resumed.sessionId === handle.sessionId, 'resume must adopt the session the caller named, not mint another')
+        const status = await runtime.status(resumed)
+        expect(status.sessionId === handle.sessionId, 'a resumed run must stay addressable by its session identity')
+        await expectAdapterError(
+          () => runtime.resume(resumeOf(runId, `${prefix}-absent-session`)),
+          'invalid-ref',
+          'resuming a session the owner does not know',
+        )
       },
     },
     {
       name: 'stop',
       async run() {
-        const handle = await runtime.start(request(`${prefix}-stop`))
+        const runId = `${prefix}-stop`
+        const handle = await runtime.start(request(runId))
         await runtime.stop(handle)
         await runtime.stop(handle)
         const status = await runtime.status(handle)
         expect(status.runId === handle.runId, 'status must answer for the run that was stopped')
         expect(status.running === false, 'stop must settle the run')
+        // Stop is not destruction (§51, MW-001 §6.8): the session stays durable
+        // evidence, so the very same identity can be adopted again afterwards.
+        const resumed = await runtime.resume(resumeOf(runId, handle.sessionId))
+        expect(resumed.sessionId === handle.sessionId, 'stop must not destroy the session record')
+      },
+    },
+    {
+      name: 'status',
+      async run() {
+        const unknown: AgentRuntimeHandle = {
+          runId: `${prefix}-unknown`,
+          sessionId: `${prefix}-unknown-session`,
+        }
+        await expectAdapterError(() => runtime.status(unknown), 'invalid-ref', 'reading an unknown run')
+        const handle = await runtime.start(request(`${prefix}-status`))
+        await runtime.stop(handle)
+        const status = await runtime.status(handle)
+        expect(status.running === false, 'a settled run must report itself as not running')
+        expect(status.sessionId === handle.sessionId, 'status must report the session it answered for')
+      },
+    },
+    {
+      name: 'late event',
+      async run() {
+        const handle = await runtime.start(request(`${prefix}-late-event`))
+        const first = await runtime.events(handle)
+        expect(first.events.length > 0, 'a started run must have admitted at least one durable event')
+        expect(first.cursor > 0, 'a read that returned events must report a cursor past them')
+        const positions = first.events.map(event => event.seq)
+        expect(
+          positions.every((seq, index) => index === 0 || seq > (positions[index - 1] ?? 0)),
+          'a page must be ordered by ascending position and carry no duplicate',
+        )
+        const repeat = await runtime.events(handle, first.cursor)
+        expect(repeat.events.length === 0, 'a page must not repeat an event the caller already has')
+        await runtime.stop(handle)
+        // A late event arrives after the run settled. It must neither resurrect
+        // the run nor be read twice, and it must never pull the cursor back.
+        const afterSettle = await runtime.events(handle, first.cursor)
+        const again = await runtime.events(handle, afterSettle.cursor)
+        expect(again.events.length === 0, 'a repeated read must not report a position twice')
+        expect(afterSettle.cursor >= first.cursor, 'a cursor must never move backwards')
+        expect((await runtime.status(handle)).running === false, 'reading events must not restart a settled run')
+        const ahead = await runtime.events(handle, afterSettle.cursor + 1_000)
+        expect(ahead.events.length === 0, 'a cursor ahead of the log must report no events')
+        expect(ahead.cursor >= afterSettle.cursor, 'a cursor ahead of the log must not move backwards either')
+      },
+    },
+    {
+      name: 'cancellation',
+      async run() {
+        const aborted = AbortSignal.abort()
+        const runId = `${prefix}-cancellation`
+        await expectAdapterError(
+          () => runtime.start(request(runId), { signal: aborted }),
+          'cancelled',
+          'starting with an aborted signal',
+        )
+        // The refusal happened before the owner was touched: the run id is free.
+        const handle = await runtime.start(request(runId))
+        const before = await runtime.status(handle)
+        await expectAdapterError(() => runtime.status(handle, { signal: aborted }), 'cancelled', 'reading with an aborted signal')
+        await expectAdapterError(
+          () => runtime.events(handle, undefined, { signal: aborted }),
+          'cancelled',
+          'reading events with an aborted signal',
+        )
+        await expectAdapterError(() => runtime.stop(handle, { signal: aborted }), 'cancelled', 'stopping with an aborted signal')
+        expect(
+          (await runtime.status(handle)).running === before.running,
+          'a cancelled stop must not settle the run',
+        )
+      },
+    },
+    {
+      name: 'process restart',
+      async run() {
+        const reopen = options.reopen
+        if (reopen === undefined) {
+          skipConformance('the caller supplied no runtime over the same durable owner, so no restart can be simulated')
+        }
+        const runId = `${prefix}-restart`
+        const handle = await runtime.start(request(runId))
+        await runtime.stop(handle)
+        const before = await runtime.events(handle)
+        const restarted = reopen()
+        const status = await restarted.status(handle)
+        expect(status.sessionId === handle.sessionId, 'a restarted runtime must answer for the session its owner still holds')
+        expect(status.running === false, 'a restarted runtime must read the owner state, not invent a running run')
+        const resumed = await restarted.resume(resumeOf(runId, handle.sessionId))
+        expect(resumed.sessionId === handle.sessionId, 'a restarted runtime must adopt the same session')
+        // The log is the durable evidence, so the restarted runtime has to read
+        // the same one: every position the caller has already seen must still be
+        // there, and nothing at or below its cursor may be reported again.
+        const reread = await restarted.events(resumed)
+        expect(
+          before.events.every(seen => reread.events.some(event => event.seq === seen.seq && event.type === seen.type)),
+          'a restarted runtime must read the same durable log, not an empty one',
+        )
+        const after = await restarted.events(resumed, before.cursor)
+        expect(
+          after.events.every(event => event.seq > before.cursor),
+          'a restarted runtime must not report a position the caller already has',
+        )
+        expect(after.cursor >= before.cursor, 'the cursor must survive a restart')
       },
     },
   ])

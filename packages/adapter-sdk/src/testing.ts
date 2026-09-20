@@ -6,6 +6,11 @@
  */
 
 import type {
+  AgentCallOptions,
+  AgentEventOptions,
+  AgentModelSelection,
+  AgentResumeRequest,
+  AgentRunScope,
   AgentRuntimeHandle,
   AgentRuntimePort,
   AgentRuntimeStatus,
@@ -14,6 +19,8 @@ import type {
   ClockPort,
   ModelCatalogPort,
   ResolvedCatalogModel,
+  SessionEvent,
+  SessionEventPage,
 } from '@dsh-mywork/contracts'
 import { CATALOG_UNKNOWN_MODEL } from '@dsh-mywork/contracts'
 import type { AdapterKind } from './capabilities.ts'
@@ -109,62 +116,358 @@ export class FakeClock implements ClockPort {
   }
 }
 
-/** One run recorded by {@link FakeAgentRuntime}. */
-interface FakeRun {
-  readonly request: AgentStartRequest
+/** One run recorded by {@link FakeAgentHost}. */
+export interface FakeAgentRun {
+  /** Run identifier the caller submitted. */
+  readonly runId: string
+  /** Real session identity the owner minted, not the caller's label. */
+  readonly sessionId: string
+  /** True while the owner still reports the session as running. */
   running: boolean
+  /** Agent preset the session is composed under, once a scope was asserted. */
+  agentPreset?: string
+  /** Route the owner accepted, once a scope pinned one. */
+  route?: AgentModelSelection
 }
 
-/**
- * Scripted agent runtime: records submissions, reports state, and never calls
- * a model. Duplicate run ids and unknown handles fail through
- * {@link AdapterError}, matching the port's contract.
- */
-export class FakeAgentRuntime implements AgentRuntimePort {
-  #runs = new Map<string, FakeRun>()
+/** One scope assertion the owner recorded, in the order it was applied. */
+export type FakePinnedScope =
+  | `preset:${string}`
+  | `permission:${string}`
+  | `model:${string}`
 
-  /** Run ids accepted so far, in submission order. */
-  get startedRunIds(): readonly string[] {
+/**
+ * Durable side of the fake session owner: sessions, their logs, and the scope
+ * pins asserted on them.
+ *
+ * It exists so the port's restart property is testable without a real platform:
+ * a {@link FakeAgentRuntime} holds no state of its own, so a second runtime over
+ * the same host *is* a process restart — the truth survived in the owner, not in
+ * the process. The host also misbehaves on purpose ({@link redeliver},
+ * {@link emitLate}), because the port's cursor discipline is a property the
+ * runtime must enforce rather than one it may assume.
+ */
+export class FakeAgentHost {
+  #runs = new Map<string, FakeAgentRun>()
+  #logs = new Map<string, SessionEvent[]>()
+  #pins = new Map<string, FakePinnedScope[]>()
+  #replay = new Set<string>()
+  #sessions = 0
+  #seq = 0
+
+  /** Run ids the owner accepted so far, in submission order. */
+  get runIds(): readonly string[] {
     return [...this.#runs.keys()]
   }
 
+  /** Every session the owner knows. */
+  get sessionIds(): readonly string[] {
+    return [...this.#runs.values()].map(run => run.sessionId)
+  }
+
+  /** Scope assertions recorded for one session, in order. */
+  pinsOf(sessionId: string): readonly FakePinnedScope[] {
+    return [...(this.#pins.get(sessionId) ?? [])]
+  }
+
+  /** Find a run by the caller's label. */
+  byRunId(runId: string): FakeAgentRun | undefined {
+    return this.#runs.get(runId)
+  }
+
+  /** Find a run by the real session identity the owner minted. */
+  bySessionId(sessionId: string): FakeAgentRun | undefined {
+    for (const run of this.#runs.values()) {
+      if (run.sessionId === sessionId) return run
+    }
+    return undefined
+  }
+
   /**
-   * Record a run.
-   * @param request - run identity, workspace, and prompt.
-   * @throws {AdapterError} `conflict` when the run id was already started.
+   * Open one session for a run.
+   * @param request - run identity, workspace, and scope.
+   * @throws {AdapterError} `conflict` when the run id is already known.
    */
-  async start(request: AgentStartRequest): Promise<AgentRuntimeHandle> {
+  open(request: AgentStartRequest): FakeAgentRun {
     if (this.#runs.has(request.runId)) {
       throw new AdapterError('conflict', `dsh-mywork: run "${request.runId}" was already started`)
     }
-    this.#runs.set(request.runId, { request, running: true })
-    return { runId: request.runId }
+    this.#sessions += 1
+    const run: FakeAgentRun = { runId: request.runId, sessionId: `session-fake-${this.#sessions}`, running: true }
+    this.#runs.set(run.runId, run)
+    this.#logs.set(run.sessionId, [])
+    return run
   }
 
   /**
-   * Read the run's state.
-   * @param handle - handle returned by {@link start}.
-   * @throws {AdapterError} `invalid-ref` when the handle is unknown.
+   * Adopt an existing session for a resumed run.
+   * @param request - run identity, real session identity, and scope.
+   * @throws {AdapterError} `invalid-ref` when the owner does not know the session.
    */
-  async status(handle: AgentRuntimeHandle): Promise<AgentRuntimeStatus> {
-    return { runId: handle.runId, running: this.#run(handle).running }
+  adopt(request: AgentResumeRequest): FakeAgentRun {
+    const run = this.bySessionId(request.sessionId)
+    if (run === undefined) {
+      throw new AdapterError('invalid-ref', `dsh-mywork: session "${request.sessionId}" is unknown to the owner`)
+    }
+    run.running = true
+    return run
+  }
+
+  /** Settle one run; repeated settlement is a no-op and the record survives. */
+  settle(sessionId: string): void {
+    const run = this.bySessionId(sessionId)
+    if (run !== undefined) run.running = false
   }
 
   /**
-   * Stop the run; stopping an already stopped run is a no-op.
-   * @param handle - handle returned by {@link start}.
-   * @throws {AdapterError} `invalid-ref` when the handle is unknown.
+   * Assert one scope on a session, recording each pin and the durable event that
+   * proves it reached the log. A scope-less assertion records nothing: the port
+   * never invents defaults.
+   * @param sessionId - session the scope applies to.
+   * @param scope - scope to assert, when the caller stated one.
    */
-  async stop(handle: AgentRuntimeHandle): Promise<void> {
-    this.#run(handle).running = false
+  assertScope(sessionId: string, scope: AgentRunScope | undefined): void {
+    if (scope === undefined) return
+    const run = this.bySessionId(sessionId)
+    if (run === undefined) return
+    const pins = this.#pins.get(sessionId) ?? []
+    pins.push(`preset:${scope.agentPreset}`)
+    run.agentPreset = scope.agentPreset
+    if (scope.model !== undefined) {
+      pins.push(`model:${scope.model.provider}/${scope.model.model}`)
+      run.route = scope.model
+      this.emit(sessionId, 'model/selection')
+    }
+    if (scope.permission !== undefined) {
+      pins.push(`permission:${scope.permission}`)
+      this.emit(sessionId, 'permission/preset')
+    }
+    this.#pins.set(sessionId, pins)
+  }
+
+  /** Admit one prompt, which is what makes a session carry a turn. */
+  admit(sessionId: string): void {
+    this.emit(sessionId, 'turn/start', 1)
+  }
+
+  /**
+   * Append one durable event at the next position.
+   * @param sessionId - session the event belongs to.
+   * @param type - durable event type.
+   * @param time - clock reading to record; defaults to the session's length.
+   */
+  emit(sessionId: string, type: string, time?: number): SessionEvent {
+    this.#seq += 1
+    const event: SessionEvent = {
+      seq: this.#seq,
+      type,
+      time: time ?? this.#seq,
+    }
+    this.#log(sessionId).push(event)
+    return event
+  }
+
+  /**
+   * Append one event at an older position: the late delivery the port's cursor
+   * discipline has to absorb without repeating or losing anything.
+   * @param sessionId - session the event belongs to.
+   * @param seq - position the owner reports, deliberately at or below the end.
+   * @param type - durable event type.
+   */
+  emitLate(sessionId: string, seq: number, type: string): void {
+    this.#log(sessionId).push({ seq, type, time: seq })
+  }
+
+  /** Repeat the newest event on the next read: a duplicate delivery. */
+  redeliver(sessionId: string): void {
+    this.#replay.add(sessionId)
+  }
+
+  /**
+   * The owner's raw read: every recorded event in recording order, with the
+   * scripted duplicate appended. It is deliberately unsorted, duplicated, and
+   * unfiltered, so the runtime has to normalise it.
+   * @param sessionId - session to read.
+   */
+  readRaw(sessionId: string): readonly SessionEvent[] {
+    const log = this.#log(sessionId)
+    const newest = log.at(-1)
+    const replay = this.#replay.delete(sessionId) && newest !== undefined ? [newest] : []
+    return [...log, ...replay]
+  }
+
+  /** The log one session holds, in recording order. */
+  #log(sessionId: string): SessionEvent[] {
+    const existing = this.#logs.get(sessionId)
+    if (existing !== undefined) return existing
+    const created: SessionEvent[] = []
+    this.#logs.set(sessionId, created)
+    return created
+  }
+}
+
+/** Refuse a call whose caller already cancelled it, before any side effect. */
+function refuseIfAborted(signal: AbortSignal | undefined, what: string): void {
+  if (signal?.aborted === true) {
+    throw new AdapterError('cancelled', `dsh-mywork: ${what} aborted before it was admitted`)
+  }
+}
+
+/**
+ * Scripted agent runtime: records submissions in its {@link FakeAgentHost},
+ * reports state from that host, and never calls a model.
+ *
+ * Duplicate run ids, unknown sessions, and cancelled calls fail through
+ * {@link AdapterError}, matching the port's contract. The runtime keeps no state
+ * of its own, and the owner normalises nothing: what {@link FakeAgentRuntime.start}
+ * reports back is exactly the scope the caller stated.
+ */
+export class FakeAgentRuntime implements AgentRuntimePort {
+  #host: FakeAgentHost
+
+  /**
+   * @param options - the durable owner to drive; a new runtime over the same
+   *   host models a process restart.
+   */
+  constructor(options: { host?: FakeAgentHost } = {}) {
+    this.#host = options.host ?? new FakeAgentHost()
+  }
+
+  /** The owner this runtime drives. */
+  get host(): FakeAgentHost {
+    return this.#host
+  }
+
+  /** Run ids the owner accepted so far, in submission order. */
+  get startedRunIds(): readonly string[] {
+    return this.#host.runIds
+  }
+
+  /**
+   * Open one session, assert its scope, and admit the prompt.
+   * @param request - run identity, workspace, prompt, and scope.
+   * @param options - caller-owned cancellation.
+   * @throws {AdapterError} `cancelled` for an aborted call, `conflict` for a duplicate run id.
+   */
+  async start(request: AgentStartRequest, options: AgentCallOptions = {}): Promise<AgentRuntimeHandle> {
+    refuseIfAborted(options.signal, `starting run "${request.runId}"`)
+    const run = this.#host.open(request)
+    this.#host.assertScope(run.sessionId, request.scope)
+    this.#host.admit(run.sessionId)
+    return handleOf(run)
+  }
+
+  /**
+   * Adopt the session a previous run used and re-assert its scope.
+   * @param request - run identity, real session identity, and scope.
+   * @param options - caller-owned cancellation.
+   * @throws {AdapterError} `cancelled` for an aborted call, `invalid-ref` for an unknown session.
+   */
+  async resume(request: AgentResumeRequest, options: AgentCallOptions = {}): Promise<AgentRuntimeHandle> {
+    refuseIfAborted(options.signal, `resuming run "${request.runId}"`)
+    const run = this.#host.adopt(request)
+    this.#host.assertScope(run.sessionId, request.scope)
+    return {
+      runId: request.runId,
+      sessionId: run.sessionId,
+      ...(run.route === undefined ? {} : { route: run.route }),
+    }
+  }
+
+  /**
+   * Read the run's state from the owner.
+   * @param handle - handle returned by {@link start} or {@link resume}.
+   * @param options - caller-owned cancellation.
+   * @throws {AdapterError} `invalid-ref` when the owner does not know the session.
+   */
+  async status(handle: AgentRuntimeHandle, options: AgentCallOptions = {}): Promise<AgentRuntimeStatus> {
+    refuseIfAborted(options.signal, `reading run "${handle.runId}"`)
+    const run = this.#require(handle)
+    return {
+      runId: handle.runId,
+      sessionId: run.sessionId,
+      running: run.running,
+    }
+  }
+
+  /**
+   * Stop the run's work; the session record survives and stopping twice is a no-op.
+   * @param handle - handle returned by {@link start} or {@link resume}.
+   * @param options - caller-owned cancellation.
+   * @throws {AdapterError} `invalid-ref` when the owner does not know the session.
+   */
+  async stop(handle: AgentRuntimeHandle, options: AgentCallOptions = {}): Promise<void> {
+    refuseIfAborted(options.signal, `stopping run "${handle.runId}"`)
+    const run = this.#require(handle)
+    this.#host.settle(run.sessionId)
+  }
+
+  /**
+   * Read the run's durable events after a cursor, normalising the owner's raw
+   * read: positions at or below the cursor are withheld, a repeated position is
+   * reported once, and the result is ascending.
+   * @param handle - handle returned by {@link start} or {@link resume}.
+   * @param cursor - last position the caller has seen.
+   * @param options - caller-owned cancellation and the page bound.
+   * @throws {AdapterError} `invalid-ref` when the owner does not know the session.
+   */
+  async events(
+    handle: AgentRuntimeHandle,
+    cursor = 0,
+    options: AgentEventOptions = {},
+  ): Promise<SessionEventPage> {
+    refuseIfAborted(options.signal, `reading events of run "${handle.runId}"`)
+    const run = this.#require(handle)
+    const all = normaliseEvents(this.#host.readRaw(run.sessionId), cursor)
+    // A bounded read serves the most recent window, exactly as the platform does,
+    // and says so when that left positions behind.
+    const events = options.maxEvents === undefined ? all : all.slice(-options.maxEvents)
+    const end = events.at(-1)?.seq
+    return {
+      events,
+      cursor: end ?? cursor,
+      hasMore: all.length > events.length,
+    }
   }
 
   /** Look up a run or fail the way the port contract requires. */
-  #run(handle: AgentRuntimeHandle): FakeRun {
-    const run = this.#runs.get(handle.runId)
-    if (run === undefined) throw new AdapterError('invalid-ref', `dsh-mywork: unknown run "${handle.runId}"`)
+  #require(handle: AgentRuntimeHandle): FakeAgentRun {
+    // The session identity is authoritative and survives a restart; the run id is
+    // the caller's label, so it is the fallback for a handle that carries only one.
+    const run = this.#host.bySessionId(handle.sessionId) ?? this.#host.byRunId(handle.runId)
+    if (run === undefined) {
+      throw new AdapterError('invalid-ref', `dsh-mywork: unknown run "${handle.runId}"`)
+    }
     return run
   }
+}
+
+/** The handle one recorded run is addressed by. */
+function handleOf(run: FakeAgentRun): AgentRuntimeHandle {
+  return {
+    runId: run.runId,
+    sessionId: run.sessionId,
+    ...(run.route === undefined ? {} : { route: run.route }),
+  }
+}
+
+/**
+ * Apply the port's cursor discipline to one raw read: keep positions above the
+ * cursor, report each position once, and order the result ascending. Bound
+ * handling is the caller's, because a bounded page may serve either end.
+ * @param raw - events as the owner reported them.
+ * @param cursor - last position the caller has seen.
+ */
+function normaliseEvents(raw: readonly SessionEvent[], cursor: number): readonly SessionEvent[] {
+  const seen = new Set<number>()
+  const fresh: SessionEvent[] = []
+  for (const event of raw) {
+    if (event.seq <= cursor || seen.has(event.seq)) continue
+    seen.add(event.seq)
+    fresh.push(event)
+  }
+  fresh.sort((left, right) => left.seq - right.seq)
+  return fresh
 }
 
 /** Options accepted by {@link FakeModelCatalog}. */
