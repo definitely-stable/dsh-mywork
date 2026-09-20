@@ -400,3 +400,20 @@ export {
   type SkillDiscoveryInput,
   type SkillRegistryOptions,
 } from './skill.ts'
+export {
+  DEFAULT_MEMORY_LEVEL,
+  DEFAULT_MEMORY_SOURCE,
+  MEMORY_CLASS,
+  MEMORY_MEDIA_TYPE,
+  createMemoryContextProvider,
+  createMemoryFabric,
+  createMemoryRevisionRegistry,
+  memoryClaimKey,
+  memoryServeRefusal,
+  memoryTextOf,
+  type MemoryContextProvider,
+  type MemoryContextProviderOptions,
+  type MemoryFabricOptions,
+  type MemoryServing,
+  type MemoryServingInput,
+} from './memory.ts'
