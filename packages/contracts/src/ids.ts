@@ -47,6 +47,9 @@ export type BlueprintId = string
 /** Identifier of a skill. */
 export type SkillId = string
 
+/** Identifier of one retained memory record (§23.5). */
+export type MemoryId = string
+
 /** Identifier of a workspace. */
 export type WorkspaceId = string
 
