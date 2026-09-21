@@ -91,3 +91,23 @@ export {
   type GraphAvailability,
   type OutagePolicy,
 } from './reconcile.ts'
+
+export {
+  BEADS_JSON_SCHEMA_VERSION,
+  BEADS_MEMORY_ADAPTER_ID,
+  BEADS_MEMORY_ID_NAMESPACE,
+  BEADS_MEMORY_KEY_PREFIX,
+  BEADS_MEMORY_MANIFEST,
+  BEADS_MEMORY_PAYLOAD_SCHEMA,
+  BEADS_MEMORY_PROVIDER,
+  DEFAULT_MEMORY_COMMAND_TIMEOUT_MS,
+  createBeadsMemoryIdSource,
+  createBeadsMemoryProvider,
+  findBeadsDir,
+  highestSequenceOf,
+  parseBdVersion,
+  type BeadsMemoryDiagnostics,
+  type BeadsMemoryIdSourceOptions,
+  type BeadsMemoryOptions,
+  type BeadsMemoryProvider,
+} from './memory.ts'

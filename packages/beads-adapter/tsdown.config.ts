@@ -2,9 +2,10 @@ import { defineConfig } from 'tsdown'
 
 export default defineConfig({
   // `index` is the library surface the tests and other packages import;
-  // `plugin` is the Cordis row a profile mounts, kept separate so importing the
-  // adapter never drags in the plugin loader.
-  entry: ['src/index.ts', 'src/plugin.ts'],
+  // `plugin` and `memory-plugin` are the Cordis rows a profile mounts, kept
+  // separate so importing the adapter never drags in the plugin loader, and so a
+  // profile can mount the memory backend without the task graph.
+  entry: ['src/index.ts', 'src/plugin.ts', 'src/memory-plugin.ts'],
   outDir: 'lib',
   format: ['esm'],
   platform: 'node',
