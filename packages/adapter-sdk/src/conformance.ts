@@ -9,10 +9,11 @@
  *   requires for the port but no check covers yet.
  * - Check builders. {@link commonAdapterChecks} is the registry contract every
  *   adapter of every port must satisfy; {@link agentRuntimeChecks} exercises the
- *   `AgentRuntimePort` contract. The per-port suites for the remaining §36 ports
- *   arrive with the card that binds the port (`taskgraph` in MW-010, `memory` in
- *   MW-019), which is why {@link REQUIRED_CONFORMANCE_CHECKS} already lists what
- *   they will have to cover.
+ *   `AgentRuntimePort` contract, and {@link memoryChecks} the `MemoryProviderPort`
+ *   contract (§23.8). The per-port suites for the remaining §36 ports arrive with
+ *   the card that binds the port (`taskgraph` in MW-010), which is why
+ *   {@link REQUIRED_CONFORMANCE_CHECKS} already lists what they will have to
+ *   cover.
  *
  * The kit never reports a check it did not run as a pass: a §39 check without an
  * implementation shows up in `missing`, and a check that cannot apply to a given
@@ -27,8 +28,12 @@ import type {
   AgentRuntimePort,
   AgentStartRequest,
   ClockPort,
+  MemoryProviderPort,
+  MemoryRecord,
+  MemoryScopeRef,
   MyWorkErrorCode,
 } from '@dsh-mywork/contracts'
+import { MYWORK_ERROR_CODES, memoryScopeKey } from '@dsh-mywork/contracts'
 import {
   ADAPTER_KINDS,
   supportedCapabilities,
@@ -616,6 +621,442 @@ export function agentRuntimeChecks(options: AgentRuntimeChecksOptions): readonly
           'a restarted runtime must not report a position the caller already has',
         )
         expect(after.cursor >= before.cursor, 'the cursor must survive a restart')
+      },
+    },
+  ])
+}
+
+/** Options accepted by {@link memoryChecks}. */
+export interface MemoryChecksOptions {
+  /** Provider under test. */
+  readonly provider: MemoryProviderPort
+  /**
+   * Prefix for the record ids the checks create.
+   *
+   * Two suites over one store must not share it, and neither may a suite that
+   * runs twice against a store that outlives the process: the checks assert that
+   * a *first* retention reports `created: true`, which its own leftovers from an
+   * earlier run would falsify.
+   */
+  readonly idPrefix?: string
+  /**
+   * Two scopes the suite can tell apart, with different `type` and `id`.
+   * Default: two workspace scopes. The suite nests a third scope under the first
+   * one to check §23.2's ancestor rule, so the pair must be unrelated.
+   */
+  readonly scopes?: readonly [MemoryScopeRef, MemoryScopeRef]
+  /**
+   * Milliseconds the adapter promises to bound one provider call by (§49).
+   *
+   * The fabric's deadline is a wall-clock timer of its own, so the number the
+   * `timeouts` check compares against cannot be derived from the port: it is what
+   * the adapter declares.
+   */
+  readonly deadlineMs?: number
+  /**
+   * A port over a backend that never answers, for the `timeouts` check.
+   *
+   * Without it, and without {@link deadlineMs}, the check reports itself skipped
+   * rather than passing on a bound nothing tested.
+   */
+  readonly unresponsive?: () => MemoryProviderPort
+  /**
+   * A port over a backend that is not there at all, for `backend unavailable`.
+   * Absent, the check reports itself skipped.
+   */
+  readonly unavailable?: () => MemoryProviderPort
+  /**
+   * A port over a backend that speaks another contract revision, for
+   * `version mismatch`. Absent, the check reports itself skipped.
+   */
+  readonly mismatched?: () => MemoryProviderPort
+}
+
+/** Reading the checks stamp their probe records with. */
+const MEMORY_CONFORMANCE_NOW = 1_700_000_000_000
+
+/**
+ * Slack the `timeouts` check allows on top of the declared deadline, in
+ * milliseconds.
+ *
+ * A deadline bounds the adapter's *own* wait; killing a backend process and
+ * settling the call afterwards is scheduling, not a second deadline. The check
+ * exists to catch a call that never returns, so it is deliberately generous
+ * about how promptly the refusal arrives.
+ */
+const MEMORY_TIMEOUT_SLACK_MS = 2_000
+
+/**
+ * The canonical §42 code a thrown value carries, when it carries one.
+ *
+ * A memory provider refuses by throwing an error whose `code` is one of §42's —
+ * `MyWorkError` is the shape this workspace uses — and that identity has to
+ * survive a bundle boundary, so the code is read structurally rather than by
+ * class. {@link isAdapterRefusal} cannot serve here: it names the SDK's own
+ * `AdapterRefusal`, which a provider is not, and demanding it would fail every
+ * adapter that refuses the canonical way.
+ * @param error - the thrown value.
+ */
+function canonicalCodeOf(error: unknown): MyWorkErrorCode | undefined {
+  if (typeof error !== 'object' || error === null) return undefined
+  const candidate = (error as { code?: unknown }).code
+  if (typeof candidate !== 'string') return undefined
+  return (MYWORK_ERROR_CODES as readonly string[]).includes(candidate)
+    ? (candidate as MyWorkErrorCode)
+    : undefined
+}
+
+/** Run a body that must refuse with a canonical §42 code, however it is raised. */
+async function expectCanonicalRefusal(body: () => unknown, code: MyWorkErrorCode, what: string): Promise<void> {
+  try {
+    await body()
+  } catch (error) {
+    const actual = canonicalCodeOf(error)
+    if (actual === code) return
+    throw new Error(
+      `dsh-mywork: conformance: ${what}: expected ${code}, received ${actual ?? describeFailure(error)}`,
+    )
+  }
+  throw new Error(`dsh-mywork: conformance: ${what}: expected ${code}, but the call succeeded`)
+}
+
+/** One record the memory checks store and read back. */
+function probeMemoryRecord(input: {
+  readonly id: string
+  readonly scope: MemoryScopeRef
+  readonly statement: string
+}): MemoryRecord {
+  return Object.freeze({
+    id: input.id,
+    statement: input.statement,
+    scope: input.scope,
+    kind: 'fact',
+    sources: Object.freeze([]),
+    createdBy: Object.freeze({ component: 'conformance' }),
+    trust: 'high',
+    validity: Object.freeze({}),
+    supersedes: Object.freeze([]),
+    status: 'active',
+    revision: 1,
+    contentHash: `conformance-hash:${input.statement}`,
+    fingerprint: `conformance-fingerprint:${input.id}`,
+    retainedAt: MEMORY_CONFORMANCE_NOW,
+    statusChangedAt: MEMORY_CONFORMANCE_NOW,
+    reinforcedCount: 0,
+  })
+}
+
+/**
+ * The `MemoryProviderPort` checks §39 declares: `retain`, `recall`, `scope
+ * isolation`, `idempotency`, `timeouts`, `cancellation`, `invalid ref`,
+ * `backend unavailable`, and `version mismatch`.
+ *
+ * What the port alone can prove is proved here; what needs a backend the suite
+ * cannot build is asked for as a factory, and a check whose factory is absent
+ * reports itself skipped with its reason rather than passing on a property
+ * nothing exercised.
+ *
+ * Three checks assert a *refusal*, and the code they demand is the one the fabric
+ * reads off the thrown value: an unknown reference is `TASK_CONFLICT` and never
+ * `ADAPTER_UNAVAILABLE`, so a typo does not become a retry loop, and a backend
+ * that cannot answer never looks like a store that is empty — "I know nothing"
+ * and "I cannot answer" are different answers, and only the second may reach the
+ * fabric (§49).
+ * @param options - the provider under test, the scopes it is probed with, and
+ * the backends the environment-dependent checks need.
+ */
+export function memoryChecks(options: MemoryChecksOptions): readonly ConformanceCheck[] {
+  const provider = options.provider
+  const prefix = options.idPrefix ?? 'conformance'
+  const [scopeA, scopeB] = options.scopes ?? [
+    Object.freeze({ type: 'workspace', id: 'conformance-a' }),
+    Object.freeze({ type: 'workspace', id: 'conformance-b' }),
+  ]
+  /** A scope nested under {@link scopeA}, for §23.2's ancestor rule. */
+  const nested: MemoryScopeRef = Object.freeze({ type: 'task', id: `${prefix}-nested`, parent: scopeA })
+
+  return Object.freeze([
+    {
+      name: 'retain',
+      async run() {
+        const record = probeMemoryRecord({
+          id: `${prefix}-retain`,
+          scope: scopeA,
+          statement: 'conformance: a record the provider is asked to hold',
+        })
+        const outcome = await provider.retain({ record, mode: 'create' })
+        expect(
+          outcome.created === true,
+          'the first retention of a record must report that it created it',
+        )
+        expect(outcome.record.id === record.id, 'the provider must answer for the record it was given')
+        expect(
+          outcome.record.statement === record.statement,
+          'a retention must answer with the statement it was given',
+        )
+      },
+    },
+    {
+      name: 'recall',
+      async run() {
+        const record = probeMemoryRecord({
+          id: `${prefix}-recall`,
+          scope: scopeA,
+          statement: 'conformance: the statement a recall has to return',
+        })
+        await provider.retain({ record, mode: 'create' })
+        const answer = await provider.recall({ scopes: [scopeA] })
+        const found = answer.records.find(entry => entry.id === record.id)
+        expect(found !== undefined, 'recall must return a record the provider holds for the requested scope')
+        if (found === undefined) return
+        // Losing a field here is losing a §23.4 or §23.6 decision: the fabric
+        // reads the lifecycle state, the trust class and the §35 number off the
+        // record this port hands back, and a store that keeps only the text
+        // would silently turn a validated record into an unvalidated one.
+        for (const field of ['statement', 'kind', 'trust', 'status', 'revision', 'contentHash', 'fingerprint'] as const) {
+          expect(
+            found[field] === record[field],
+            `a recall must return the record's ${field}, received ${String(found[field])}`,
+          )
+        }
+        expect(
+          memoryScopeKey(found.scope) === memoryScopeKey(record.scope),
+          'a recall must return the scope the record was retained in',
+        )
+        expect(
+          found.retainedAt === record.retainedAt,
+          'a recall must return the record as it was retained, not a record the store rewrote',
+        )
+      },
+    },
+    {
+      name: 'scope isolation',
+      async run() {
+        const outsideId = `${prefix}-isolation-outside`
+        const nestedId = `${prefix}-isolation-nested`
+        await provider.retain({
+          record: probeMemoryRecord({ id: outsideId, scope: scopeB, statement: 'conformance: a record of the other scope' }),
+          mode: 'create',
+        })
+        await provider.retain({
+          record: probeMemoryRecord({ id: nestedId, scope: nested, statement: 'conformance: a record nested under the first scope' }),
+          mode: 'create',
+        })
+
+        const here = await provider.recall({ scopes: [scopeA] })
+        expect(
+          here.records.some(entry => entry.id === nestedId),
+          'a record in a scope nested under the requested one must be visible to it (§23.2)',
+        )
+        expect(
+          !here.records.some(entry => entry.id === outsideId),
+          'a record of another scope must not be visible to a request that does not name it (§52)',
+        )
+
+        const there = await provider.recall({ scopes: [scopeB] })
+        expect(there.records.some(entry => entry.id === outsideId), 'a request must see the records of the scope it names')
+        expect(
+          !there.records.some(entry => entry.id === nestedId),
+          'a request must not see a record nested under a scope it does not name',
+        )
+      },
+    },
+    {
+      name: 'idempotency',
+      async run() {
+        const record = probeMemoryRecord({
+          id: `${prefix}-idempotent`,
+          scope: scopeA,
+          statement: 'conformance: the same record proposed twice',
+        })
+        const first = await provider.retain({ record, mode: 'create' })
+        const second = await provider.retain({ record, mode: 'create' })
+        expect(first.created === true, 'the first retention must report that it created the record')
+        expect(
+          second.created === false,
+          'proposing the same record again must report that the provider already held it',
+        )
+        // The record the second call answers with has to be the record the
+        // provider holds — not the incoming one re-stamped, which is how a
+        // repeat that quietly rewrote the store would look from here.
+        expect(
+          second.record.id === record.id && second.record.retainedAt === record.retainedAt,
+          'a repeated retention must answer with the record the provider holds, not a rewritten one',
+        )
+        expect(
+          second.record.status === first.record.status &&
+            second.record.reinforcedCount === first.record.reinforcedCount,
+          'a repeated retention must not move the lifecycle state the first one left',
+        )
+        const answer = await provider.recall({ scopes: [scopeA], ids: [record.id] })
+        expect(
+          answer.records.length === 1,
+          `a repeated retention must not store the record twice, received ${String(answer.records.length)}`,
+        )
+        const held = answer.records[0]
+        if (held !== undefined) {
+          // What "did not write" means through this port: the stored record is
+          // the one that was already there. Whether the provider issued a write
+          // is *not* observable here — the port has no write counter — so an
+          // adapter that claims idempotence has to prove the absence of the
+          // second write through its own seam, and its own suite must do so.
+          expect(
+            held.retainedAt === record.retainedAt &&
+              held.statusChangedAt === record.statusChangedAt &&
+              held.reinforcedCount === record.reinforcedCount &&
+              held.contentHash === record.contentHash &&
+              held.fingerprint === record.fingerprint,
+            'a repeated retention must leave the stored record exactly as it was',
+          )
+        }
+      },
+    },
+    {
+      name: 'timeouts',
+      async run() {
+        const unresponsive = options.unresponsive
+        const deadlineMs = options.deadlineMs
+        if (unresponsive === undefined || deadlineMs === undefined) {
+          skipConformance(
+            'the caller supplied neither a port over a backend that never answers nor the deadline the adapter promises, so no bound could be tested',
+          )
+        }
+        // A wall clock on purpose: the deadline this check is about is the
+        // adapter's own timer, and the injected clock cannot observe one.
+        const started = Date.now()
+        let refused: unknown
+        try {
+          await unresponsive().recall({ scopes: [scopeA] })
+        } catch (error) {
+          refused = error
+        }
+        const elapsed = Date.now() - started
+        expect(refused !== undefined, 'a backend that never answers must be reported, not awaited forever')
+        expect(
+          elapsed <= deadlineMs + MEMORY_TIMEOUT_SLACK_MS,
+          `a call against a backend that never answers must be refused inside ${String(deadlineMs)}ms, took ${String(elapsed)}ms`,
+        )
+        expect(
+          canonicalCodeOf(refused) === 'ADAPTER_UNAVAILABLE',
+          `a call that ran out of time must refuse as ADAPTER_UNAVAILABLE, received ${describeFailure(refused)}`,
+        )
+      },
+    },
+    {
+      name: 'cancellation',
+      async run() {
+        const record = probeMemoryRecord({
+          id: `${prefix}-cancelled`,
+          scope: scopeA,
+          statement: 'conformance: a write whose caller stopped waiting',
+        })
+        const abandoned = provider.retain({ record, mode: 'create' })
+        // The caller's deadline is not the provider's: it stops waiting and the
+        // call carries on unobserved. What has to hold afterwards is that the
+        // store is coherent — the record is there whole or not at all — and that
+        // the provider answers again.
+        abandoned.catch(() => undefined)
+        const seen = await provider.recall({ scopes: [scopeA], ids: [record.id] })
+        // Both answers are legitimate and neither is a defect: the write may
+        // have landed before the caller walked away or not. What is not
+        // legitimate is a *third* state — two copies, or one copy that is not
+        // the record that was written.
+        expect(
+          seen.records.length === 0 || seen.records.length === 1,
+          `an abandoned write must leave the record absent or whole, received ${String(seen.records.length)} copies`,
+        )
+        const held = seen.records[0]
+        // A guard, and named as one: a provider whose write is one atomic value
+        // cannot be observed mid-flight — the Beads adapter reads before it
+        // writes and a recall overtakes it either before or after the write, so
+        // for that provider this branch is unreachable and the operative
+        // assertion is the one above. It stays because the suite is not written
+        // for one provider: a backend that assembles a record out of several
+        // writes can expose exactly the torn state this refuses.
+        if (held !== undefined) {
+          expect(
+            held.id === record.id &&
+              held.statement === record.statement &&
+              held.scope.type === record.scope.type &&
+              held.scope.id === record.scope.id &&
+              held.kind === record.kind &&
+              held.trust === record.trust &&
+              held.status === record.status &&
+              held.revision === record.revision &&
+              held.contentHash === record.contentHash &&
+              held.fingerprint === record.fingerprint &&
+              held.retainedAt === record.retainedAt,
+            'an abandoned write must leave the record whole, not a half-written one',
+          )
+        }
+        await abandoned.catch(() => undefined)
+        const again = await provider.retain({ record, mode: 'create' })
+        expect(again.record.id === record.id, 'a provider must stay usable after a caller abandoned a call')
+        expect(
+          again.created === false,
+          'a provider that stayed usable must still recognise the record it was left holding',
+        )
+      },
+    },
+    {
+      name: 'invalid ref',
+      async run() {
+        if (provider.resolve === undefined) {
+          skipConformance('the provider declares no reference lookup, so no reference can be addressed')
+        }
+        // TASK_CONFLICT, not ADAPTER_UNAVAILABLE: §23's refusal vocabulary maps
+        // an unknown reference and an unreachable provider to different codes,
+        // and a provider that reported an outage for a typo would turn one into
+        // a retry loop.
+        await expectCanonicalRefusal(
+          () => provider.resolve?.(`${prefix}-no-such-record`),
+          'TASK_CONFLICT',
+          'resolving a reference the provider does not hold',
+        )
+      },
+    },
+    {
+      name: 'backend unavailable',
+      async run() {
+        const unavailable = options.unavailable
+        if (unavailable === undefined) {
+          skipConformance('the caller supplied no port over an absent backend')
+        }
+        const port = unavailable()
+        const health = await port.health()
+        expect(health.available === false, 'an absent backend must report itself unavailable')
+        await expectCanonicalRefusal(
+          () => port.recall({ scopes: [scopeA] }),
+          'ADAPTER_UNAVAILABLE',
+          'recalling from an absent backend',
+        )
+        await expectCanonicalRefusal(
+          () =>
+            port.retain({
+              record: probeMemoryRecord({ id: `${prefix}-unavailable`, scope: scopeA, statement: 'conformance: a write to an absent backend' }),
+              mode: 'create',
+            }),
+          'ADAPTER_UNAVAILABLE',
+          'retaining into an absent backend',
+        )
+      },
+    },
+    {
+      name: 'version mismatch',
+      async run() {
+        const mismatched = options.mismatched
+        if (mismatched === undefined) {
+          skipConformance('the caller supplied no port over a backend that speaks another revision')
+        }
+        const port = mismatched()
+        // A backend that answers in a vocabulary this adapter does not know has
+        // to be refused, never decoded by guesswork: a half-understood record
+        // would enter the fabric wearing the authority of a validated one.
+        await expectCanonicalRefusal(
+          () => port.recall({ scopes: [scopeA] }),
+          'CONTRACT_MISMATCH',
+          'recalling from a backend that speaks another contract revision',
+        )
       },
     },
   ])

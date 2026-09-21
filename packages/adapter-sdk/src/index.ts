@@ -60,6 +60,7 @@ export {
   REQUIRED_CONFORMANCE_CHECKS,
   agentRuntimeChecks,
   commonAdapterChecks,
+  memoryChecks,
   runConformance,
   skipConformance,
   type AgentRuntimeChecksOptions,
@@ -69,4 +70,5 @@ export {
   type ConformanceResult,
   type ConformanceRunOptions,
   type ConformanceStatus,
+  type MemoryChecksOptions,
 } from './conformance.ts'
