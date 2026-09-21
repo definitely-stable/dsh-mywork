@@ -142,6 +142,19 @@ export interface MemoryFabricOptions {
    * records.
    */
   readonly clock?: ClockPort
+  /**
+   * Mints the identity of the next record, when the deployment has to.
+   *
+   * The default — `mem-<fabric instance>-<n>` — is unique within one process and
+   * repeats across a restart. That is invisible to a provider that loses its
+   * store with the process, and fatal to one that keeps it: the second process
+   * mints an id the store already holds, and a provider that refuses to rewrite
+   * a record's content refuses the write. A durable provider therefore supplies
+   * its own source here — the Beads provider continues the sequence its
+   * workspace already holds — and the fabric awaits it so a source that has to
+   * read the store can answer.
+   */
+  readonly nextId?: () => string | Promise<string>
 }
 
 /**
@@ -176,20 +189,29 @@ export function createMemoryFabric(options: MemoryFabricOptions = {}): MemoryFab
   /** Where each admitted record lives, so a reference can be routed back (§23.9). */
   const locator = new Map<string, { readonly provider: string; readonly scope: MemoryScopeRef }>()
   /**
-   * Identity of the next record; the fabric mints ids so a writer cannot choose
-   * its own.
+   * Mints the identity of the next record; the fabric mints ids so a writer
+   * cannot choose its own.
    *
    * The counter is scoped to this fabric instance rather than to the process:
    * two fabrics may be bound to one provider, and a shared counter would make
    * the second one mint an id the provider already holds — which the provider
    * rightly refuses as a conflict, blaming the record for a collision the
-   * fabric caused. A provider that outlives the process still needs an id
-   * source of its own, and that belongs to the card that binds it.
+   * fabric caused. A provider that outlives the process still needs an id source
+   * of its own, and that is {@link MemoryFabricOptions.nextId}.
    */
   let minted = 0
   const instance = ++FABRIC_SEQUENCE
   /** Diagnostics the fabric kept, newest last (§33). */
   const log: MemoryDiagnostic[] = []
+
+  /** The next record id: the deployment's source when it named one, else the counter. */
+  async function mintRecordId(): Promise<string> {
+    const source = options.nextId
+    if (source === undefined) return `mem-${instance}-${++minted}`
+    const id = await source()
+    requireText(id, 'a minted memory id')
+    return id
+  }
 
   function diagnose(
     code: MemoryDiagnosticCode,
@@ -590,7 +612,7 @@ export function createMemoryFabric(options: MemoryFabricOptions = {}): MemoryFab
       }
 
       const record = Object.freeze({
-        id: `mem-${instance}-${++minted}`,
+        id: await mintRecordId(),
         statement: checked.statement,
         scope: checked.scope,
         kind: checked.kind,
