@@ -35,9 +35,14 @@ const BUNDLE_UI = '@dsh-mywork/web'
  * DSH reports a row it could not resolve as a warning and keeps going, so a
  * missing second package used to leave this gate green while the profile it
  * produced carried a broken entry (review A, finding F-1). The verification
- * treats either line as a failure.
+ * treats any of these as a failure.
+ *
+ * The third marker is the other failure class the two-bundle shape creates
+ * (review A, finding N1): a bundle listed in `dsh.profile.bundles` but absent
+ * from the profile's `node_modules` is skipped with `cannot resolve profile
+ * bundle`, which is neither of the first two lines.
  */
-const INACTIVE_MARKERS = ['did not activate', 'failed to import']
+const INACTIVE_MARKERS = ['did not activate', 'failed to import', 'cannot resolve profile bundle']
 
 /** Diagnostic text the controller writes when `diagnostics: true`. */
 const MOUNT_LINE = 'dsh-mywork: controller mounted'
@@ -240,9 +245,10 @@ console.log('ok   composed profile contains both layers, both rows, and the over
 
 // 7. Boot the profile: both rows mount (the UI row mounts silently by design),
 //    and the clean EOF shutdown unloads the controller. A row DSH could not
-//    resolve is a warning that keeps the process running, so the markers are
+//    resolve is a warning that keeps the process running — and a bundle it
+//    cannot resolve at all is skipped the same way — so the markers are
 //    asserted here: "the tarball installs" is not the same claim as "every row
-//    it declares activates".
+//    and bundle it declares activates".
 const booted = dshRun(['--profile', PROFILE], 'boot')
 const bootOutput = `${booted.stdout}\n${booted.stderr}`
 expect(booted.status === 0, `profile boot exited with ${String(booted.status)}`, booted)
