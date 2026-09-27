@@ -205,3 +205,47 @@ test('the dry run predicts the deletion, and only tombstoned, unreferenced, old 
     store.close()
   }
 })
+
+test('a tombstone is spent with the artifact, so a reused id is not deleted again', async () => {
+  const { store } = await openRetentionStore(tempDir())
+  try {
+    let clock = 1_000
+    const artifacts = evidence.createArtifactStore(store, { now: () => clock })
+    const first = artifacts.put(artifactRequest({ artifactId: 'ev-reused' })).ref
+    store.transaction(tx => evidence.markArtifactForDeletion(tx, { artifactId: first.artifactId, markedAt: 6_000 }))
+
+    const window = { olderThan: 5_000 }
+    assert.deepEqual(
+      store.transaction(tx => evidence.listArtifactDeletionCandidates(tx, window)).candidates,
+      ['ev-reused'],
+    )
+    assert.equal(store.transaction(tx => evidence.pruneArtifacts(tx, window)).deleted, 1)
+    assert.equal(
+      store.transaction(tx => tx.get('SELECT COUNT(*) AS n FROM artifact_tombstone').n),
+      0,
+      'the mark is spent with the artifact it authorized',
+    )
+
+    // Ids are derived deterministically by the claim saga, so the same identity
+    // comes back with a later run: it must not inherit the old permission.
+    clock = 9_000
+    const second = artifacts.put(artifactRequest({ artifactId: 'ev-reused', bytes: new TextEncoder().encode('second run') }))
+    assert.equal(second.created, true)
+
+    const wide = { olderThan: 10_000 }
+    assert.deepEqual(
+      store.transaction(tx => evidence.listArtifactDeletionCandidates(tx, wide)).candidates,
+      [],
+      'the new artifact inherits no mark, so it is not a candidate',
+    )
+    assert.equal(store.transaction(tx => evidence.pruneArtifacts(tx, wide)).deleted, 0, 'and it is not deleted')
+    assert.equal(store.transaction(tx => tx.get('SELECT COUNT(*) AS n FROM artifacts').n), 1)
+    assert.throws(
+      () => store.transaction(tx => tx.run('DELETE FROM artifacts WHERE artifact_id = ?', 'ev-reused')),
+      error => String(error.message).includes(evidence.ARTIFACT_IMMUTABLE_MARKER),
+      'the recreated artifact is guarded like any other',
+    )
+  } finally {
+    store.close()
+  }
+})

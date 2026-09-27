@@ -378,14 +378,26 @@ export function listArtifactDeletionCandidates(
  * what happened, and an entry that points at bytes nobody can read any more is
  * a hole in the record. Run {@link listArtifactDeletionCandidates} first — the
  * deletion is irreversible.
- * @param executor - connection or open transaction.
+ *
+ * The tombstone is **spent** with the artifact it authorized: the mark goes in
+ * the same loop, right after the delete. The order is load-bearing — the
+ * `artifacts_no_delete` guard demands the mark at the moment of the delete, so
+ * removing the mark first would abort the operation — and it is what stops a
+ * later artifact from inheriting an old permission when an id is derived
+ * deterministically and reused.
+ * @param executor - connection or open transaction; use one transaction so the
+ * artifact and its mark commit together.
  * @param window - explicit boundary on `created_at`.
  */
 export function pruneArtifacts(executor: SqlExecutor, window: ArtifactRetentionWindow): ArtifactRetentionResult {
   const { cutoff, candidates } = listArtifactDeletionCandidates(executor, window)
   let deleted = 0
   for (const artifactId of candidates) {
-    deleted += executor.run('DELETE FROM artifacts WHERE artifact_id = ?', artifactId)
+    const removed = executor.run('DELETE FROM artifacts WHERE artifact_id = ?', artifactId)
+    deleted += removed
+    if (removed === 1) {
+      executor.run('DELETE FROM artifact_tombstone WHERE artifact_id = ?', artifactId)
+    }
   }
   return Object.freeze({ cutoff, candidates: candidates.length, deleted })
 }
