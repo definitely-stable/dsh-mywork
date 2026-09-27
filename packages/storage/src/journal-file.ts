@@ -10,11 +10,15 @@
  * lost book adopt the numbers the database already knows instead of handing out
  * new ones (F-63b).
  *
- * Read-only by construction: the connection is opened with `readOnly`, no pragma
- * is applied, and no statement writes. A missing file is not an error — a fresh
- * `$DSH_HOME` has no state yet — but a file that exists and cannot be read is,
- * because answering "no journal" there is how a version gets silently
- * renumbered onto a migration that already owns it.
+ * Read-only **at the SQL level**: the connection is opened with `readOnly`, no
+ * pragma is applied, and no statement writes. That is not the same as "touches
+ * no file": opening a WAL database read-only still lets SQLite create or map its
+ * `-shm` and `-wal` sidecars next to the database, so the caller must own the
+ * state directory it points this at (measured by review B: a read of
+ * `controller.sqlite` left a 32 KiB `-shm` behind). A missing database file is
+ * not an error — a fresh `$DSH_HOME` has no state yet — but a file that exists
+ * and cannot be read is, because answering "no journal" there is how a version
+ * gets silently renumbered onto a migration that already owns it.
  * @module
  */
 
