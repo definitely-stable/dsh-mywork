@@ -446,3 +446,16 @@ export {
   type RolloverOutcome,
   type SessionWindowInput,
 } from './session.ts'
+/** The D15 worker tool surface: an allowlist derived from the §31 permission sets (F-56). */
+export {
+  WORKER_SURFACE_PERMISSIONS,
+  WORKER_TOOL_ALLOWLIST,
+  WORKER_TOOLS_BY_PERMISSION,
+  applyWorkerSurface,
+  workerToolAllowlist,
+  workerTools,
+  type WorkerSurfaceInput,
+  type WorkerSurfaceReason,
+  type WorkerSurfaceReport,
+  type WorkerToolRestrictPort,
+} from './worker-surface.ts'
