@@ -7,7 +7,7 @@
  * (docs/user/develop/basic/publish.md).
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -20,35 +20,61 @@ export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const controllerDir = join(repoRoot, 'packages', 'controller')
 
 /**
+ * The tarball name `pnpm pack` derives from a manifest. pnpm drops the scope:
+ * `@dsh-mywork/controller` becomes `dsh-mywork-controller-0.1.0.tgz`.
+ * @param {{ name: string, version: string }} manifest - the package manifest.
+ * @returns {string} the deterministic tarball file name.
+ */
+export function tarballName(manifest) {
+  return `${manifest.name.replace(/^@/, '').replaceAll('/', '-')}-${manifest.version}.tgz`
+}
+
+/**
  * Pack `@dsh-mywork/controller` into a destination directory.
+ *
+ * Idempotency note: `pnpm pack` writes a *version-deterministic* file name and
+ * silently overwrites an existing one. Comparing a "before" set of names with
+ * the names found afterwards therefore cannot work on a second run — the
+ * tarball is overwritten under the same name and the difference is empty. This
+ * removes the same-named file up front and then asserts on that exact path.
  * @param {{ outDir?: string }} [options] - destination; defaults to `.tmp/pack`.
  * @returns {string} absolute path of the produced tarball.
- * @throws {Error} when the build output is missing or `pnpm pack` fails.
+ * @throws {Error} when the build output is missing, `pnpm` cannot be launched,
+ *   `pnpm pack` fails, the expected tarball is absent, or it is empty.
  */
 export function packController(options = {}) {
   const outDir = options.outDir ?? join(repoRoot, '.tmp', 'pack')
   if (!existsSync(join(controllerDir, 'lib', 'index.js'))) {
     throw new Error('pack: packages/controller/lib/index.js is missing — run "pnpm run build" first')
   }
-  const before = new Set(readdirSync(controllerDir).filter(name => name.endsWith('.tgz')))
-  const result = runPnpm(['pack'], {
+  const manifest = JSON.parse(readFileSync(join(controllerDir, 'package.json'), 'utf8'))
+  const name = tarballName(manifest)
+  mkdirSync(outDir, { recursive: true })
+  rmSync(join(outDir, name), { force: true })
+  rmSync(join(controllerDir, name), { force: true })
+  const logDir = join(repoRoot, '.tmp', 'pack-logs')
+  const result = runPnpm(['pack', '--pack-destination', outDir], {
     cwd: controllerDir,
     env: process.env,
-    logDir: join(repoRoot, '.tmp', 'pack-logs'),
+    logDir,
     logName: 'pnpm-pack',
   })
+  // Record which launch branch ran, so diagnosing the runner never requires
+  // reading the launcher's code.
+  const launch = result.launch
+  writeFileSync(
+    join(logDir, 'pnpm-pack.launch.log'),
+    `branch: ${launch.kind}\ncommand: ${launch.command ?? ''}\nargs: ${JSON.stringify(launch.args ?? [])}\n`
+      + `shim: ${launch.shim ?? ''}\nshell: ${String(launch.shell)}\n`,
+  )
   if (result.error !== undefined) throw result.error
   if (result.status !== 0) {
     throw new Error(`pack: pnpm pack exited with code ${String(result.status)}\n${result.stderr}`)
   }
-  const produced = readdirSync(controllerDir).filter(name => name.endsWith('.tgz') && !before.has(name))
-  if (produced.length !== 1) {
-    throw new Error(`pack: expected exactly one new tarball in ${controllerDir}, found ${JSON.stringify(produced)}`)
+  const tarball = join(outDir, name)
+  if (!existsSync(tarball)) {
+    throw new Error(`pack: expected ${name} in ${outDir}, found ${JSON.stringify(readdirSync(outDir))}`)
   }
-  rmSync(outDir, { recursive: true, force: true })
-  mkdirSync(outDir, { recursive: true })
-  const tarball = join(outDir, produced[0])
-  renameSync(join(controllerDir, produced[0]), tarball)
   if (statSync(tarball).size === 0) throw new Error(`pack: produced an empty tarball at ${tarball}`)
   return tarball
 }
