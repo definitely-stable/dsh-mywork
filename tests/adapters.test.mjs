@@ -9,10 +9,12 @@
  */
 
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { assertScratchHome, scratchDshHome } from './lib/tmp-home.mjs'
 
 /** Repository root; every artifact below is addressed from here. */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -22,10 +24,13 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  * pointed at a scratch directory BEFORE the built packages are imported or
  * mounted. A run that used the real home would create
  * `dsh-mywork/state/*.sqlite` inside the user's profile, which this campaign
- * forbids; the mount test below asserts the real home stayed absent.
+ * forbids; `assertScratchHome` states that positively — the resolved path must
+ * live under the repository's `.tmp`, because a pin that merely sets the
+ * variable would pass at any value — and the mount test below also asserts the
+ * real home stayed absent.
  */
-process.env.DSH_HOME = join(repoRoot, '.tmp', 'adapters-dsh-home')
-mkdirSync(process.env.DSH_HOME, { recursive: true })
+scratchDshHome('adapters')
+assertScratchHome()
 
 /**
  * Drop comments in a single left-to-right pass, keeping string and template

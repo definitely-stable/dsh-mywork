@@ -26,9 +26,11 @@ const controller = await import(pathToFileURL(controllerEntry).href)
 /** A policy that names one route, permits no fallback, and asks for no escalation. */
 const singleRoute = { preferred: 'glm/sonnet', fallback: [], escalation: [] }
 
-test('a registered provider that advertises no models is model-not-routable, not an outage', async () => {
-  // The provider answers — its catalogue is simply empty. That is a missing
-  // model, and it must not be flattened into "the provider is down".
+test('a registered provider that cannot resolve the named model is model-not-routable, not an outage', async () => {
+  // The provider is registered and its catalogue answers — it simply does not
+  // serve the named model. What this test proves is that branch, and only it: an
+  // empty advertised list would still route if resolution answered, so nothing
+  // here claims the "empty listModels" path, only the refusal reason.
   const catalog = new adapterTesting.FakeModelCatalog({ providers: [{ id: 'glm', name: 'GLM' }], models: {} })
   const decision = await core.routeModel({ port: catalog, request: { policy: singleRoute } })
 

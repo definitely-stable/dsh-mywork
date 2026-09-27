@@ -10,11 +10,12 @@
  */
 
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { assertScratchHome, scratchDshHome } from './lib/tmp-home.mjs'
 import { adapterTesting, contracts, core, repoRoot } from './lib/fixtures.mjs'
 
 /**
@@ -23,10 +24,12 @@ import { adapterTesting, contracts, core, repoRoot } from './lib/fixtures.mjs'
  * imported, or a plain `node --test tests/routing.test.mjs` writes
  * `dsh-mywork/state/*.sqlite` into the user's real home — which this campaign
  * forbids. The pin must happen before the import below, because the storage
- * layer resolves its home when it is first loaded.
+ * layer resolves its home when it is first loaded, and `assertScratchHome`
+ * states the property positively: a pin that merely sets the variable would
+ * pass at any value, including the wrong one.
  */
-process.env.DSH_HOME = join(repoRoot, '.tmp', 'routing-dsh-home')
-mkdirSync(process.env.DSH_HOME, { recursive: true })
+scratchDshHome('routing')
+assertScratchHome()
 
 // The controller is the published bundle and is not part of the domain fixture
 // set, so this suite loads it the way a consumer would.
