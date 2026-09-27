@@ -140,6 +140,23 @@ export {
   type ProductTelemetryScalar,
 } from './telemetry.ts'
 
+/**
+ * The §30 charge bridge over the platform token meter (F-51, D05):
+ * `measure()` in, a `BudgetCharge` out, and no counter of its own.
+ */
+export {
+  bridgeMeasurement,
+  createBudgetMeter,
+  type BudgetMeter,
+  type BudgetMeterPricing,
+  type MeasuredCharge,
+  type MeasurementBaseline,
+  type MeasurementBridgeInput,
+  type MeasurementSource,
+  type TokenMeasurement,
+  type TokenMeterPort,
+} from './budget-meter.ts'
+
 /** Plugin display name used by the Cordis loader in diagnostics. */
 export const name = '@dsh-mywork/controller'
 

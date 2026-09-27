@@ -66,6 +66,7 @@ import {
   type MyWorkLayout,
   type MyWorkStore,
 } from '@dsh-mywork/storage'
+import { createBudgetMeter, type BudgetMeter, type TokenMeterPort } from './budget-meter.ts'
 import { createMigrationAllocator, type AllocationAdoption, type MigrationAllocator } from './migration-allocator.ts'
 
 /**
@@ -169,6 +170,14 @@ export interface MyWorkApplicationOptions {
   readonly processId?: number
   /** How long one controller lease lasts. Defaults to 15 seconds. */
   readonly leaseMs?: number
+  /**
+   * The platform token meter (§53, D05, F-51). Optional, because a profile
+   * without the `tokenMeter` service still composes — and then no live session
+   * can be measured, which this root reports through
+   * {@link MyWorkApplication.budgetMeter} instead of replacing the meter with a
+   * counter of its own.
+   */
+  readonly tokenMeter?: TokenMeterPort
 }
 
 /**
@@ -197,6 +206,15 @@ export interface MyWorkApplication {
   readonly saga: ClaimSaga | undefined
   /** The §16 scheduler runtime; constructed here, armed by its owner. */
   readonly scheduler: Scheduler | undefined
+  /**
+   * The §53 charge bridge over the injected token meter (F-51, D05).
+   *
+   * `undefined` when the deployment mounted no `tokenMeter`: every token number
+   * MyWork charges has to come from a real measurement, so an absent meter is
+   * reported rather than papered over with a number this root would have to
+   * invent. Every reading it returns comes from `measure()` on that call.
+   */
+  readonly budgetMeter: BudgetMeter | undefined
   /** Subsystems brought up, in startup order. */
   readonly services: readonly MyWorkSubsystem[]
   /** Admissions a tick decided, in order; the sink until the claim path owns it. */
@@ -221,6 +239,10 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
   const processId = options.processId ?? process.pid
   const leaseMs = options.leaseMs ?? 15_000
   const diagnostics = options.diagnostics ?? false
+  // Built once, at composition time: the bridge is stateless, so binding it here
+  // costs nothing and lets a caller tell "no meter was mounted" from "a meter is
+  // mounted and the reading is zero".
+  const budgetMeter = options.tokenMeter === undefined ? undefined : createBudgetMeter(options.tokenMeter)
 
   let started = false
   let controller: MyWorkStore | undefined
@@ -352,6 +374,9 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
     },
     get scheduler() {
       return scheduler
+    },
+    get budgetMeter() {
+      return budgetMeter
     },
     get services() {
       return Object.freeze([...services])
