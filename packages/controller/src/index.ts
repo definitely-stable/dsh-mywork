@@ -117,11 +117,12 @@ export {
 
 /**
  * The F-54/F-55 product-telemetry export, re-exported as this package's public
- * surface: the record builder, the attribute allowlist that bounds what it may
- * disclose, and the fail-open `emit` wrapper (D16).
+ * surface: the record builder, the attribute allowlist and value shapes that
+ * bound what it may disclose, and the fail-open `emit` wrapper (D16).
  */
 export {
   PRODUCT_ATTRIBUTE_ALLOWLIST,
+  PRODUCT_ATTRIBUTE_SHAPES,
   PRODUCT_EVENT_BODIES,
   PRODUCT_EVENT_INPUT_FIELDS,
   PRODUCT_EVENT_NAMES,
@@ -131,13 +132,16 @@ export {
   emitProductEvent,
   resolveProductTelemetry,
   toProductEvent,
+  type ProductAttributeShape,
   type ProductEmitResult,
   type ProductEventInput,
   type ProductEventOutcome,
   type ProductTelemetryContext,
   type ProductTelemetryPort,
   type ProductTelemetryRecord,
+  type ProductTelemetryResolution,
   type ProductTelemetryScalar,
+  type ProductTelemetryUnavailableReason,
 } from './telemetry.ts'
 
 /**

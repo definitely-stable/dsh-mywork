@@ -7,7 +7,10 @@
  * platform surface is read structurally through `ctx.get('productTelemetry')`,
  * so this module stays pure and directly unit-testable, and a profile that does
  * not mount product telemetry keeps working — the export is fail-open and says
- * so in its own result (`reason: 'telemetry-disabled'`).
+ * why in its own result: `telemetry-disabled` (no service), `telemetry-unavailable`
+ * (the lookup threw), `telemetry-failed` (the channel refused the record). A
+ * malformed event is still refused in all three cases, because the record is
+ * built before the channel is resolved.
  *
  * The platform record has a **required free-text `body`** and the package does
  * not redact caller strings (`product-telemetry-otel/README.md:103`: "Caller
@@ -17,13 +20,17 @@
  * input field of {@link ProductEventInput}.
  *
  * F-55 closes the other channel — the attributes — with an **allowlist** rather
- * than a denylist: {@link PRODUCT_ATTRIBUTE_ALLOWLIST} names every key MyWork may
- * disclose, and the event's own field set is closed the same way
- * ({@link PRODUCT_EVENT_INPUT_FIELDS}). An unknown key is refused, so a key
- * nobody thought of cannot be added by a caller, and the body decision is part
- * of the same policy: neither level names anything that could carry content.
+ * than a denylist: {@link PRODUCT_ATTRIBUTE_SHAPES} names every key MyWork may
+ * disclose **and the shape its value must have**, and the event's own field set
+ * is closed the same way ({@link PRODUCT_EVENT_INPUT_FIELDS}). An unknown key is
+ * refused, a value that does not fit its key's declared shape is refused, and
+ * the body decision is part of the same policy: no level names anything that
+ * could carry content. The shape half was review B6: a key alone left the value
+ * channel open.
  * @module
  */
+
+import { OPERATION_DOMAINS, type OperationDomain } from '@dsh-mywork/contracts'
 
 /**
  * Cordis service name of the platform product-telemetry service (D16).
@@ -127,25 +134,58 @@ export const PRODUCT_EVENT_BODIES: Readonly<Record<string, string>> = Object.fre
 })
 
 /**
- * Every attribute key MyWork may put in a product event, and nothing else.
+ * Declared shape of one allowlisted attribute value (review B6).
+ *
+ * An allowlist that constrains only the KEY leaves the value channel open: a
+ * caller can put any string under `mywork.attempt_count` and the record ships
+ * it, because the type says `number` and the runtime said nothing. A shape is
+ * the missing half — each key names what its value may be, and a value that
+ * does not fit is refused instead of exported.
+ */
+export type ProductAttributeShape =
+  /** A non-empty string naming something (an identifier, §44). */
+  | 'identifier'
+  /** A finite number of milliseconds, zero or more. */
+  | 'duration-ms'
+  /** A finite, non-negative integer count. */
+  | 'count'
+  /** A member of {@link PRODUCT_EVENT_OUTCOMES}. */
+  | 'outcome'
+  /** A member of the §31 operation domains. */
+  | 'operation-domain'
+
+/**
+ * Every attribute MyWork may put in a product event, with the shape its value
+ * must have — and nothing else.
  *
  * Identifiers, an operation domain, an outcome, a duration, and an attempt
  * count: things a deployment can aggregate and correlate on, and none of them
- * content. The list is the gate, not a description of one — a key outside it is
- * refused, so the question "may this be disclosed?" is answered for every key
- * rather than only for the keys somebody remembered to ban (F-55).
+ * content. The table is the gate, not a description of one — a key outside it is
+ * refused, and a value that does not fit its declared shape is refused too, so
+ * the question "may this be disclosed?" is answered for every key rather than
+ * only for the keys somebody remembered to ban (F-55, review B6).
  */
-export const PRODUCT_ATTRIBUTE_ALLOWLIST: readonly string[] = Object.freeze([
-  'mywork.correlation_id',
-  'mywork.workspace_id',
-  'mywork.task_id',
-  'mywork.attempt_id',
-  'mywork.operation_id',
-  'mywork.operation_domain',
-  'mywork.outcome',
-  'mywork.duration_ms',
-  'mywork.attempt_count',
-])
+export const PRODUCT_ATTRIBUTE_SHAPES: Readonly<Record<string, ProductAttributeShape>> = Object.freeze({
+  'mywork.correlation_id': 'identifier',
+  'mywork.workspace_id': 'identifier',
+  'mywork.task_id': 'identifier',
+  'mywork.attempt_id': 'identifier',
+  'mywork.operation_id': 'identifier',
+  'mywork.operation_domain': 'operation-domain',
+  'mywork.outcome': 'outcome',
+  'mywork.duration_ms': 'duration-ms',
+  'mywork.attempt_count': 'count',
+})
+
+/**
+ * Every attribute key MyWork may put in a product event, and nothing else.
+ *
+ * Derived from {@link PRODUCT_ATTRIBUTE_SHAPES} so the two cannot drift: a key
+ * cannot be allowed without a declared shape to validate its value against.
+ */
+export const PRODUCT_ATTRIBUTE_ALLOWLIST: readonly string[] = Object.freeze(
+  Object.keys(PRODUCT_ATTRIBUTE_SHAPES),
+)
 
 /**
  * Every field a product event may carry; the shape is closed.
@@ -192,7 +232,7 @@ export interface ProductEventInput {
   /** Attempt identifier. */
   readonly attemptId?: string
   /** Domain of the operation (§31), e.g. `filesystem`. */
-  readonly operationDomain?: string
+  readonly operationDomain?: OperationDomain
   /** Duration of the attempt in milliseconds. */
   readonly durationMs?: number
   /** How many attempts the task has taken, for retry diagnostics. */
@@ -201,18 +241,40 @@ export interface ProductEventInput {
    * Extra attributes a caller wants to disclose.
    *
    * The values are `unknown` on purpose: this is the only place a caller can
-   * add anything, so it is the only place a key can be wrong, and every key is
-   * checked against {@link PRODUCT_ATTRIBUTE_ALLOWLIST} before it is used.
+   * add anything, so it is the only place a key or a value can be wrong. Every
+   * key is checked against {@link PRODUCT_ATTRIBUTE_SHAPES} and every value
+   * against that key's declared shape before it is used.
    */
   readonly attributes?: Readonly<Record<string, unknown>>
 }
 
-/** Result of one export attempt; `reason` distinguishes "sent" from "no channel". */
+/**
+ * Why the export found no usable channel.
+ *
+ * The three are distinct because they need different responses: `disabled` is a
+ * profile that does not mount telemetry, `unavailable` is a lookup that threw,
+ * and `failed` is a channel that was there and refused the record. All three
+ * leave the attempt alive, which is the fail-open contract of D16.
+ */
+export type ProductTelemetryUnavailableReason =
+  /** No `productTelemetry` service in this profile. */
+  | 'telemetry-disabled'
+  /** The service lookup itself threw. */
+  | 'telemetry-unavailable'
+  /** The service exists but `emit` threw. */
+  | 'telemetry-failed'
+
+/** Result of one channel lookup: a port, or the reason there is none. */
+export type ProductTelemetryResolution =
+  | { readonly available: true; readonly port: ProductTelemetryPort }
+  | { readonly available: false; readonly reason: ProductTelemetryUnavailableReason }
+
+/** Result of one export attempt; `reason` distinguishes "sent" from why not. */
 export interface ProductEmitResult {
   /** Whether a record reached the platform service. */
   readonly emitted: boolean
-  /** `emitted` on success, `telemetry-disabled` when the profile mounts no service. */
-  readonly reason: 'emitted' | 'telemetry-disabled'
+  /** `emitted` on success, or why the record did not leave. */
+  readonly reason: 'emitted' | ProductTelemetryUnavailableReason
   /** Event name the record carried, so a caller can log what it would have sent. */
   readonly eventName: string
 }
@@ -225,8 +287,9 @@ export interface ProductEmitResult {
  * @param input - correlation, outcome, and the identifiers MyWork discloses.
  * @returns the record to hand to `productTelemetry.emit`.
  * @throws {TypeError} when the event is malformed: an unknown field, an
- *   attribute outside {@link PRODUCT_ATTRIBUTE_ALLOWLIST}, a non-scalar
- *   attribute value, or an outcome outside {@link PRODUCT_EVENT_OUTCOMES}.
+ *   attribute outside {@link PRODUCT_ATTRIBUTE_SHAPES}, a value that does not
+ *   fit its attribute's declared shape, or an outcome outside
+ *   {@link PRODUCT_EVENT_OUTCOMES}.
  */
 export function toProductEvent(input: ProductEventInput): ProductTelemetryRecord {
   assertProductEventInput(input)
@@ -240,49 +303,81 @@ export function toProductEvent(input: ProductEventInput): ProductTelemetryRecord
   if (body === undefined) {
     throw new TypeError(`dsh-mywork: product event "${eventName}" has no fixed body; add it to PRODUCT_EVENT_BODIES`)
   }
+  const attributes = attributesOf(input)
+  assertAttributeShapes(attributes)
   return Object.freeze({
     eventName,
     body,
     timestamp: input.at,
-    attributes: Object.freeze(attributesOf(input)),
+    attributes: Object.freeze(attributes),
   })
 }
 
 /**
  * Resolve the platform service, or `undefined` when the profile has none.
  *
- * A service whose `emit` is not callable is treated as absent: an absent
- * channel must not crash an attempt, and the result says which of the two it
- * was.
+ * A service whose `emit` is not callable is treated as absent, and so is a
+ * context whose `get` throws: an absent channel must not crash an attempt, and
+ * the result says which of the two it was.
  * @param ctx - the context the controller runs in.
  */
 export function resolveProductTelemetry(ctx: ProductTelemetryContext): ProductTelemetryPort | undefined {
-  const candidate = ctx.get(PRODUCT_TELEMETRY_SERVICE)
-  if (candidate === undefined || candidate === null) return undefined
-  const emit = (candidate as { emit?: unknown }).emit
-  if (typeof emit !== 'function') return undefined
-  return candidate as ProductTelemetryPort
+  const candidate = probeProductTelemetry(ctx)
+  return candidate.available ? candidate.port : undefined
 }
 
 /**
- * Export one settled attempt, or report that telemetry is disabled.
+ * Export one settled attempt, or report why no channel took it.
  *
  * The record is built **before** the channel is resolved, so a malformed event
  * is refused in every profile — a validation that only ran where a collector
  * exists would let a leak ship silently.
  * @param ctx - the context the controller runs in.
  * @param input - the attempt to report.
- * @returns whether the record was handed to the platform service.
+ * @returns whether the record was handed to the platform service, and why not.
  * @throws {TypeError} when the event itself is malformed (see {@link toProductEvent}).
  */
 export function emitProductEvent(ctx: ProductTelemetryContext, input: ProductEventInput): ProductEmitResult {
   const record = toProductEvent(input)
-  const port = resolveProductTelemetry(ctx)
-  if (port === undefined) {
-    return Object.freeze({ emitted: false, reason: 'telemetry-disabled', eventName: record.eventName })
+  const resolution = probeProductTelemetry(ctx)
+  if (!resolution.available) {
+    return Object.freeze({ emitted: false, reason: resolution.reason, eventName: record.eventName })
   }
-  port.emit(record)
+  try {
+    resolution.port.emit(record)
+  } catch {
+    // A mounted channel that throws is still a channel that did not take the
+    // record. Telemetry is not allowed to fail an attempt, and the reason says
+    // which kind of failure it was.
+    return Object.freeze({ emitted: false, reason: 'telemetry-failed', eventName: record.eventName })
+  }
   return Object.freeze({ emitted: true, reason: 'emitted', eventName: record.eventName })
+}
+
+/**
+ * Look up the platform service without ever throwing.
+ *
+ * `ctx.get` is a live service lookup, and a composition may throw from it (a
+ * provider that fails to construct, a proxy that refuses). That is a channel we
+ * do not have, not an attempt that must die: the caller gets a reason instead.
+ * @param ctx - the context the controller runs in.
+ * @returns the channel, or why there is none.
+ */
+function probeProductTelemetry(ctx: ProductTelemetryContext): ProductTelemetryResolution {
+  let candidate: unknown
+  try {
+    candidate = ctx.get(PRODUCT_TELEMETRY_SERVICE)
+  } catch {
+    return Object.freeze({ available: false, reason: 'telemetry-unavailable' })
+  }
+  if (candidate === undefined || candidate === null) {
+    return Object.freeze({ available: false, reason: 'telemetry-disabled' })
+  }
+  const emit = (candidate as { emit?: unknown }).emit
+  if (typeof emit !== 'function') {
+    return Object.freeze({ available: false, reason: 'telemetry-disabled' })
+  }
+  return Object.freeze({ available: true, port: candidate as ProductTelemetryPort })
 }
 
 /** Attributes of one event, built from the typed input and the allowlist only. */
@@ -317,8 +412,8 @@ function attributesOf(input: ProductEventInput): Record<string, ProductTelemetry
  * profiles that matter least to observe and most to protect.
  * @param raw - the candidate event.
  * @throws {TypeError} on an unknown field, an attribute outside
- *   {@link PRODUCT_ATTRIBUTE_ALLOWLIST}, a non-scalar attribute value, or a
- *   missing correlation id or clock reading.
+ *   {@link PRODUCT_ATTRIBUTE_SHAPES}, or a missing correlation id or clock
+ *   reading.
  */
 function assertProductEventInput(raw: unknown): asserts raw is ProductEventInput {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -347,17 +442,70 @@ function assertAttributes(raw: unknown): void {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new TypeError(`dsh-mywork: product event attributes must be an object, received ${describeValue(raw)}`)
   }
-  for (const [key, value] of Object.entries(raw)) {
-    if (!PRODUCT_ATTRIBUTE_ALLOWLIST.includes(key)) {
+  for (const key of Object.keys(raw)) {
+    if (!(key in PRODUCT_ATTRIBUTE_SHAPES)) {
       throw new TypeError(
         `dsh-mywork: "${key}" is not an allowlisted product event attribute; allowed: ${PRODUCT_ATTRIBUTE_ALLOWLIST.join(', ')}`,
       )
     }
-    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+  }
+}
+
+/**
+ * Refuse an attribute whose value does not fit the shape its key declares.
+ *
+ * Runs over the **finished** attribute map, so a value derived from the input is
+ * checked exactly like one a caller supplied: `durationMs: NaN`, a string under
+ * `mywork.attempt_count`, or a free string under `mywork.operation_domain` are
+ * all refused here rather than exported (review B6).
+ * @param attributes - the attributes of one event, after both sources merged.
+ * @throws {TypeError} on a value that does not fit its declared shape.
+ */
+function assertAttributeShapes(attributes: Record<string, ProductTelemetryScalar>): void {
+  for (const [key, value] of Object.entries(attributes)) {
+    const shape = PRODUCT_ATTRIBUTE_SHAPES[key]
+    if (shape === undefined) {
       throw new TypeError(
-        `dsh-mywork: product event attribute "${key}" must be a scalar, received ${describeValue(value)}`,
+        `dsh-mywork: "${key}" is not an allowlisted product event attribute; allowed: ${PRODUCT_ATTRIBUTE_ALLOWLIST.join(', ')}`,
       )
     }
+    if (!fitsAttributeShape(shape, value)) {
+      throw new TypeError(
+        `dsh-mywork: product event attribute "${key}" must be ${describeShape(shape)}, received ${describeValue(value)}`,
+      )
+    }
+  }
+}
+
+/** Whether a value fits the declared shape of its attribute. */
+function fitsAttributeShape(shape: ProductAttributeShape, value: unknown): boolean {
+  switch (shape) {
+    case 'identifier':
+      return typeof value === 'string' && value.trim() !== ''
+    case 'duration-ms':
+      return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    case 'count':
+      return typeof value === 'number' && Number.isInteger(value) && value >= 0
+    case 'outcome':
+      return typeof value === 'string' && (PRODUCT_EVENT_OUTCOMES as readonly string[]).includes(value)
+    case 'operation-domain':
+      return typeof value === 'string' && (OPERATION_DOMAINS as readonly string[]).includes(value)
+  }
+}
+
+/** Human-readable statement of one attribute shape, for refusal messages. */
+function describeShape(shape: ProductAttributeShape): string {
+  switch (shape) {
+    case 'identifier':
+      return 'a non-empty string'
+    case 'duration-ms':
+      return 'a finite number of milliseconds, zero or more'
+    case 'count':
+      return 'a finite non-negative integer'
+    case 'outcome':
+      return `one of ${PRODUCT_EVENT_OUTCOMES.join(', ')}`
+    case 'operation-domain':
+      return `one of ${OPERATION_DOMAINS.join(', ')}`
   }
 }
 

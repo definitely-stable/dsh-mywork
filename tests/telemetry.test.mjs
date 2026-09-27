@@ -44,6 +44,7 @@ const telemetry = {
   PRODUCT_EVENT_BODIES: controller.PRODUCT_EVENT_BODIES,
   PRODUCT_EVENT_INPUT_FIELDS: controller.PRODUCT_EVENT_INPUT_FIELDS,
   PRODUCT_ATTRIBUTE_ALLOWLIST: controller.PRODUCT_ATTRIBUTE_ALLOWLIST,
+  PRODUCT_ATTRIBUTE_SHAPES: controller.PRODUCT_ATTRIBUTE_SHAPES,
   toProductEvent: controller.toProductEvent,
   emitProductEvent: controller.emitProductEvent,
 }
@@ -185,8 +186,10 @@ test('the attribute allowlist refuses a forbidden or unknown key at every level'
   // Nothing reached the sink: the refusal happens before the record is built.
   assert.deepEqual(delivered, [])
 
-  // Values are scalars only, so a nested object cannot smuggle content through
-  // an allowlisted key.
+  // A nested object cannot smuggle content through an allowlisted key: the
+  // shape gate catches it. (The scalar-only check this comment used to describe
+  // was unreachable for the case it named — review B6, "не воспроизводимые
+  // утверждения" 1 — so the claim now matches the reachable behaviour.)
   assert.throws(
     () => telemetry.emitProductEvent(ctx, { ...EVENT, attributes: { 'mywork.operation_domain': { body: 'x' } } }),
     TypeError,
@@ -209,4 +212,93 @@ test('the attribute allowlist refuses a forbidden or unknown key at every level'
   }
   assert.throws(() => telemetry.emitProductEvent(absent, { ...EVENT, attributes: { prompt: 'x' } }), TypeError)
   assert.deepEqual(asked, [], 'a malformed event must be refused without asking for a channel')
+})
+
+test('an allowlisted attribute must carry the shape its key declares', () => {
+  // Every key names a shape, and the shapes are asserted against literals: a
+  // table compared with itself would pass whatever it became.
+  assert.deepEqual(telemetry.PRODUCT_ATTRIBUTE_SHAPES, {
+    'mywork.correlation_id': 'identifier',
+    'mywork.workspace_id': 'identifier',
+    'mywork.task_id': 'identifier',
+    'mywork.attempt_id': 'identifier',
+    'mywork.operation_id': 'identifier',
+    'mywork.operation_domain': 'operation-domain',
+    'mywork.outcome': 'outcome',
+    'mywork.duration_ms': 'duration-ms',
+    'mywork.attempt_count': 'count',
+  })
+  assert.deepEqual(telemetry.PRODUCT_ATTRIBUTE_ALLOWLIST, Object.keys(telemetry.PRODUCT_ATTRIBUTE_SHAPES))
+
+  const delivered = []
+  const ctx = { get: () => ({ emit: record => delivered.push(record) }) }
+  const refuse = (label, input) => {
+    assert.throws(() => telemetry.emitProductEvent(ctx, { ...EVENT, ...input }), TypeError, label)
+  }
+
+  // The case review B6 reproduced: a string under a key whose type promises a
+  // number was delivered before this gate existed.
+  refuse('a string under attempt_count', { attributes: { 'mywork.attempt_count': '3 OR 1=1 -- secret notes' } })
+  refuse('a fractional attempt_count', { attributes: { 'mywork.attempt_count': 1.5 } })
+  refuse('a negative attempt_count', { attributes: { 'mywork.attempt_count': -1 } })
+  refuse('a numeric string under duration_ms', { attributes: { 'mywork.duration_ms': '1250' } })
+  refuse('an empty identifier', { attributes: { 'mywork.workspace_id': '' } })
+  refuse('a number as an identifier', { attributes: { 'mywork.task_id': 7 } })
+  refuse('an unknown operation domain', { attributes: { 'mywork.operation_domain': 'not-a-domain' } })
+  refuse('an outcome outside the closed set', { attributes: { 'mywork.outcome': 'maybe' } })
+  // The same gate covers values DERIVED from the typed input, not just the
+  // ones a caller supplies: the type says `number`, and the runtime says so too.
+  refuse('a NaN duration', { durationMs: Number.NaN })
+  refuse('a negative duration', { durationMs: -5 })
+  refuse('an infinite duration', { durationMs: Number.POSITIVE_INFINITY })
+  refuse('a string duration', { durationMs: 'slow' })
+  refuse('a false correlation id', { correlationId: '   ' })
+
+  // Nothing above reached the sink, and a conforming value still does.
+  assert.deepEqual(delivered, [])
+  const accepted = telemetry.emitProductEvent(ctx, {
+    ...EVENT,
+    operationDomain: 'filesystem',
+    attemptCount: 3,
+  })
+  assert.equal(accepted.emitted, true)
+  assert.equal(delivered.length, 1)
+  assert.equal(delivered[0].attributes['mywork.attempt_count'], 3)
+  assert.equal(delivered[0].attributes['mywork.operation_domain'], 'filesystem')
+})
+
+test('telemetry never fails an attempt: an unusable channel is reported, not thrown', () => {
+  // A context whose lookup throws is a channel we do not have. Before review B6
+  // this propagated, which contradicted the fail-open contract of F-54.
+  const throwing = {
+    get() {
+      throw new Error('boom')
+    },
+  }
+  const unavailable = telemetry.emitProductEvent(throwing, EVENT)
+  assert.equal(unavailable.emitted, false)
+  assert.equal(unavailable.reason, 'telemetry-unavailable')
+  assert.equal(unavailable.eventName, 'mywork.attempt.succeeded')
+
+  // Absent stays distinct from throwing, and a service without `emit` is absent.
+  assert.equal(telemetry.emitProductEvent({ get: () => undefined }, EVENT).reason, 'telemetry-disabled')
+  assert.equal(telemetry.emitProductEvent({ get: () => ({}) }, EVENT).reason, 'telemetry-disabled')
+
+  // A mounted channel that throws did not take the record, and that too is a
+  // report rather than a crash.
+  const failing = {
+    get: () => ({
+      emit() {
+        throw new Error('collector down')
+      },
+    }),
+  }
+  const failed = telemetry.emitProductEvent(failing, EVENT)
+  assert.equal(failed.emitted, false)
+  assert.equal(failed.reason, 'telemetry-failed')
+
+  // Fail-open is about the channel, never about the event: a malformed record is
+  // still refused when the lookup throws.
+  assert.throws(() => telemetry.emitProductEvent(throwing, { ...EVENT, attributes: { prompt: 'secret' } }), TypeError)
+  assert.throws(() => telemetry.emitProductEvent(throwing, { ...EVENT, durationMs: Number.NaN }), TypeError)
 })

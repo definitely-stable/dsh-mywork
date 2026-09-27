@@ -126,12 +126,22 @@ test('workerTools keeps the allowlisted tools and drops everything else', () => 
 })
 
 test('the allowlist is derived from the contracts permission sets, not authored beside them', () => {
-  // The source imports them...
-  const importBlock = source.slice(0, source.indexOf("from '@dsh-mywork/contracts'"))
-  assert.ok(importBlock.includes('IMPLEMENTATION_WRITE_PERMISSIONS'), 'the allowlist must import the writer set')
-  assert.ok(importBlock.includes('REVIEWER_DEFAULT_PERMISSIONS'), 'the allowlist must import the reviewer set')
-  // ...and does not restate them: a copied list would put two members of one
-  // constant on a single line.
+  // Read the import SPECIFIERS rather than substring-searching the header, the
+  // way `tests/boundaries.test.mjs` does: a mention of a constant in a comment
+  // is not an import, and a copy appended below the header would slip past a
+  // prefix search.
+  const imports = [...source.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+'([^']+)'/g)].map(match => ({
+    names: match[1].split(',').map(name => name.trim()).filter(Boolean),
+    specifier: match[2],
+  }))
+  assert.ok(imports.length > 0, 'the scan must find the module imports at all')
+  const contractsImport = imports.find(entry => entry.specifier === '@dsh-mywork/contracts')
+  assert.ok(contractsImport !== undefined, 'the allowlist must import from @dsh-mywork/contracts')
+  assert.ok(contractsImport.names.includes('IMPLEMENTATION_WRITE_PERMISSIONS'), 'the writer set must be imported')
+  assert.ok(contractsImport.names.includes('REVIEWER_DEFAULT_PERMISSIONS'), 'the reviewer set must be imported')
+
+  // ...and does not restate them. A copied list would put two members of one
+  // constant on a single line; the scan covers the WHOLE file, not its header.
   for (const set of [contracts.IMPLEMENTATION_WRITE_PERMISSIONS, contracts.REVIEWER_DEFAULT_PERMISSIONS]) {
     for (const line of source.split('\n')) {
       const named = set.filter(permission => line.includes(`'${permission}'`))
@@ -160,7 +170,7 @@ test('the allowlist is derived from the contracts permission sets, not authored 
   assert.throws(() => core.workerToolAllowlist(['network']), TypeError)
 })
 
-test('the restrict filter carries allow only, and the report names what it removed', () => {
+test('the restrict filter carries allow only, and an empty intersection is refused', () => {
   const calls = []
   const tools = {
     restrict(filter) {
@@ -176,16 +186,18 @@ test('the restrict filter carries allow only, and the report names what it remov
   assert.deepEqual(report.allowed, KEPT)
   assert.deepEqual(report.filtered, DROPPED)
   assert.equal(report.correlationId, 'corr-1')
-  assert.equal(report.restricted, true)
-  assert.equal(report.reason, 'restricted')
+  // A report exists only for a restriction that was applied, so `filtered` can
+  // only ever name tools the session really loses.
+  assert.deepEqual(Object.keys(report).sort(), ['allowed', 'correlationId', 'filtered'])
   // Every name the filter carries is one the composition actually has, which is
   // what makes `tools.restrict`'s unknown-name refusal unreachable.
   for (const name of calls[0].allow) {
     assert.ok(AVAILABLE.includes(name), `${name} is not registered in this composition`)
   }
 
-  // An empty intersection is reported rather than applied: `restrict({ allow: [] })`
-  // would mask the whole surface, including anything registered later.
+  // An empty intersection is a REFUSAL, not a report: nothing was restricted, so
+  // there is no report to hand back, and a caller cannot continue into a session
+  // holding every tool the composition registered.
   const emptyCalls = []
   const emptyTools = {
     restrict(filter) {
@@ -193,14 +205,25 @@ test('the restrict filter carries allow only, and the report names what it remov
       return () => {}
     },
   }
-  const empty = core.applyWorkerSurface(emptyTools, {
-    available: ['plugin_manager', 'cordis_inspect_list'],
-    correlationId: 'corr-2',
-  })
-  assert.deepEqual(emptyCalls, [], 'an empty allowlist must not be applied')
-  assert.equal(empty.restricted, false)
-  assert.equal(empty.reason, 'no-allowlisted-tools')
-  assert.deepEqual(empty.allowed, [])
-  assert.deepEqual(empty.filtered, ['plugin_manager', 'cordis_inspect_list'])
-  assert.equal(empty.correlationId, 'corr-2')
+  let refusal
+  try {
+    core.applyWorkerSurface(emptyTools, {
+      available: ['plugin_manager', 'cordis_inspect_list'],
+      correlationId: 'corr-2',
+    })
+  } catch (error) {
+    refusal = error
+  }
+  assert.ok(refusal !== undefined, 'the empty intersection must be refused, not reported')
+  assert.ok(refusal instanceof Error)
+  assert.ok(refusal instanceof core.WorkerSurfaceError, 'the refusal must be the typed one')
+  assert.equal(core.isWorkerSurfaceError(refusal), true)
+  assert.equal(refusal.reason, 'no-allowlisted-tools')
+  assert.equal(refusal.correlationId, 'corr-2')
+  assert.deepEqual(refusal.registered, ['plugin_manager', 'cordis_inspect_list'])
+  assert.deepEqual(emptyCalls, [], 'a refusal must not apply a filter')
+  // The guard does not mistake a foreign error for this refusal.
+  assert.equal(core.isWorkerSurfaceError(new Error('boom')), false)
+  assert.equal(core.isWorkerSurfaceError(undefined), false)
+  assert.equal(core.isWorkerSurfaceError({ reason: 'no-allowlisted-tools' }), false)
 })

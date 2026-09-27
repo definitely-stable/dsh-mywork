@@ -127,14 +127,70 @@ export function workerTools(
   return Object.freeze(available.filter(name => allowed.has(name)))
 }
 
-/** Why a surface was not restricted, when it was not. */
-export type WorkerSurfaceReason =
-  /** The allowlist was applied. */
-  | 'restricted'
-  /** The composition registered none of the allowlisted tools. */
-  | 'no-allowlisted-tools'
+/**
+ * Why a worker surface was refused.
+ *
+ * There is exactly one reason today, and it is a refusal rather than a state: a
+ * successful restriction needs no reason, because it returned a report instead.
+ */
+export type WorkerSurfaceReason = 'no-allowlisted-tools'
 
-/** Audit record of one worker-surface restriction, tied to the attempt (§38). */
+/** Options accepted by the {@link WorkerSurfaceError} constructor. */
+export interface WorkerSurfaceErrorOptions {
+  /** Attempt the refused surface belonged to (F-54). */
+  readonly correlationId: string
+  /** Tool names the composition had registered, for the audit trail. */
+  readonly registered: readonly string[]
+}
+
+/**
+ * Refusal raised when a worker surface cannot be restricted.
+ *
+ * The failure is a throw rather than a flag because the alternative is
+ * fail-open: a caller that receives a report saying "not restricted" and
+ * continues has a session holding **every** tool the composition registered,
+ * while believing a control ran. Refusing the session is the only safe shape,
+ * and it follows the repository's rule of refusing instead of repairing.
+ */
+export class WorkerSurfaceError extends Error {
+  /** Machine-readable reason; stable, and the only member of its union. */
+  readonly reason: WorkerSurfaceReason
+  /** Attempt the refused surface belonged to. */
+  readonly correlationId: string
+  /** Tool names the composition had registered. */
+  readonly registered: readonly string[]
+
+  /**
+   * @param reason - stable refusal reason.
+   * @param message - human-readable detail, including what was registered.
+   * @param options - the attempt and the tool names involved.
+   */
+  constructor(reason: WorkerSurfaceReason, message: string, options: WorkerSurfaceErrorOptions) {
+    super(message)
+    this.name = 'WorkerSurfaceError'
+    this.reason = reason
+    this.correlationId = options.correlationId
+    this.registered = options.registered
+  }
+}
+
+/**
+ * Whether a value is a refusal raised by this module.
+ * @param value - the value to test.
+ */
+export function isWorkerSurfaceError(value: unknown): value is WorkerSurfaceError {
+  return value instanceof WorkerSurfaceError
+}
+
+/**
+ * Audit record of one applied worker-surface restriction, tied to the attempt
+ * (§38).
+ *
+ * It exists only on the success path: {@link applyWorkerSurface} returns it
+ * after the filter was passed to the tool runtime, so `filtered` names tools the
+ * session really loses. A surface that could not be restricted has no report —
+ * it has a {@link WorkerSurfaceError}.
+ */
 export interface WorkerSurfaceReport {
   /** Correlation id of the attempt the surface belongs to (F-54). */
   readonly correlationId: string
@@ -142,10 +198,6 @@ export interface WorkerSurfaceReport {
   readonly allowed: readonly string[]
   /** Tool names the restriction removes, for the audit trail. */
   readonly filtered: readonly string[]
-  /** Whether a restriction was applied. */
-  readonly restricted: boolean
-  /** Which of the two outcomes this report describes. */
-  readonly reason: WorkerSurfaceReason
 }
 
 /** What {@link applyWorkerSurface} needs to know about the composition. */
@@ -181,35 +233,36 @@ export interface WorkerToolRestrictPort {
  * carries the attempt's correlation id, so "why could this worker not see tool
  * X" is answerable from the record of the attempt rather than from a guess.
  *
- * An empty intersection is **reported, not applied**: `restrict({ allow: [] })`
- * would mask every tool of the scope, including ones registered later, and a
- * composition that registered none of the allowlisted tools is a configuration
- * defect to surface (`reason: 'no-allowlisted-tools'`) rather than a session to
- * empty out silently. The caller decides whether to refuse the session.
+ * An empty intersection is a **refusal**, not a state to inspect: there is no
+ * allowlist to apply, so the session would keep every tool the composition
+ * registered — the opposite of what this control exists for. Rather than return
+ * a report for a restriction that did not happen, the call throws
+ * {@link WorkerSurfaceError} with `reason: 'no-allowlisted-tools'`. `restrict({
+ * allow: [] })` is not the answer either: it would mask the whole scope,
+ * including tools registered later, so the composition that registered none of
+ * the allowlisted tools is refused rather than repaired.
  * @param tools - the scoped tool runtime of the worker session.
  * @param input - what the composition registered and which attempt this is.
- * @returns the audit record of the restriction.
+ * @returns the audit record of the restriction that was applied.
+ * @throws {WorkerSurfaceError} `no-allowlisted-tools` when the composition
+ *   registered none of the allowlisted tools, so no filter can be applied.
  * @throws {TypeError} when a permission is outside the worker ceiling.
  */
 export function applyWorkerSurface(tools: WorkerToolRestrictPort, input: WorkerSurfaceInput): WorkerSurfaceReport {
   const allow = workerTools(input.available, input.permissions)
-  const kept = new Set(allow)
-  const filtered = Object.freeze(input.available.filter(name => !kept.has(name)))
   if (allow.length === 0) {
-    return Object.freeze({
-      correlationId: input.correlationId,
-      allowed: allow,
-      filtered,
-      restricted: false,
-      reason: 'no-allowlisted-tools',
-    })
+    const registered = Object.freeze([...input.available])
+    throw new WorkerSurfaceError(
+      'no-allowlisted-tools',
+      `dsh-mywork: no allowlisted worker tool is registered in this composition (registered: ${registered.join(', ') || '(none)'}); refusing the session instead of leaving its tool surface unrestricted`,
+      { correlationId: input.correlationId, registered },
+    )
   }
   tools.restrict(Object.freeze({ allow }))
+  const kept = new Set(allow)
   return Object.freeze({
     correlationId: input.correlationId,
     allowed: allow,
-    filtered,
-    restricted: true,
-    reason: 'restricted',
+    filtered: Object.freeze(input.available.filter(name => !kept.has(name))),
   })
 }
