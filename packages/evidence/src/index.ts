@@ -37,7 +37,23 @@ export {
   EVIDENCE_SCHEMA_VERSION,
   EVIDENCE_TABLES_MIGRATION_NAME,
 } from './schema.ts'
-export { getArtifact, putArtifact, sha256Hex, type ArtifactPutResult } from './artifacts.ts'
+export {
+  ARTIFACT_RETENTION_MIGRATION_NAME,
+  ARTIFACT_TOMBSTONE_DDL,
+  createArtifactRetentionMigration,
+  dropArtifactDeleteGuard,
+  getArtifact,
+  listArtifactDeletionCandidates,
+  markArtifactForDeletion,
+  pruneArtifacts,
+  putArtifact,
+  sha256Hex,
+  type ArtifactPutResult,
+  type ArtifactRetentionDryRun,
+  type ArtifactRetentionResult,
+  type ArtifactRetentionWindow,
+  type MarkArtifactForDeletionInput,
+} from './artifacts.ts'
 export { appendAuditEntry, readAuditLog, type AuditAppendResult, type AuditQuery } from './audit.ts'
 export {
   createArtifactStore,

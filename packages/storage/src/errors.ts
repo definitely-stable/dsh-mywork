@@ -31,6 +31,11 @@ export type StorageErrorCode =
   | 'migrations-required'
   /** The journal disagrees with the version stamp: rows are missing or ahead. */
   | 'migration-journal-inconsistent'
+  /**
+   * Another process holds the lock of a state file and did not release it
+   * inside the wait budget (F-34); single-writer discipline, made explicit.
+   */
+  | 'lock-timeout'
 
 /** Every storage error code, so a test or a doctor can pin the vocabulary. */
 export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
@@ -43,6 +48,7 @@ export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
   'store-closed',
   'migrations-required',
   'migration-journal-inconsistent',
+  'lock-timeout',
 ])
 
 /**
@@ -57,6 +63,12 @@ export const MIGRATIONS_REQUIRED: StorageErrorCode = 'migrations-required'
  * `PRAGMA user_version`: rows are missing, or they run ahead of the stamp.
  */
 export const MIGRATION_JOURNAL_INCONSISTENT: StorageErrorCode = 'migration-journal-inconsistent'
+
+/**
+ * A state file is written by one writer at a time, and the lock was still held
+ * when the wait budget ran out (F-34).
+ */
+export const LOCK_TIMEOUT: StorageErrorCode = 'lock-timeout'
 
 /** Options accepted by the {@link StorageError} constructor. */
 export interface StorageErrorOptions {

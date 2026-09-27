@@ -58,6 +58,14 @@ export interface OpenSqliteOptions {
   readonly path: string
   /** Milliseconds SQLite waits for a lock before reporting the database busy. */
   readonly busyTimeoutMs: number
+  /**
+   * Durability mode of the connection; `NORMAL` by default.
+   *
+   * In WAL a `NORMAL` commit survives a process crash and only risks the last
+   * commits when the operating system itself dies; `FULL` is available for a
+   * caller that wants to pay a fsync per commit (MW-004/039/040, F-35).
+   */
+  readonly synchronous?: 'NORMAL' | 'FULL'
 }
 
 /**
@@ -93,7 +101,7 @@ export async function openSqlite(options: OpenSqliteOptions): Promise<SqliteConn
 
   const database = new DatabaseSync(path, { timeout: options.busyTimeoutMs })
   try {
-    configure(database, path)
+    configure(database, path, options.synchronous ?? 'NORMAL')
   } catch (error) {
     database.close()
     throw error
@@ -124,9 +132,23 @@ export async function openSqlite(options: OpenSqliteOptions): Promise<SqliteConn
   return connection
 }
 
-/** Apply the pragmas this store requires and prove the journal mode took. */
-function configure(database: DatabaseSync, path: string): void {
+/**
+ * Apply the pragmas this store requires and prove the journal mode took.
+ *
+ * `WAL` and `foreign_keys` were already here; F-35 closes the two gaps that
+ * remained: `synchronous = NORMAL` (the WAL recommendation — a process crash
+ * still cannot lose a committed transaction) and `auto_vacuum = INCREMENTAL`,
+ * which returns pages to the filesystem as they are freed instead of only on an
+ * explicit `VACUUM` (F-39). SQLite only honours `auto_vacuum` when it is set
+ * before the first table exists, so a database created earlier keeps the old
+ * mode until `compact()` vacuums it once.
+ */
+function configure(database: DatabaseSync, path: string, synchronous: 'NORMAL' | 'FULL'): void {
   database.exec('PRAGMA foreign_keys = ON')
+  // `auto_vacuum` must be set while the database still has no schema: switching
+  // the journal mode to WAL already writes page 1, after which SQLite silently
+  // ignores the pragma until a VACUUM runs.
+  database.exec('PRAGMA auto_vacuum = INCREMENTAL')
   database.exec('PRAGMA journal_mode = WAL')
   const journalMode = database.prepare('PRAGMA journal_mode').get() as { journal_mode?: unknown } | undefined
   if (journalMode?.journal_mode !== 'wal') {
@@ -136,6 +158,7 @@ function configure(database: DatabaseSync, path: string): void {
       { details: { path, journalMode: journalMode?.journal_mode ?? null } },
     )
   }
+  database.exec(`PRAGMA synchronous = ${synchronous}`)
 }
 
 /** `PRAGMA user_version` always answers exactly one row. */
