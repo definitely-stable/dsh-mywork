@@ -283,13 +283,34 @@ Runtime-данные не лежат в репозитории: `@dsh-mywork/sto
 применяет эффект второй раз. Тесты поднимают свои базы во временных каталогах и
 живого профиля DSH не касаются.
 
+## Правила приёмки карточек (D19)
+
+Карточка переводится в `done` **только если** все её исполнения имеют
+`result = succeeded`. При наличии `failed` карточка остаётся `todo` либо
+переводится в `failed`, а в отчёте появляется строка-обоснование с `sessionId`
+упавшего прогона. Правило применяется вперёд: карточки, закрытые до D19, не
+переоткрываются. Машинная проверка — контракт для `scripts/ledger-sync.mjs`
+(F-27): для каждой карточки `status=done` должно выполняться
+`executions.every(e => e.result !== 'failed')`.
+
 ## Требования
 
 - Node.js >= 22.18 (проверено на 24.19.0)
 - pnpm 12.4.2 (пин в `packageManager`)
-- DSH 0.1.5-rc.2 — для `verify:profile`
+- DSH 0.1.7-rc.2 — для `verify:profile` (фактическая версия CLI; здесь ранее было указано 0.1.5-rc.2)
 
 ## Команды
+
+Пакетный менеджер: `corepack pnpm -r run <script>` (обычный `pnpm` сломан, см. `.work/plan-v0.3/evidence/foundation-01-pnpm.md`). Флаг `-r` обязателен: без него запуск падает из-за вложенного `pnpm` 11.7.0 из `.bin` DSH-чекаута.
+
+Скрипт, который сам запускает `pnpm` (как `verify:profile`), нужно запускать с
+shell-free entry менеджера в `npm_execpath`, иначе он возьмёт сломанный `pnpm` из
+`PATH`:
+
+```sh
+$env:npm_execpath = "$env:LOCALAPPDATA\node\corepack\v1\pnpm\12.4.2\bin\pnpm.mjs"
+node scripts/verify-profile.mjs
+```
 
 ```sh
 pnpm install
