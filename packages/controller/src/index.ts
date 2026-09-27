@@ -115,6 +115,28 @@ export {
   type DshWireHeader,
 } from './dsh-session.ts'
 
+/**
+ * The F-54 product-telemetry export, re-exported as this package's public
+ * surface: the record builder and the fail-open `emit` wrapper (D16).
+ */
+export {
+  PRODUCT_EVENT_BODIES,
+  PRODUCT_EVENT_NAMES,
+  PRODUCT_EVENT_NAME_BY_OUTCOME,
+  PRODUCT_EVENT_OUTCOMES,
+  PRODUCT_TELEMETRY_SERVICE,
+  emitProductEvent,
+  resolveProductTelemetry,
+  toProductEvent,
+  type ProductEmitResult,
+  type ProductEventInput,
+  type ProductEventOutcome,
+  type ProductTelemetryContext,
+  type ProductTelemetryPort,
+  type ProductTelemetryRecord,
+  type ProductTelemetryScalar,
+} from './telemetry.ts'
+
 /** Plugin display name used by the Cordis loader in diagnostics. */
 export const name = '@dsh-mywork/controller'
 
