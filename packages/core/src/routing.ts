@@ -225,14 +225,15 @@ async function evaluateCandidate(
   try {
     resolved = await port.resolveModelInfo(route.provider, route.model)
   } catch (error) {
-    // An absent route and an outage lead to different decisions (§29), so the
-    // port's own `UNKNOWN_MODEL` code is preserved instead of being flattened
-    // into "the provider is down".
+    // Three outcomes, three reasons (§29). The provider answered and serves no
+    // such model — that is `model-not-routable`, NOT `route-absent`, which is
+    // reserved for a provider the catalog does not register at all (`:212-219`).
+    // Any other rejection means the provider did not answer: an outage.
     if (failureCode(error) === CATALOG_UNKNOWN_MODEL) {
       return evaluation(candidate, {
         route,
         outcome: 'refused',
-        reason: 'route-absent',
+        reason: 'model-not-routable',
         detail: describeFailure(error),
       })
     }

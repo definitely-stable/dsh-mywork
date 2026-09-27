@@ -112,6 +112,8 @@ export type RouteRefusalReason =
   | 'invalid-route'
   /** The catalog does not register the provider, so the route does not exist. */
   | 'route-absent'
+  /** The provider IS registered but serves no such model, so the route cannot be reached. */
+  | 'model-not-routable'
   /** The provider is registered but did not answer (§29 provider outage). */
   | 'provider-outage'
   /** The adapter published no context window and the request states a requirement. */
@@ -127,6 +129,7 @@ export type RouteRefusalReason =
 export const ROUTE_REFUSAL_REASONS: readonly RouteRefusalReason[] = Object.freeze([
   'invalid-route',
   'route-absent',
+  'model-not-routable',
   'provider-outage',
   'context-window-undisclosed',
   'context-window-too-small',
