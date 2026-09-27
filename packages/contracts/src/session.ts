@@ -19,7 +19,7 @@
  *   with
  *   the whole transcript (§22.3).
  *
- * Three further rules shape the types:
+ * Four further rules shape the types:
  *
  * - **The checkpoint capsule is the transfer unit** (§22.4). Decisions,
  *   artifacts, git coordinates, verification, review findings, unresolved work
@@ -31,6 +31,10 @@
  *   when persistence failed and reports the failure — rollover then refuses,
  *   because a window whose checkpoint is not durable is a window whose evidence
  *   can be lost.
+ * - **A refusal names its cause** (§36, §42). {@link SessionRefusalReason} is the
+ *   closed vocabulary the session port refuses with, so a caller can tell a
+ *   session that is gone from one that is merely not live, and both from a
+ *   deployment that cannot serve the call at all.
  *
  * This module is a contract: the policy that decides *which* pressure action a
  * window takes lives in `@dsh-mywork/core`, and the live session it acts on is
@@ -955,3 +959,63 @@ export const FRESH_SESSION_PLAN_FIELDS: readonly string[] = Object.freeze([
   'carriesFindings',
   'carriesTranscript',
 ])
+
+/**
+ * Why the session port refused a call (§36, §39, §42).
+ *
+ * The ports this vocabulary belongs to are driven over a live platform, and a
+ * platform fails in ways a caller has to act on differently: a session that is
+ * gone cannot be adopted, a session whose live agent is gone can be resumed,
+ * a scope that contradicts the record is a caller mistake, and a deployment
+ * that cannot serve the call is an outage. Reporting all four as one
+ * `unavailable` hides exactly that distinction, which is the one a caller
+ * branches on — so each cause is named here and mapped onto a stable §42 code.
+ *
+ * The names describe *MyWork's* reading of the failure, not the platform's
+ * spelling of it: the platform's own codes (`session/not-found`,
+ * `session/conflict`) stay the platform's business and are never exposed.
+ */
+export type SessionRefusalReason =
+  /** The session the caller named does not exist in the session roster. */
+  | 'session-missing'
+  /**
+   * The session exists as a durable record, but no live agent serves it, so a
+   * call that needs the running agent — a pin, a command, a turn — is refused.
+   */
+  | 'session-not-live'
+  /**
+   * The scope the caller stated contradicts the record or the deployment, so
+   * the run cannot be composed as asked.
+   */
+  | 'session-scope-mismatch'
+  /**
+   * The deployment serves no surface for this call, or failed in a way the port
+   * cannot read: the call is an outage rather than a caller mistake.
+   */
+  | 'runtime-unavailable'
+
+/** Every session refusal reason, so a caller can enumerate what it must handle. */
+export const SESSION_REFUSAL_REASONS: readonly SessionRefusalReason[] = Object.freeze([
+  'session-missing',
+  'session-not-live',
+  'session-scope-mismatch',
+  'runtime-unavailable',
+])
+
+/**
+ * How a session refusal maps onto the stable codes of §42.
+ *
+ * The mapping is the reason a caller can act on rather than a restatement of
+ * the failure: `session-missing` is `SESSION_NOT_FOUND` because the identity
+ * will never resolve; `session-not-live` is `STALE_REVISION` because the record
+ * the caller holds is behind the live runtime; `session-scope-mismatch` is
+ * `CONTRACT_MISMATCH` because caller and record disagree about the composition;
+ * `runtime-unavailable` is `ADAPTER_UNAVAILABLE` because the adapter behind the
+ * port cannot serve the call.
+ */
+export const SESSION_REFUSAL_CODES: Readonly<Record<SessionRefusalReason, MyWorkErrorCode>> = Object.freeze({
+  'session-missing': 'SESSION_NOT_FOUND',
+  'session-not-live': 'STALE_REVISION',
+  'session-scope-mismatch': 'CONTRACT_MISMATCH',
+  'runtime-unavailable': 'ADAPTER_UNAVAILABLE',
+})
