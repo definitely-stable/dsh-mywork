@@ -17,7 +17,9 @@
  *   testing the repo's own `.beads`, not the fixture it believes it built.
  *
  * The real-`bd` layer is skipped, loudly, when the binary is absent: a skipped
- * check must never look like a pass.
+ * check must never look like a pass. In the CI profile (`MYWORK_REQUIRE_BEADS=1`)
+ * an absent backend is not skipped but fatal — a contract check that cannot run
+ * where the backend is guaranteed is a failure of the profile, not of the code.
  */
 
 import assert from 'node:assert/strict'
@@ -40,7 +42,16 @@ const tempDirs = []
 const TEMP_PREFIX = 'dsh-mywork-beads-'
 
 after(() => {
-  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true })
+  for (const dir of tempDirs) {
+    // A Dolt store can hold a handle for a moment after `bd` exits, so the
+    // teardown retries; if it still cannot remove the fixture it says so instead
+    // of throwing, because a teardown hiccup must not turn a green suite red.
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    } catch (error) {
+      process.stderr.write(`beads-adapter: could not remove the fixture ${dir}: ${error.message}\n`)
+    }
+  }
 })
 
 /** A fresh temporary directory, created outside the repository tree on purpose. */
@@ -53,30 +64,81 @@ function tempDir() {
 /** The repository root, so a test can prove the fixture is outside it. */
 const REPO_ROOT = resolve(import.meta.dirname, '..')
 
-/** Whether a usable `bd` is on PATH. */
-function bdAvailable() {
-  const probe = spawnSync('bd', ['version'], { encoding: 'utf8', shell: false })
-  return probe.status === 0
+/** How `bd` is started, and whether a usable one answered. */
+function launchOrUndefined() {
+  try {
+    return beads.resolveBeadsLaunch()
+  } catch {
+    return undefined
+  }
 }
 
-const HAS_BD = bdAvailable()
+/**
+ * The launch seam this suite uses, resolved once.
+ *
+ * `spawn('bd', …, { shell: false })` cannot work on Windows: npm installs an
+ * extensionless POSIX script plus a `bd.cmd` shim, and neither is an executable
+ * (`ENOENT` -4058 and `EINVAL` respectively). The entry is therefore run by
+ * `process.execPath`, exactly as the adapter's own runner does it.
+ */
+const LAUNCH = launchOrUndefined()
+
+/**
+ * The shared probe — the same function the adapter's Doctor calls, so this suite
+ * and the diagnosis cannot disagree about whether the backend is there.
+ */
+const PROBE = await beads.probeBeads()
+
+/** Whether a usable `bd` answered. */
+const HAS_BD = PROBE.available
 
 if (!HAS_BD) {
-  // Say it once, loudly. A skipped suite that looks like a pass is the failure
-  // mode this project has been bitten by: the documented cause here is the DSH
-  // file sandbox, which blocks piped-stdio subprocess spawn with EPERM, so the
-  // probe cannot start `bd` even though an operator's shell can.
-  process.stderr.write(
-    'beads-adapter: the real-bd contract checks are SKIPPED — `bd version` could not be spawned ' +
-      '(under the DSH file sandbox this is EPERM on piped stdio). These are not passes.\n',
-  )
+  // Say it once, loudly, naming the failure that actually happened: a skipped
+  // check must never look like a pass, and it must not blame a cause the probe
+  // never observed (the old text blamed an EPERM that this seam cannot produce).
+  const notice =
+    'beads-adapter: the real-bd contract checks are SKIPPED — '
+    + `${beads.describeBeadsProbe(PROBE)}. These are not passes.\n`
+  if (process.env.MYWORK_REQUIRE_BEADS === '1') {
+    // The CI profile. A backend that must be present and is not is a failure:
+    // 23 silently skipped contract checks are the hole this closes (F-17).
+    throw new Error(notice)
+  }
+  process.stderr.write(notice)
 }
 
 /** Run `bd` synchronously in a directory and return the outcome. */
 function bd(cwd, args, stdin) {
-  const result = spawnSync('bd', args, { cwd, encoding: 'utf8', shell: false, input: stdin })
+  if (LAUNCH === undefined) throw new Error('beads-adapter: no bd launch was resolved')
+  const result = spawnSync(LAUNCH.command, [...LAUNCH.args, ...args], {
+    cwd,
+    encoding: 'utf8',
+    shell: LAUNCH.shell,
+    input: stdin,
+  })
   return { code: result.status, stdout: (result.stdout ?? '').trim(), stderr: (result.stderr ?? '').trim() }
 }
+
+// ---------------------------------------------------------------------------
+// §0 The seam: what a skip says when the backend is absent
+// ---------------------------------------------------------------------------
+
+test('a skip notice names the failure that actually happened, never a guessed cause', () => {
+  // The probe's real failure on Windows is ENOENT (-4058) — the shim is a command
+  // line, not an executable. The notice must say that, with the install command,
+  // and must not repeat the EPERM story this probe cannot produce.
+  const text = beads.describeBeadsProbe({
+    available: false,
+    reason: 'spawn-failed',
+    stderr: 'spawn bd ENOENT',
+    code: 'ENOENT',
+    errno: -4058,
+  })
+  assert.match(text, /ENOENT/)
+  assert.match(text, /-4058/)
+  assert.match(text, /npm install -g @beads\/bd/)
+  assert.doesNotMatch(text, /EPERM/)
+})
 
 /** A real workspace outside the repository tree, with the ADR023 status set. */
 function makeRealWorkspace() {
@@ -97,8 +159,10 @@ function createTask(dir, title, status = 'open', priority = '2') {
 
 /** A real adapter bound to a directory. */
 function realAdapter(cwd) {
+  // No `binary`: the runner resolves the launch seam itself, which is the path
+  // the adapter takes in production on Windows (F-14).
   return new beads.BeadsTaskGraphAdapter({
-    runner: beads.createProcessRunner({ binary: 'bd' }),
+    runner: beads.createProcessRunner(),
     cwd,
   })
 }
@@ -835,6 +899,34 @@ test('claim passes the claimant as the acting identity, never as --assignee', as
   assert.equal(result.won, true)
 })
 
+test('heartbeat carries the acting identity in BEADS_ACTOR, exactly like claim', async () => {
+  // `bd heartbeat <id>` without the actor is refused — `issue already claimed by
+  // <holder>`, exit 1 — so an anonymous heartbeat cannot refresh anything. The
+  // actor is the caller's when given, and otherwise the holder bd already
+  // records (F-22).
+  const runner = scriptedRunner({
+    context: { code: 0, stdout: 'Repository:\n  beads dir:    /w/.beads\n  repo root:    /w\n', stderr: '' },
+    show: { code: 0, stdout: JSON.stringify([{ id: 'mw-1', status: 'in_progress', assignee: 'worker-a' }]), stderr: '' },
+    heartbeat: { code: 0, stdout: '', stderr: '' },
+  })
+  const adapter = new beads.BeadsTaskGraphAdapter({ runner, cwd: '/w' })
+
+  // An explicit actor is used verbatim and never becomes an argument.
+  await adapter.heartbeat('mw-1', 'worker-b')
+  const named = runner.calls.find(call => call.args[0] === 'heartbeat')
+  assert.notEqual(named, undefined)
+  assert.deepEqual(named.args, ['heartbeat', 'mw-1'], 'the actor must not become an argument')
+  assert.equal(named.env.BEADS_ACTOR, 'worker-b', 'the actor rides BEADS_ACTOR')
+
+  // Without an actor the recorded holder is the actor: that is the lease being
+  // refreshed, and it is the only identity bd will accept.
+  const before = runner.calls.length
+  await adapter.heartbeat('mw-1')
+  const derived = runner.calls.slice(before).find(call => call.args[0] === 'heartbeat')
+  assert.notEqual(derived, undefined)
+  assert.equal(derived.env.BEADS_ACTOR, 'worker-a')
+})
+
 test('a claim that lost the race reports the holder instead of throwing', async () => {
   const runner = scriptedRunner({
     context: { code: 0, stdout: 'Repository:\n  beads dir:    /w/.beads\n  repo root:    /w\n', stderr: '' },
@@ -1156,7 +1248,11 @@ test('bd batch commits dep add and dep remove in one transaction (real bd)', { s
   const edges = bd(dir, ['dep', 'list', a, '--json'])
   assert.equal(edges.code, 0)
   const listed = JSON.parse(edges.stdout)
-  const targets = listed.map(edge => edge.depends_on_id)
+  // Rows are target issues: `id` is the blocker being depended on and
+  // `dependency_type` is the edge kind. Reading `depends_on_id` — a field this
+  // response does not carry — found nothing and reported an empty graph, which is
+  // why this check failed against a real bd 1.3.0 (F-21).
+  const targets = listed.map(edge => edge.id)
   assert.equal(targets.includes(c), true, 'the added edge must be present')
   assert.equal(targets.includes(b), false, 'the removed edge must be gone')
 })
