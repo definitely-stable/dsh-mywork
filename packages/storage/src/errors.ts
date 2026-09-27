@@ -24,6 +24,13 @@ export type StorageErrorCode =
   | 'transaction-conflict'
   /** The store was closed; no further statement may run. */
   | 'store-closed'
+  /**
+   * The caller opened a store without an explicit migration list. A store that
+   * picks its own list silently declares a partial database complete (D08).
+   */
+  | 'migrations-required'
+  /** The journal disagrees with the version stamp: rows are missing or ahead. */
+  | 'migration-journal-inconsistent'
 
 /** Every storage error code, so a test or a doctor can pin the vocabulary. */
 export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
@@ -34,7 +41,22 @@ export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
   'migration-failed',
   'transaction-conflict',
   'store-closed',
+  'migrations-required',
+  'migration-journal-inconsistent',
 ])
+
+/**
+ * Opening a store without an explicit migration list (D08). Spelled as a named
+ * constant because the plan and its verifier look for this identifier; the
+ * value follows the repository's kebab-case error vocabulary.
+ */
+export const MIGRATIONS_REQUIRED: StorageErrorCode = 'migrations-required'
+
+/**
+ * The `schema_migrations` journal does not describe the database stamped by
+ * `PRAGMA user_version`: rows are missing, or they run ahead of the stamp.
+ */
+export const MIGRATION_JOURNAL_INCONSISTENT: StorageErrorCode = 'migration-journal-inconsistent'
 
 /** Options accepted by the {@link StorageError} constructor. */
 export interface StorageErrorOptions {

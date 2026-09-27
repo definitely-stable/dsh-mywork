@@ -10,10 +10,9 @@
  */
 
 import { wallClock, type StorageClock } from './clock.ts'
-import { StorageError } from './errors.ts'
+import { MIGRATIONS_REQUIRED, StorageError } from './errors.ts'
 import { createInboxReader, createInboxWriter, type InboxReader, type InboxWriter } from './inbox.ts'
 import {
-  MYWORK_MIGRATIONS,
   listAppliedMigrations,
   runMigrations,
   validateMigrations,
@@ -65,8 +64,15 @@ export interface MyWorkStore {
 export interface OpenStoreOptions {
   /** Database file to open; it is created when missing. */
   readonly path: string
-  /** Migrations to apply; defaults to {@link MYWORK_MIGRATIONS}. */
-  readonly migrations?: readonly Migration[]
+  /**
+   * Migrations to apply — **required** (D08).
+   *
+   * There is no default on purpose: opening with an implicit v1 list declares a
+   * partial database complete, which is how the schema version became an orphan
+   * number. Pass the canonical list assembled at the composition root
+   * (`canonicalMigrations([MYWORK_MIGRATIONS, EVIDENCE_MIGRATIONS, …])`).
+   */
+  readonly migrations: readonly Migration[]
   /** Time source for row timestamps; defaults to the system clock. */
   readonly clock?: StorageClock
   /** Lock wait in milliseconds; defaults to {@link DEFAULT_BUSY_TIMEOUT_MS}. */
@@ -77,11 +83,22 @@ export interface OpenStoreOptions {
  * Open (and migrate) a MyWork state database.
  * @param options - path, migrations, clock, and lock timeout.
  * @returns the open store.
- * @throws {StorageError} when the file cannot be opened, the on-disk schema is
- * newer than this build, or a migration fails.
+ * @throws {StorageError} `migrations-required` when `migrations` is missing or
+ * empty, `schema-version-unsupported` when the on-disk schema is newer than this
+ * build, `migration-failed` when a migration throws, or
+ * `migration-journal-inconsistent` when the journal does not match the stamp.
  */
 export async function openStore(options: OpenStoreOptions): Promise<MyWorkStore> {
-  const migrations = validateMigrations(options.migrations ?? MYWORK_MIGRATIONS)
+  const requested = options.migrations
+  // A typed call is refused at compile time; this is the runtime half, because
+  // a JavaScript caller has no compiler to stop it (D08, F-19).
+  if (!Array.isArray(requested) || requested.length === 0) {
+    throw new StorageError(
+      MIGRATIONS_REQUIRED,
+      'dsh-mywork: openStore requires an explicit migration list; pass MYWORK_DATABASE_MIGRATIONS',
+    )
+  }
+  const migrations = validateMigrations(requested)
   const clock = options.clock ?? wallClock
   const busyTimeoutMs = options.busyTimeoutMs ?? DEFAULT_BUSY_TIMEOUT_MS
   if (!Number.isInteger(busyTimeoutMs) || busyTimeoutMs < 0) {

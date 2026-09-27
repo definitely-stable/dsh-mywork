@@ -3,7 +3,10 @@
  *
  * ```ts
  * const layout = resolveMyWorkLayout()
- * const store = await openStore({ path: stateDatabasePath(layout, 'registry') })
+ * const store = await openStore({
+ *   path: stateDatabasePath(layout, 'registry'),
+ *   migrations: MYWORK_DATABASE_MIGRATIONS,
+ * })
  * store.transaction(tx => {
  *   tx.run('UPDATE attempts SET state = ? WHERE id = ?', 'running', attemptId)
  *   tx.outbox.append({ event, workspaceId, correlationId })
@@ -22,6 +25,8 @@
 
 export { wallClock, type StorageClock } from './clock.ts'
 export {
+  MIGRATION_JOURNAL_INCONSISTENT,
+  MIGRATIONS_REQUIRED,
   STORAGE_ERROR_CODES,
   StorageError,
   isStorageError,
@@ -42,13 +47,18 @@ export {
   type ResolveMyWorkLayoutOptions,
 } from './layout.ts'
 export {
+  MIGRATION_ALLOCATIONS_DDL,
   MYWORK_MIGRATIONS,
   MYWORK_SCHEMA_VERSION,
+  assertCanonicalMigrations,
+  canonicalMigrations,
   listAppliedMigrations,
   runMigrations,
+  validateMigrations,
   type AppliedMigration,
   type Migration,
   type MigrationContext,
+  type MigrationSource,
 } from './migrations.ts'
 export type {
   OutboxAppendInput,

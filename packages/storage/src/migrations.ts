@@ -12,7 +12,7 @@
  * @module
  */
 
-import { StorageError } from './errors.ts'
+import { MIGRATION_JOURNAL_INCONSISTENT, StorageError } from './errors.ts'
 import { withTransaction, type SqlExecutor, type SqliteConnection } from './sql.ts'
 import type { StorageClock } from './clock.ts'
 
@@ -103,6 +103,20 @@ const JOURNAL_DDL = `
 `
 
 /**
+ * Version requests, created in the same bootstrap block as the journal and for
+ * the same reason: the table exists before the first version does, so the
+ * allocator that hands out versions needs no migration of its own (F-63,
+ * §15.3). `IF NOT EXISTS` means an existing database gains the table on open.
+ */
+export const MIGRATION_ALLOCATIONS_DDL = `
+  CREATE TABLE IF NOT EXISTS migration_allocations (
+    key          TEXT    NOT NULL PRIMARY KEY,
+    version      INTEGER NOT NULL UNIQUE,
+    requested_at INTEGER NOT NULL
+  ) STRICT
+`
+
+/**
  * Validate a migration list before it touches a database.
  * @param migrations - candidate list.
  * @throws {StorageError} `invalid-input` for a malformed, duplicated, or
@@ -129,6 +143,58 @@ export function validateMigrations(migrations: readonly Migration[]): readonly M
 }
 
 /**
+ * One layer's contribution to the canonical migration set: the list a package
+ * exports for the tables it owns.
+ */
+export type MigrationSource = readonly Migration[]
+
+/**
+ * The canonical database migration set: every layer's list merged, ordered by
+ * version, and refused unless the merged sequence is `1..N` without a gap.
+ *
+ * The infrastructure layer owns the *order and the check*; the concrete lists
+ * belong to their packages and are assembled at the composition root, because
+ * storage must not depend on a domain layer (D08, `tests/boundaries.test.mjs`).
+ * Versions themselves come from the migration allocator, never from a literal
+ * written here (§15.3, F-63).
+ * @param sources - one list per layer, e.g. `[MYWORK_MIGRATIONS, EVIDENCE_MIGRATIONS, …]`.
+ * @throws {StorageError} `invalid-input` for a duplicate, a malformed entry, or a gap.
+ */
+export function canonicalMigrations(sources: readonly MigrationSource[]): readonly Migration[] {
+  const merged: Migration[] = []
+  for (const source of sources) {
+    if (!Array.isArray(source)) {
+      throw new StorageError(
+        'invalid-input',
+        `dsh-mywork: canonicalMigrations expects migration lists, received ${typeof source}`,
+      )
+    }
+    merged.push(...source)
+  }
+  merged.sort((left, right) => left.version - right.version)
+  return assertCanonicalMigrations(merged)
+}
+
+/**
+ * Assert a list is the canonical gapless sequence `1..N`.
+ * @param migrations - candidate list, ordered by version.
+ * @returns the same list, frozen.
+ * @throws {StorageError} `invalid-input` when a version is duplicated, malformed, out of order, or leaves a gap.
+ */
+export function assertCanonicalMigrations(migrations: readonly Migration[]): readonly Migration[] {
+  validateMigrations(migrations)
+  migrations.forEach((migration, index) => {
+    if (migration.version !== index + 1) {
+      throw new StorageError(
+        'invalid-input',
+        `dsh-mywork: the canonical migration set must be gapless from version 1; found ${migration.version} where ${index + 1} was expected, so a number was skipped or written by hand instead of allocated`,
+      )
+    }
+  })
+  return Object.freeze([...migrations])
+}
+
+/**
  * Bring a database up to the version the given migrations describe.
  *
  * The write lock is taken before the version is re-read, so two processes
@@ -137,7 +203,8 @@ export function validateMigrations(migrations: readonly Migration[]): readonly M
  * @param connection - open connection.
  * @param migrations - ordered migrations; already validated by the caller.
  * @param clock - time source for journal rows.
- * @throws {StorageError} `schema-version-unsupported` or `migration-failed`.
+ * @throws {StorageError} `schema-version-unsupported`, `migration-failed`, or
+ * `migration-journal-inconsistent`.
  */
 export function runMigrations(
   connection: SqliteConnection,
@@ -145,6 +212,7 @@ export function runMigrations(
   clock: StorageClock,
 ): void {
   connection.exec(JOURNAL_DDL)
+  connection.exec(MIGRATION_ALLOCATIONS_DDL)
   const latest = migrations[migrations.length - 1]?.version ?? 0
   let applied = connection.userVersion()
   if (applied > latest) {
@@ -181,6 +249,42 @@ export function runMigrations(
       )
     }
   }
+  assertJournalConsistent(connection, migrations, connection.userVersion())
+}
+
+/**
+ * Check the journal against the version stamp after the apply loop (F-20).
+ *
+ * `PRAGMA user_version` says how far the database got, `schema_migrations` says
+ * which migrations took it there. They are written in the same transaction, so
+ * a database whose journal lost a row — or whose journal runs ahead of the
+ * stamp — is damaged state that must not be opened as if it were complete.
+ * @param executor - connection to read the journal through.
+ * @param migrations - the list this open was asked to apply.
+ * @param userVersion - version stamp on disk after the apply loop.
+ * @throws {StorageError} `migration-journal-inconsistent` with `{ userVersion, journal, expected }`.
+ */
+function assertJournalConsistent(
+  executor: SqlExecutor,
+  migrations: readonly Migration[],
+  userVersion: number,
+): void {
+  const journal = listAppliedMigrations(executor)
+    .map(row => row.version)
+    .sort((left, right) => left - right)
+  const expected = migrations
+    .filter(migration => migration.version <= userVersion)
+    .map(migration => migration.version)
+  const matches = journal.length === expected.length
+    && journal.every((version, index) => version === expected[index])
+  if (matches) return
+  throw new StorageError(
+    MIGRATION_JOURNAL_INCONSISTENT,
+    `dsh-mywork: the migration journal does not match the database at schema version ${userVersion}; `
+      + `rows [${journal.join(', ')}] where [${expected.join(', ')}] were expected. `
+      + 'Repair by re-running the build that migrated it, or rebuild the database (MW-040).',
+    { details: { userVersion, journal, expected } },
+  )
 }
 
 /**
