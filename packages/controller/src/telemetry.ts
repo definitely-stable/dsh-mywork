@@ -15,6 +15,13 @@
  * main leak channel by construction. It is therefore a fixed string per event
  * name, never a template over caller data: `body` cannot be reached from any
  * input field of {@link ProductEventInput}.
+ *
+ * F-55 closes the other channel — the attributes — with an **allowlist** rather
+ * than a denylist: {@link PRODUCT_ATTRIBUTE_ALLOWLIST} names every key MyWork may
+ * disclose, and the event's own field set is closed the same way
+ * ({@link PRODUCT_EVENT_INPUT_FIELDS}). An unknown key is refused, so a key
+ * nobody thought of cannot be added by a caller, and the body decision is part
+ * of the same policy: neither level names anything that could carry content.
  * @module
  */
 
@@ -120,6 +127,48 @@ export const PRODUCT_EVENT_BODIES: Readonly<Record<string, string>> = Object.fre
 })
 
 /**
+ * Every attribute key MyWork may put in a product event, and nothing else.
+ *
+ * Identifiers, an operation domain, an outcome, a duration, and an attempt
+ * count: things a deployment can aggregate and correlate on, and none of them
+ * content. The list is the gate, not a description of one — a key outside it is
+ * refused, so the question "may this be disclosed?" is answered for every key
+ * rather than only for the keys somebody remembered to ban (F-55).
+ */
+export const PRODUCT_ATTRIBUTE_ALLOWLIST: readonly string[] = Object.freeze([
+  'mywork.correlation_id',
+  'mywork.workspace_id',
+  'mywork.task_id',
+  'mywork.attempt_id',
+  'mywork.operation_id',
+  'mywork.operation_domain',
+  'mywork.outcome',
+  'mywork.duration_ms',
+  'mywork.attempt_count',
+])
+
+/**
+ * Every field a product event may carry; the shape is closed.
+ *
+ * This is where the body decision becomes a rule rather than a promise: no
+ * field of a product event can hold a prompt, a response, or file content, so
+ * nothing of the sort can reach `body` either.
+ */
+export const PRODUCT_EVENT_INPUT_FIELDS: readonly string[] = Object.freeze([
+  'correlationId',
+  'workspaceId',
+  'taskId',
+  'attemptId',
+  'operationId',
+  'operationDomain',
+  'outcome',
+  'durationMs',
+  'attemptCount',
+  'at',
+  'attributes',
+])
+
+/**
  * What MyWork is willing to say about one settled attempt.
  *
  * Identifiers and enumerations only: no prompt, no response, no file content,
@@ -138,8 +187,24 @@ export interface ProductEventInput {
   readonly operationId?: string
   /** Workspace the attempt ran in. */
   readonly workspaceId?: string
+  /** Task the attempt belongs to. */
+  readonly taskId?: string
+  /** Attempt identifier. */
+  readonly attemptId?: string
+  /** Domain of the operation (§31), e.g. `filesystem`. */
+  readonly operationDomain?: string
   /** Duration of the attempt in milliseconds. */
   readonly durationMs?: number
+  /** How many attempts the task has taken, for retry diagnostics. */
+  readonly attemptCount?: number
+  /**
+   * Extra attributes a caller wants to disclose.
+   *
+   * The values are `unknown` on purpose: this is the only place a caller can
+   * add anything, so it is the only place a key can be wrong, and every key is
+   * checked against {@link PRODUCT_ATTRIBUTE_ALLOWLIST} before it is used.
+   */
+  readonly attributes?: Readonly<Record<string, unknown>>
 }
 
 /** Result of one export attempt; `reason` distinguishes "sent" from "no channel". */
@@ -159,9 +224,12 @@ export interface ProductEmitResult {
  * a test never depends on wall time.
  * @param input - correlation, outcome, and the identifiers MyWork discloses.
  * @returns the record to hand to `productTelemetry.emit`.
- * @throws {TypeError} when the outcome is not one of {@link PRODUCT_EVENT_OUTCOMES}.
+ * @throws {TypeError} when the event is malformed: an unknown field, an
+ *   attribute outside {@link PRODUCT_ATTRIBUTE_ALLOWLIST}, a non-scalar
+ *   attribute value, or an outcome outside {@link PRODUCT_EVENT_OUTCOMES}.
  */
 export function toProductEvent(input: ProductEventInput): ProductTelemetryRecord {
+  assertProductEventInput(input)
   const eventName = PRODUCT_EVENT_NAME_BY_OUTCOME[input.outcome]
   if (eventName === undefined) {
     throw new TypeError(
@@ -217,14 +285,85 @@ export function emitProductEvent(ctx: ProductTelemetryContext, input: ProductEve
   return Object.freeze({ emitted: true, reason: 'emitted', eventName: record.eventName })
 }
 
-/** Attributes of one event, built from the typed input only. */
+/** Attributes of one event, built from the typed input and the allowlist only. */
 function attributesOf(input: ProductEventInput): Record<string, ProductTelemetryScalar> {
   const attributes: Record<string, ProductTelemetryScalar> = {
     'mywork.correlation_id': input.correlationId,
   }
   if (input.workspaceId !== undefined) attributes['mywork.workspace_id'] = input.workspaceId
+  if (input.taskId !== undefined) attributes['mywork.task_id'] = input.taskId
+  if (input.attemptId !== undefined) attributes['mywork.attempt_id'] = input.attemptId
   if (input.operationId !== undefined) attributes['mywork.operation_id'] = input.operationId
+  if (input.operationDomain !== undefined) attributes['mywork.operation_domain'] = input.operationDomain
   attributes['mywork.outcome'] = input.outcome
   if (input.durationMs !== undefined) attributes['mywork.duration_ms'] = input.durationMs
+  if (input.attemptCount !== undefined) attributes['mywork.attempt_count'] = input.attemptCount
+  for (const [key, value] of Object.entries(input.attributes ?? {})) {
+    // Derived keys are part of the event's own shape; letting a caller restate
+    // one would let an event claim an outcome its name does not.
+    if (key in attributes) {
+      throw new TypeError(`dsh-mywork: product event attribute "${key}" is derived from the event and cannot be supplied`)
+    }
+    attributes[key] = value as ProductTelemetryScalar
+  }
   return attributes
+}
+
+/**
+ * Refuse anything that is not a product event MyWork is allowed to disclose.
+ *
+ * Runs on every path, including a profile with no collector: a validation that
+ * only ran where telemetry is mounted would let a leak ship silently from the
+ * profiles that matter least to observe and most to protect.
+ * @param raw - the candidate event.
+ * @throws {TypeError} on an unknown field, an attribute outside
+ *   {@link PRODUCT_ATTRIBUTE_ALLOWLIST}, a non-scalar attribute value, or a
+ *   missing correlation id or clock reading.
+ */
+function assertProductEventInput(raw: unknown): asserts raw is ProductEventInput {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new TypeError(`dsh-mywork: a product event must be an object, received ${describeValue(raw)}`)
+  }
+  const candidate = raw as Record<string, unknown>
+  for (const key of Object.keys(candidate)) {
+    if (!PRODUCT_EVENT_INPUT_FIELDS.includes(key)) {
+      throw new TypeError(
+        `dsh-mywork: "${key}" is not a field of a product event; a product event carries ${PRODUCT_EVENT_INPUT_FIELDS.join(', ')}`,
+      )
+    }
+  }
+  if (typeof candidate.correlationId !== 'string' || candidate.correlationId.trim() === '') {
+    throw new TypeError('dsh-mywork: a product event needs a non-empty correlationId')
+  }
+  if (typeof candidate.at !== 'number' || !Number.isFinite(candidate.at)) {
+    throw new TypeError(`dsh-mywork: a product event needs a finite timestamp, received ${describeValue(candidate.at)}`)
+  }
+  assertAttributes(candidate.attributes)
+}
+
+/** Refuse an attribute set that names a key outside the allowlist. */
+function assertAttributes(raw: unknown): void {
+  if (raw === undefined) return
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new TypeError(`dsh-mywork: product event attributes must be an object, received ${describeValue(raw)}`)
+  }
+  for (const [key, value] of Object.entries(raw)) {
+    if (!PRODUCT_ATTRIBUTE_ALLOWLIST.includes(key)) {
+      throw new TypeError(
+        `dsh-mywork: "${key}" is not an allowlisted product event attribute; allowed: ${PRODUCT_ATTRIBUTE_ALLOWLIST.join(', ')}`,
+      )
+    }
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+      throw new TypeError(
+        `dsh-mywork: product event attribute "${key}" must be a scalar, received ${describeValue(value)}`,
+      )
+    }
+  }
+}
+
+/** Human-readable kind of a refused value. */
+function describeValue(value: unknown): string {
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'an array'
+  return typeof value
 }

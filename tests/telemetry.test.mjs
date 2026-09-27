@@ -11,12 +11,21 @@
  */
 
 import assert from 'node:assert/strict'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { repoRoot } from './lib/fixtures.mjs'
 import { assertScratchHome, scratchDshHome } from './lib/tmp-home.mjs'
+
+/**
+ * Repository root, derived here rather than taken from `lib/fixtures.mjs`.
+ *
+ * That helper refuses to load while ANY package's `lib/` is missing, and the
+ * shared tree is built by several workstreams at once — a sibling build that
+ * cleans `lib/` would fail this suite for a reason that has nothing to do with
+ * telemetry. This suite needs one bundle, so it depends on one bundle.
+ */
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 // The bundle is imported, not mounted, but it inlines the composition root and
 // therefore the storage layer. Pinning `DSH_HOME` first — and proving it is
@@ -33,6 +42,8 @@ const telemetry = {
   PRODUCT_TELEMETRY_SERVICE: controller.PRODUCT_TELEMETRY_SERVICE,
   PRODUCT_EVENT_NAMES: controller.PRODUCT_EVENT_NAMES,
   PRODUCT_EVENT_BODIES: controller.PRODUCT_EVENT_BODIES,
+  PRODUCT_EVENT_INPUT_FIELDS: controller.PRODUCT_EVENT_INPUT_FIELDS,
+  PRODUCT_ATTRIBUTE_ALLOWLIST: controller.PRODUCT_ATTRIBUTE_ALLOWLIST,
   toProductEvent: controller.toProductEvent,
   emitProductEvent: controller.emitProductEvent,
 }
@@ -127,4 +138,75 @@ test('emit delivers exactly one record when the service is present', () => {
   const skipped = telemetry.emitProductEvent(broken, EVENT)
   assert.equal(skipped.emitted, false)
   assert.equal(skipped.reason, 'telemetry-disabled')
+})
+
+test('the attribute allowlist refuses a forbidden or unknown key at every level', () => {
+  // The seven keys F-55 names as the leak channels, plus one that is merely
+  // unknown: an allowlist refuses all eight, while a denylist built from the
+  // same seven would have let the eighth through.
+  const forbidden = ['prompt', 'content', 'body', 'bytes', 'payload', 'stderr', 'stdout', 'diff']
+
+  const delivered = []
+  const ctx = { get: () => ({ emit: record => delivered.push(record) }) }
+
+  for (const key of forbidden) {
+    assert.throws(
+      () => telemetry.emitProductEvent(ctx, { ...EVENT, attributes: { [key]: 'secret' } }),
+      TypeError,
+      `attribute "${key}" must be refused`,
+    )
+  }
+
+  // The allowlist is asserted against literals: comparing it with itself would
+  // pass whatever it became.
+  assert.deepEqual(telemetry.PRODUCT_ATTRIBUTE_ALLOWLIST, [
+    'mywork.correlation_id',
+    'mywork.workspace_id',
+    'mywork.task_id',
+    'mywork.attempt_id',
+    'mywork.operation_id',
+    'mywork.operation_domain',
+    'mywork.outcome',
+    'mywork.duration_ms',
+    'mywork.attempt_count',
+  ])
+  for (const key of forbidden) {
+    assert.equal(telemetry.PRODUCT_ATTRIBUTE_ALLOWLIST.includes(key), false, `"${key}" must not be allowlisted`)
+  }
+
+  // The body decision is part of the same policy: `body` is neither an event
+  // field nor an attribute, so neither level can reach it.
+  assert.equal(telemetry.PRODUCT_EVENT_INPUT_FIELDS.includes('body'), false)
+  for (const key of forbidden) {
+    assert.equal(telemetry.PRODUCT_EVENT_INPUT_FIELDS.includes(key), false, `"${key}" must not be an event field`)
+  }
+  assert.throws(() => telemetry.emitProductEvent(ctx, { ...EVENT, body: 'file contents' }), TypeError)
+
+  // Nothing reached the sink: the refusal happens before the record is built.
+  assert.deepEqual(delivered, [])
+
+  // Values are scalars only, so a nested object cannot smuggle content through
+  // an allowlisted key.
+  assert.throws(
+    () => telemetry.emitProductEvent(ctx, { ...EVENT, attributes: { 'mywork.operation_domain': { body: 'x' } } }),
+    TypeError,
+  )
+
+  // An allowlisted attribute is delivered, so the gate is not a blanket refusal.
+  const extra = telemetry.emitProductEvent(ctx, { ...EVENT, attributes: { 'mywork.attempt_count': 2 } })
+  assert.equal(extra.emitted, true)
+  assert.equal(delivered.length, 1)
+  assert.equal(delivered[0].attributes['mywork.attempt_count'], 2)
+
+  // Validation runs before the channel is resolved, so a malformed event is
+  // refused even where no collector exists — and the channel is never asked.
+  const asked = []
+  const absent = {
+    get(name) {
+      asked.push(name)
+      return undefined
+    },
+  }
+  assert.throws(() => telemetry.emitProductEvent(absent, { ...EVENT, attributes: { prompt: 'x' } }), TypeError)
+  assert.deepEqual(asked, [], 'a malformed event must be refused without asking for a channel')
 })
