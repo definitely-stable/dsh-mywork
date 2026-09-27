@@ -102,7 +102,7 @@ test('runtime state is rooted below DSH_HOME, never in the repository', () => {
 })
 
 test('the suite writes only into temporary directories', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   assert.ok(store.path.startsWith(tmpdir()), `expected a temporary database, got ${store.path}`)
   assert.equal(existsSync(join(repoRoot, 'state')), false, 'no state directory inside the repository')
   store.close()
@@ -111,7 +111,7 @@ test('the suite writes only into temporary directories', async () => {
 test('a fresh database is stamped with the schema version, the journal, and WAL', async () => {
   const dir = tempDir()
   const clock = new adapterTesting.FakeClock(5_000)
-  const store = await storage.openStore({ path: statePath(dir), clock })
+  const store = await storage.openStore({ path: statePath(dir), clock, migrations: storage.MYWORK_MIGRATIONS })
   try {
     assert.equal(store.schemaVersion, storage.MYWORK_SCHEMA_VERSION)
     assert.ok(storage.MYWORK_SCHEMA_VERSION >= 1)
@@ -128,7 +128,7 @@ test('a fresh database is stamped with the schema version, the journal, and WAL'
 })
 
 test('the tables are STRICT, so a wrong column type is refused by SQLite', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   try {
     assert.throws(
       () => store.transaction(tx => tx.run(
@@ -145,7 +145,7 @@ test('the tables are STRICT, so a wrong column type is refused by SQLite', async
 })
 
 test('an event applied twice changes the result only once', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   try {
     let effects = 0
     const first = store.transaction(tx => {
@@ -178,7 +178,7 @@ test('an event applied twice changes the result only once', async () => {
 })
 
 test('dedup is per consumer: another consumer still sees the event as new', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   try {
     store.transaction(tx => tx.inbox.applyOnce('task-projection', 'e-9', () => 'ok'))
     const other = store.transaction(tx => tx.inbox.applyOnce('audit', 'e-9', () => 'ok'))
@@ -195,7 +195,7 @@ test('dedup is per consumer: another consumer still sees the event as new', asyn
 test('a restart keeps the schema version, the queued events, and the dedup ledger', async () => {
   const dir = tempDir()
   const path = statePath(dir)
-  const first = await storage.openStore({ path })
+  const first = await storage.openStore({ path, migrations: storage.MYWORK_MIGRATIONS })
   let queued
   try {
     first.transaction(tx => {
@@ -209,7 +209,7 @@ test('a restart keeps the schema version, the queued events, and the dedup ledge
     first.close()
   }
 
-  const second = await storage.openStore({ path })
+  const second = await storage.openStore({ path, migrations: storage.MYWORK_MIGRATIONS })
   try {
     assert.equal(second.schemaVersion, storage.MYWORK_SCHEMA_VERSION)
     assert.equal(second.migrations.length, 1)
@@ -225,7 +225,7 @@ test('a restart keeps the schema version, the queued events, and the dedup ledge
 })
 
 test('a failure between the mutation and the commit leaves no half change', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   try {
     let visibleInside = null
     assert.throws(
@@ -257,7 +257,7 @@ test('a failure between the mutation and the commit leaves no half change', asyn
 })
 
 test('the outbox keeps one stream per workspace and is idempotent by event id', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   try {
     const result = store.transaction(tx => {
       const one = tx.outbox.append({ event: eventFixture(), workspaceId: 'W-1', correlationId: 'corr-1', eventId: 'e-1' })
@@ -299,7 +299,7 @@ test('the outbox keeps one stream per workspace and is idempotent by event id', 
 
 test('a failed delivery keeps the event queued and a delivered one leaves the queue', async () => {
   const clock = new adapterTesting.FakeClock(10_000)
-  const store = await storage.openStore({ path: statePath(tempDir()), clock })
+  const store = await storage.openStore({ path: statePath(tempDir()), clock, migrations: storage.MYWORK_MIGRATIONS })
   try {
     store.transaction(tx => tx.outbox.append({ event: eventFixture(), workspaceId: 'W-1', correlationId: 'corr-1', eventId: 'e-1' }))
     await clock.advance(500)
@@ -327,7 +327,7 @@ test('a failed delivery keeps the event queued and a delivered one leaves the qu
 })
 
 test('invalid input is refused before anything is written', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   try {
     const cases = [
       () => store.transaction(tx => tx.outbox.append({ event: eventFixture(), workspaceId: 'W-1', correlationId: 'corr-1', eventId: '' })),
@@ -372,7 +372,7 @@ test('invalid input is refused before anything is written', async () => {
 })
 
 test('a closed store refuses further work, and there is no in-memory mode', async () => {
-  const store = await storage.openStore({ path: statePath(tempDir()) })
+  const store = await storage.openStore({ path: statePath(tempDir()), migrations: storage.MYWORK_MIGRATIONS })
   store.close()
   assert.throws(() => store.schemaVersion, error => error.code === 'store-closed')
   assert.throws(() => store.outbox, error => error.code === 'store-closed')
@@ -380,11 +380,11 @@ test('a closed store refuses further work, and there is no in-memory mode', asyn
   assert.throws(() => store.close(), error => error.code === 'store-closed')
 
   await assert.rejects(
-    () => storage.openStore({ path: ':memory:' }),
+    () => storage.openStore({ path: ':memory:', migrations: storage.MYWORK_MIGRATIONS }),
     error => error.code === 'invalid-input' && /durable/.test(error.message),
   )
   await assert.rejects(
-    () => storage.openStore({ path: statePath(tempDir()), busyTimeoutMs: -1 }),
+    () => storage.openStore({ path: statePath(tempDir()), busyTimeoutMs: -1, migrations: storage.MYWORK_MIGRATIONS }),
     error => error.code === 'invalid-input',
   )
 })
@@ -470,8 +470,8 @@ test('a database written by a newer build is refused, not downgraded', async () 
 
 test('two connections on one file share the state and each migration runs once', async () => {
   const path = statePath(tempDir())
-  const writer = await storage.openStore({ path })
-  const reader = await storage.openStore({ path })
+  const writer = await storage.openStore({ path, migrations: storage.MYWORK_MIGRATIONS })
+  const reader = await storage.openStore({ path, migrations: storage.MYWORK_MIGRATIONS })
   try {
     writer.transaction(tx => tx.outbox.append({ event: eventFixture(), workspaceId: 'W-1', correlationId: 'corr-1', eventId: 'e-shared' }))
     assert.deepEqual(reader.outbox.pending().map(record => record.envelope.eventId), ['e-shared'])

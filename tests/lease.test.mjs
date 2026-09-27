@@ -94,7 +94,7 @@ after(() => {
 
 test('a database without the lease migration is refused where it is wired', async () => {
   const dir = tempDir()
-  const plain = await storage.openStore({ path: join(dir, 'plain.sqlite') })
+  const plain = await storage.openStore({ path: join(dir, 'plain.sqlite'), migrations: storage.MYWORK_MIGRATIONS })
   assert.throws(
     () => lease.createLeaseStore(plain),
     error => lease.isLeaseError(error) && error.code === 'schema-missing',
