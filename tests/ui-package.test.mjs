@@ -174,11 +174,39 @@ test('the bundle registers one factory on the page module system', () => {
   assert.equal(exports.name, undefined, 'the plugin name belongs to the Loader row, not the bundle')
 })
 
-test('the controller patch mounts the client row by bare package name', () => {
-  const patch = readFileSync(join(repoRoot, 'packages', 'controller', 'cordis.patch.yml'), 'utf8')
-  const names = [...patch.matchAll(/^\s*name:\s*'([^']+)'\s*$/gm)].map(match => match[1])
+test('the panel row is declared by the package that owns the half, by bare name', () => {
+  // A row that names a package the profile has not installed cannot activate,
+  // and the boot reports that as a warning rather than a failure: measured in an
+  // isolated home, `dsh plugin add <controller.tgz>` boots with
+  // `mywork-web (@dsh-mywork/web): failed to import` and `1 entry did not
+  // activate`, exit 0. The row therefore belongs to the package that owns the
+  // browser half, declared through `dsh.bundle.patch` and shipped in `files`.
+  const manifest = manifestOf('web')
+  assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml', 'the UI package is its own bundle')
+  // The declared patch is the SHIPPED patch: `files` must cover exactly the file
+  // `dsh.bundle.patch` names, or the row never reaches a consumer.
+  const patchFile = manifest.dsh.bundle.patch.replace(/^\.\//, '')
+  assert.ok(manifest.files.includes(patchFile), `files must cover ${patchFile}`)
+  assert.equal(typeof manifest.dsh.client.platform, 'string', 'one manifest carries both roles')
+
+  const own = readFileSync(join(packageDir, patchFile), 'utf8')
+  assert.match(own, /^\s*-\s*id:\s*mywork-web\s*$/m, 'the row id the profile will show')
+  assert.deepEqual(
+    [...own.matchAll(/^\s*name:\s*'([^']+)'\s*$/gm)].map(match => match[1]),
+    [PACKAGE_NAME],
+    'the UI package declares its own row, by bare name',
+  )
   // A row mounted from a subpath export never carries a half
   // (docs/cookbook/adding-a-settings-card.md:58), so the row names the package.
-  assert.deepEqual(names, ['@dsh-mywork/controller', PACKAGE_NAME], 'the patch rows, in order')
-  assert.equal(patch.includes(`${PACKAGE_NAME}/`), false, 'a subpath specifier never carries a client half')
+  assert.equal(own.includes(`${PACKAGE_NAME}/`), false, 'a subpath specifier never carries a client half')
+
+  // The controller's patch declares only its own row: installing the controller
+  // alone must never insert an entry the profile cannot resolve.
+  const controllerPatch = readFileSync(join(repoRoot, 'packages', 'controller', 'cordis.patch.yml'), 'utf8')
+  assert.equal(controllerPatch.includes(PACKAGE_NAME), false, 'the controller must not name the UI package')
+  assert.deepEqual(
+    [...controllerPatch.matchAll(/^\s*name:\s*'([^']+)'\s*$/gm)].map(match => match[1]),
+    ['@dsh-mywork/controller'],
+    'the controller patch declares its own row only',
+  )
 })
