@@ -95,7 +95,7 @@ export async function openStore(options: OpenStoreOptions): Promise<MyWorkStore>
   if (!Array.isArray(requested) || requested.length === 0) {
     throw new StorageError(
       MIGRATIONS_REQUIRED,
-      'dsh-mywork: openStore requires an explicit migration list; pass MYWORK_DATABASE_MIGRATIONS',
+      'dsh-mywork: openStore requires an explicit migration list; pass the list canonicalMigrations(sources) returns',
     )
   }
   const migrations = validateMigrations(requested)
