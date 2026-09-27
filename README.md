@@ -323,6 +323,15 @@ pnpm run pack:local     # pnpm pack контроллера в .tmp/pack
 pnpm run verify:profile # упаковка + установка и boot в изолированном DSH-профиле
 ```
 
+`pnpm run build` собирает пакеты по отдельности. Сборка **контроллера** тяжелее
+остальных: `tsdown` инлайнит в его бандл все девять рабочих пакетов (граница
+требует, чтобы из внешнего в `lib/index.js` остались только `@deepseek-ai/cordis`
+и node-builtins), поэтому её декларационный проход не помещается в дефолтную кучу
+Node: `--max-old-space-size=6144` падает с «Ineffective mark-compacts near heap
+limit» (exit 134), а 8192 собирает за ~50 с. Флаг прописан прямо в скрипте
+`packages/controller/package.json`, так что `corepack pnpm -r run build` работает и
+локально, и в CI без внешних переменных.
+
 `pnpm run test` запускает `node --test --test-isolation=none` по
 `tests/**/*.test.mjs`: обычный `node --test` поднимает по процессу на файл и в
 ограниченном (sandbox) шелле падает со `spawn EPERM` — то же ограничение, что и
