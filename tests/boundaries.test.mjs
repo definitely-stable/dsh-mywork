@@ -13,9 +13,18 @@ import test from 'node:test'
 
 import { repoRoot } from './lib/fixtures.mjs'
 
-/** Third-party or product names the domain must never depend on. */
+/**
+ * Third-party or product names the domain must never depend on.
+ *
+ * The platform family is banned by PREFIX, not by one package name: naming only
+ * `@deepseek-ai/cordis` let every other `@deepseek-ai/dsh-*` package through, so
+ * the ban was a list of one. The prefix is paired with an explicit allowlist
+ * below, because the composition root legitimately imports the host runtime —
+ * without the allowlist the prefix ban would be unsatisfiable and the scan
+ * gate unreachable (defect R-08).
+ */
 const FORBIDDEN = [
-  '@deepseek-ai/cordis',
+  '@deepseek-ai/',
   'beads',
   'hindsight',
   'openviking',
@@ -23,6 +32,28 @@ const FORBIDDEN = [
   'better-sqlite3',
   'node:sqlite',
 ]
+
+/**
+ * The only platform specifiers a layer may import, and only where its own
+ * allowed set says so. `@deepseek-ai/cordis` is the host's single plugin
+ * runtime: importing it is how a plugin is written, not a boundary leak.
+ */
+const ALLOWED_PLATFORM = ['@deepseek-ai/cordis']
+
+/**
+ * The first forbidden name a specifier hits, or undefined.
+ *
+ * The allowlist is matched on the whole specifier (plus its subpaths), so
+ * `@deepseek-ai/cordis` passes while `@deepseek-ai/dsh-sandbox-policy` does not.
+ * @param specifier - the module specifier to test.
+ * @param forbidden - names banned by case-insensitive substring.
+ * @param allowed - specifiers exempt from `forbidden`.
+ */
+function forbiddenIn(specifier, forbidden, allowed = []) {
+  const lowered = specifier.toLowerCase()
+  if (allowed.some(entry => lowered === entry || lowered.startsWith(`${entry}/`))) return undefined
+  return forbidden.find(name => lowered.includes(name))
+}
 
 /** Collect every file with one of the given extensions, recursively. */
 function collect(dir, extensions, found = []) {
@@ -93,13 +124,24 @@ function scrub(source) {
   return out
 }
 
-/** Every module specifier a file imports or re-exports. */
+/**
+ * Every module specifier a file imports or re-exports.
+ *
+ * The capture excludes whitespace on purpose. A module specifier never contains
+ * it, and without the exclusion a string literal ENDING in the word `from` —
+ * `'…read the sequence from'` — hands its CLOSING quote to the regex as if that
+ * quote opened a specifier; `[^'"]+` then runs on to the next quote in the file,
+ * possibly hundreds of lines later, and every real import inside that span is
+ * skipped. That is the same class of hole as the one F-42 closes, so it is
+ * closed here too. Measured across all 115 package sources, the exclusion drops
+ * exactly one bogus specifier (`beads-adapter/src/memory.ts`) and adds none.
+ */
 function specifiersOf(source) {
   const scrubbed = scrub(source)
   return [
-    ...[...scrubbed.matchAll(/\bfrom\s*['"]([^'"]+)['"]/g)].map(match => match[1]),
-    ...[...scrubbed.matchAll(/\bimport\s*['"]([^'"]+)['"]/g)].map(match => match[1]),
-    ...[...scrubbed.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]/g)].map(match => match[1]),
+    ...[...scrubbed.matchAll(/\bfrom\s*['"]([^'"\s]+)['"]/g)].map(match => match[1]),
+    ...[...scrubbed.matchAll(/\bimport\s*['"]([^'"\s]+)['"]/g)].map(match => match[1]),
+    ...[...scrubbed.matchAll(/\bimport\s*\(\s*['"]([^'"\s]+)['"]/g)].map(match => match[1]),
   ]
 }
 
@@ -125,7 +167,7 @@ const evidenceSources = collect(join(repoRoot, 'packages', 'evidence', 'src'), [
 
 /** Product names the infrastructure layer must not depend on either. */
 const FORBIDDEN_FOR_STORAGE = [
-  '@deepseek-ai/cordis',
+  '@deepseek-ai/',
   'beads',
   'hindsight',
   'openviking',
@@ -166,12 +208,35 @@ test('no domain source imports DSH, Beads, or a concrete memory backend', () => 
   for (const [pkg, files] of Object.entries(sources)) {
     for (const file of files) {
       for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
-        const lowered = specifier.toLowerCase()
-        const hit = FORBIDDEN.find(forbidden => lowered.includes(forbidden))
+        const hit = forbiddenIn(specifier, FORBIDDEN)
         assert.equal(hit, undefined, `${pkg}: ${file} must not import "${hit}" through "${specifier}"`)
       }
     }
   }
+})
+
+test('the widened ban catches the platform family the single-name list missed', () => {
+  // The list used to name exactly one package, so any other `@deepseek-ai/dsh-*`
+  // import passed silently. This fixture is the one the plan records as missed.
+  const legacy = ['@deepseek-ai/cordis', 'beads', 'hindsight', 'openviking', 'sqlite', 'better-sqlite3', 'node:sqlite']
+  const fixture = "import type { Context } from '@deepseek-ai/dsh-sandbox-policy'"
+  const [specifier] = specifiersOf(fixture)
+  assert.equal(specifier, '@deepseek-ai/dsh-sandbox-policy', 'the fixture must be read as a real specifier')
+  assert.equal(legacy.find(name => specifier.toLowerCase().includes(name)), undefined, 'the old list missed it')
+  assert.equal(forbiddenIn(specifier, FORBIDDEN), '@deepseek-ai/', 'the widened list catches it')
+})
+
+test('the cordis allowlist is the only thing that lets a platform import through', () => {
+  const fixture = "import { Service, type Context } from '@deepseek-ai/cordis'"
+  const [specifier] = specifiersOf(fixture)
+  assert.equal(specifier, '@deepseek-ai/cordis')
+  // Without the allowlist the prefix ban would make every plugin unsatisfiable.
+  assert.equal(forbiddenIn(specifier, FORBIDDEN), '@deepseek-ai/')
+  // With it, the host runtime passes — and so does a subpath of it...
+  assert.equal(forbiddenIn(specifier, FORBIDDEN, ALLOWED_PLATFORM), undefined)
+  assert.equal(forbiddenIn('@deepseek-ai/cordis/plugin', FORBIDDEN, ALLOWED_PLATFORM), undefined)
+  // ...while a sibling platform package is still caught, so it is not a blanket.
+  assert.equal(forbiddenIn('@deepseek-ai/dsh-home-paths', FORBIDDEN, ALLOWED_PLATFORM), '@deepseek-ai/')
 })
 
 test('the domain packages declare no runtime dependencies', () => {
@@ -184,18 +249,33 @@ test('the domain packages declare no runtime dependencies', () => {
 })
 
 test('the built packages carry exactly the imports they are allowed to', () => {
-  const built = {
-    'packages/contracts/lib/index.js': [],
-    'packages/core/lib/index.js': [],
-    // The controller is the published bundle: workspace packages are inlined and
-    // only the host's single Cordis instance stays external.
-    'packages/controller/lib/index.js': ['@deepseek-ai/cordis'],
+  // The two domain bundles inline everything they use, so they import nothing.
+  for (const relative of ['packages/contracts/lib/index.js', 'packages/core/lib/index.js']) {
+    assert.deepEqual(specifiersOf(readFileSync(join(repoRoot, relative), 'utf8')), [], `${relative} imports`)
   }
-  for (const [relative, expected] of Object.entries(built)) {
-    const file = join(repoRoot, relative)
-    const found = specifiersOf(readFileSync(file, 'utf8'))
-    assert.deepEqual(found, expected, `${relative} imports`)
-  }
+
+  // The controller is the published bundle, and since the composition root mounts
+  // nine workspace packages it also reaches Node builtins directly. The invariant
+  // is therefore stated as a rule rather than as a fixed list: the only external
+  // specifiers are the host runtime and `node:*`; a `@dsh-mywork/*` import would
+  // mean a workspace package was NOT inlined, and any other `@deepseek-ai/*`
+  // would mean a dependency the host does not promise to provide.
+  const controller = specifiersOf(readFileSync(join(repoRoot, 'packages/controller/lib/index.js'), 'utf8'))
+  assert.deepEqual(
+    controller.filter(specifier => !specifier.startsWith('node:')),
+    ['@deepseek-ai/cordis'],
+    'the only non-builtin external may be the host runtime',
+  )
+  assert.deepEqual(
+    controller.filter(specifier => specifier.startsWith('@dsh-mywork/')),
+    [],
+    'the workspace packages must be inlined, not imported',
+  )
+  // Guard the extraction: a scan that found nothing would pass both checks above.
+  assert.ok(
+    controller.filter(specifier => specifier.startsWith('node:')).length >= 3,
+    `expected the bundle to import its Node builtins, found ${controller.join(', ')}`,
+  )
 })
 
 test('the storage layer builds on Node builtins and the contracts package only', () => {
@@ -217,8 +297,7 @@ test('the storage layer builds on Node builtins and the contracts package only',
 test('the storage layer depends on no product, no DSH package, and no domain module', () => {
   for (const file of storageSources) {
     for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
-      const lowered = specifier.toLowerCase()
-      const hit = FORBIDDEN_FOR_STORAGE.find(forbidden => lowered.includes(forbidden))
+      const hit = forbiddenIn(specifier, FORBIDDEN_FOR_STORAGE)
       assert.equal(hit, undefined, `storage: ${file} must not import "${hit}" through "${specifier}"`)
       assert.equal(specifier.startsWith('@dsh-mywork/') && specifier !== '@dsh-mywork/contracts', false,
         `storage: ${file} must not depend on the domain layer through "${specifier}"`)
@@ -298,8 +377,7 @@ test('the evidence layer builds on Node builtins, the contracts package, and the
 test('the evidence layer depends on no product, no DSH package, and no domain module', () => {
   for (const file of evidenceSources) {
     for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
-      const lowered = specifier.toLowerCase()
-      const hit = FORBIDDEN_FOR_STORAGE.find(forbidden => lowered.includes(forbidden))
+      const hit = forbiddenIn(specifier, FORBIDDEN_FOR_STORAGE)
       assert.equal(hit, undefined, `evidence: ${file} must not import "${hit}" through "${specifier}"`)
       assert.equal(
         specifier.startsWith('@dsh-mywork/') && !['@dsh-mywork/contracts', '@dsh-mywork/storage'].includes(specifier),
@@ -369,8 +447,7 @@ test('the lease layer builds on its own modules, the contracts, the kernel types
 test('the lease layer depends on no product, no DSH package, and no other layer', () => {
   for (const file of leaseSources) {
     for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
-      const lowered = specifier.toLowerCase()
-      const hit = FORBIDDEN_FOR_STORAGE.find(forbidden => lowered.includes(forbidden))
+      const hit = forbiddenIn(specifier, FORBIDDEN_FOR_STORAGE)
       assert.equal(hit, undefined, `lease: ${file} must not import "${hit}" through "${specifier}"`)
       assert.equal(
         specifier.startsWith('@dsh-mywork/')
@@ -458,8 +535,7 @@ test('the execution layer builds on its own modules, the contracts, core, and th
 test('the execution layer depends on no product, no DSH package, and no other layer', () => {
   for (const file of executionSources) {
     for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
-      const lowered = specifier.toLowerCase()
-      const hit = FORBIDDEN_FOR_STORAGE.find(forbidden => lowered.includes(forbidden))
+      const hit = forbiddenIn(specifier, FORBIDDEN_FOR_STORAGE)
       assert.equal(hit, undefined, `execution: ${file} must not import "${hit}" through "${specifier}"`)
       assert.equal(
         specifier.startsWith('@dsh-mywork/')
@@ -516,7 +592,7 @@ const BOARD_MODULES = ['board.ts', 'theme.ts']
 
 /** Product and transport names that would leak an adapter into the projection. */
 const FORBIDDEN_IN_BOARD = [
-  '@deepseek-ai/cordis',
+  '@deepseek-ai/',
   'beads',
   'hindsight',
   'openviking',
@@ -556,8 +632,7 @@ test('the board and theme modules depend on no DSH, Beads, HTTP, or UI package',
       const file = join(repoRoot, 'packages', pkg, 'src', module)
       for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
         checked += 1
-        const lowered = specifier.toLowerCase()
-        const hit = FORBIDDEN_IN_BOARD.find(forbidden => lowered.includes(forbidden))
+        const hit = forbiddenIn(specifier, FORBIDDEN_IN_BOARD)
         assert.equal(hit, undefined, `${pkg}/src/${module} must not import "${hit}" through "${specifier}"`)
       }
     }
@@ -579,6 +654,144 @@ test('the built domain bundles carry the board projection', () => {
   for (const name of ['projectTaskZone', 'legalDropTargets', 'midpointKey', 'resolveSurfacePolicy']) {
     assert.ok(coreBundle.includes(name), `expected packages/core/lib/index.js to carry ${name}`)
   }
+})
+
+/**
+ * The infrastructure and control packages (F-42).
+ *
+ * None of them was scanned by any check before, so the hole was total rather
+ * than DSH-specific: a SQLite driver, a product name, or another layer could
+ * have appeared here and the suite would have stayed green. Naming them
+ * explicitly keeps the coverage from silently disappearing when a package is
+ * renamed away.
+ *
+ * The platform family is banned by prefix (F-41), and the composition root
+ * legitimately imports the host runtime, so the allowlist is carried here too.
+ */
+const schedulerSources = collect(join(repoRoot, 'packages', 'scheduler', 'src'), ['.ts'])
+const plannerSources = collect(join(repoRoot, 'packages', 'planner', 'src'), ['.ts'])
+const adapterSdkSources = collect(join(repoRoot, 'packages', 'adapter-sdk', 'src'), ['.ts'])
+const controllerSources = collect(join(repoRoot, 'packages', 'controller', 'src'), ['.ts'])
+const memoryNativeSources = collect(join(repoRoot, 'packages', 'memory-native', 'src'), ['.ts'])
+
+/**
+ * `beads-adapter` joins the scan beyond F-42's five packages, deliberately.
+ *
+ * It was the one remaining unscanned package, and the `specifiersOf` hole found
+ * while writing F-42 fired in exactly one place — `beads-adapter/src/memory.ts`
+ * — so leaving it out would have left the hole's only real trigger uncovered.
+ * It imports the host runtime, so it carries the same cordis allowlist.
+ */
+const beadsAdapterSources = collect(join(repoRoot, 'packages', 'beads-adapter', 'src'), ['.ts'])
+
+/** Product and platform names the infrastructure layer must not depend on. */
+const FORBIDDEN_FOR_INFRA = [
+  '@deepseek-ai/',
+  'beads',
+  'hindsight',
+  'openviking',
+  'sqlite',
+  'better-sqlite3',
+  'node:sqlite',
+]
+
+/**
+ * Allowed specifiers per package, listed explicitly rather than by prefix, so a
+ * new dependency is a deliberate edit to this table instead of a silent pass.
+ *
+ * `controller` is the composition root: it wires the workspace packages
+ * together, so it may import any `@dsh-mywork/*` and any Node builtin — but no
+ * additional platform package and no product.
+ */
+const INFRA_PACKAGES = [
+  {
+    key: 'scheduler',
+    sources: schedulerSources,
+    min: 2,
+    allowed: ['@dsh-mywork/contracts', '@dsh-mywork/core'],
+    expected: ['@dsh-mywork/contracts', '@dsh-mywork/core'],
+  },
+  {
+    key: 'planner',
+    sources: plannerSources,
+    min: 5,
+    allowed: ['@dsh-mywork/contracts', '@dsh-mywork/core', '@dsh-mywork/evidence', '@dsh-mywork/storage', 'node:crypto'],
+    expected: ['@dsh-mywork/contracts', '@dsh-mywork/storage'],
+  },
+  {
+    key: 'adapter-sdk',
+    sources: adapterSdkSources,
+    min: 8,
+    allowed: ['@dsh-mywork/contracts'],
+    expected: ['@dsh-mywork/contracts'],
+  },
+  {
+    key: 'memory-native',
+    sources: memoryNativeSources,
+    min: 3,
+    allowed: ['@dsh-mywork/contracts', '@dsh-mywork/core'],
+    expected: ['@dsh-mywork/contracts'],
+  },
+  {
+    key: 'controller',
+    sources: controllerSources,
+    min: 4,
+    allowed: ['@deepseek-ai/cordis'],
+    expected: ['@dsh-mywork/contracts', '@deepseek-ai/cordis'],
+    workspacePrefix: true,
+    nodePrefix: true,
+  },
+  {
+    key: 'beads-adapter',
+    sources: beadsAdapterSources,
+    min: 12,
+    allowed: ['@dsh-mywork/contracts', '@dsh-mywork/core', '@dsh-mywork/adapter-sdk', '@deepseek-ai/cordis'],
+    expected: ['@dsh-mywork/contracts', '@deepseek-ai/cordis'],
+    nodePrefix: true,
+  },
+]
+
+test('every infrastructure package has sources, so no new block is vacuous', () => {
+  for (const pkg of INFRA_PACKAGES) {
+    assert.ok(
+      pkg.sources.length >= pkg.min,
+      `${pkg.key}: expected at least ${pkg.min} sources, found ${pkg.sources.length}`,
+    )
+  }
+})
+
+test('the infrastructure packages depend on no product, no extra platform package, and no stray specifier', () => {
+  for (const pkg of INFRA_PACKAGES) {
+    const seen = new Set()
+    for (const file of pkg.sources) {
+      for (const specifier of specifiersOf(readFileSync(file, 'utf8'))) {
+        seen.add(specifier)
+        const hit = forbiddenIn(specifier, FORBIDDEN_FOR_INFRA, ALLOWED_PLATFORM)
+        assert.equal(hit, undefined, `${pkg.key}: ${file} must not import "${hit}" through "${specifier}"`)
+        const allowed = specifier.startsWith('./')
+          || (pkg.workspacePrefix === true && specifier.startsWith('@dsh-mywork/'))
+          || (pkg.nodePrefix === true && specifier.startsWith('node:'))
+          || pkg.allowed.includes(specifier)
+        assert.ok(allowed, `${pkg.key}: ${file} must not import "${specifier}"`)
+      }
+    }
+    // Guard the extraction: a scan that matched nothing would pass vacuously.
+    for (const expected of pkg.expected) {
+      assert.ok(seen.has(expected), `${pkg.key}: expected the "${expected}" import, found ${[...seen].join(', ')}`)
+    }
+  }
+})
+
+test('the controller imports the host runtime, and the allowlist is why that passes', () => {
+  const specifiers = controllerSources.flatMap(file => specifiersOf(readFileSync(file, 'utf8')))
+  assert.ok(specifiers.includes('@deepseek-ai/cordis'), 'expected the composition root to import the host runtime')
+  // The same specifier is banned for a layer with no business importing it.
+  assert.equal(forbiddenIn('@deepseek-ai/cordis', FORBIDDEN_FOR_INFRA, []), '@deepseek-ai/')
+  assert.equal(forbiddenIn('@deepseek-ai/cordis', FORBIDDEN_FOR_INFRA, ALLOWED_PLATFORM), undefined)
+  const strayPlatform = specifiers.filter(
+    specifier => specifier.startsWith('@deepseek-ai/') && specifier !== '@deepseek-ai/cordis',
+  )
+  assert.deepEqual(strayPlatform, [], `the controller must import no other platform package, found ${strayPlatform.join(', ')}`)
 })
 
 

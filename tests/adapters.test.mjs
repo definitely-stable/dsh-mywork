@@ -9,13 +9,69 @@
  */
 
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 /** Repository root; every artifact below is addressed from here. */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+/**
+ * The controller opens its SQLite state under `DSH_HOME`, so that variable is
+ * pointed at a scratch directory BEFORE the built packages are imported or
+ * mounted. A run that used the real home would create
+ * `dsh-mywork/state/*.sqlite` inside the user's profile, which this campaign
+ * forbids; the mount test below asserts the real home stayed absent.
+ */
+process.env.DSH_HOME = join(repoRoot, '.tmp', 'adapters-dsh-home')
+mkdirSync(process.env.DSH_HOME, { recursive: true })
+
+/**
+ * Drop comments in a single left-to-right pass, keeping string and template
+ * contents, so prose cannot be mistaken for a branch or for a module specifier
+ * while a name inside a comparison still is one.
+ *
+ * A doc comment really does contain the phrase `from "unreadable"`, and without
+ * this pass a built bundle would appear to import a module called `unreadable`.
+ */
+function codeOnly(source) {
+  let out = ''
+  let i = 0
+  while (i < source.length) {
+    const char = source[i]
+    const next = source[i + 1]
+    if (char === '/' && next === '/') {
+      while (i < source.length && source[i] !== '\n') i += 1
+      continue
+    }
+    if (char === '/' && next === '*') {
+      i += 2
+      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i += 1
+      i += 2
+      continue
+    }
+    if (char === '`' || char === '"' || char === "'") {
+      const quote = char
+      out += char
+      i += 1
+      while (i < source.length && source[i] !== quote) {
+        if (source[i] === '\\') {
+          out += source[i]
+          i += 1
+        }
+        out += source[i]
+        i += 1
+      }
+      out += quote
+      i += 1
+      continue
+    }
+    out += char
+    i += 1
+  }
+  return out
+}
 
 /** Built entry points this suite exercises. */
 const entries = {
@@ -382,15 +438,25 @@ test('the controller publishes myworkAdapters and drops every registration on un
   await fiber.await()
 
   assert.ok(
-    fiber.getEffects().some(effect => effect.label.includes('mywork adapters shutdown')),
-    'the adapters shutdown effect must be registered on the plugin fiber',
+    fiber.getEffects().some(effect => effect.label.includes('mywork controller shutdown')),
+    'the controller shutdown effect must be registered on the plugin fiber',
   )
 
   const service = ctx.get(contracts.MYWORK_ADAPTERS_SERVICE)
   assert.ok(service !== undefined, 'myworkAdapters must be published while mounted')
 
+  // The composition root publishes its own rows before any test registration:
+  // `app.start()` mounts the evidence and lease stores. Naming them is stronger
+  // than counting rows, because a rename or a lost subsystem breaks loudly here
+  // instead of shifting a number.
+  assert.deepEqual(
+    service.list().map(manifest => manifest.adapterId).sort(),
+    ['mywork-evidence', 'mywork-lease'],
+    'the composition root must publish the evidence and lease rows',
+  )
+
   const handle = service.register(registration({ id: 'service-memory' }))
-  assert.equal(service.size, 1)
+  assert.equal(service.size, 3, 'the fake adapter joins the two published rows')
   assert.equal(service.require('memory', { capabilities: ['retain'] }), handle.adapter)
   assert.deepEqual(service.list('memory').map(manifest => manifest.adapterId), ['service-memory'])
   assert.throws(() => service.register(registration({ id: 'too-new', contractVersion: 'memory/v2' })), refusedWith('CONTRACT_MISMATCH'))
@@ -398,54 +464,17 @@ test('the controller publishes myworkAdapters and drops every registration on un
   await fiber.dispose()
   assert.equal(ctx.get(contracts.MYWORK_ADAPTERS_SERVICE), undefined, 'the service must be gone after unload')
   assert.equal(handle.unregister(), false, 'unload must have removed the registration')
+
+  // Mounting the controller opens its SQLite state under `DSH_HOME`. That
+  // variable is pinned to a scratch directory at the top of this file, so the
+  // user's real home must still carry no state of ours.
+  const liveHome = join(process.env.USERPROFILE ?? process.env.HOME ?? '', '.dsh', 'dsh-mywork')
+  assert.equal(existsSync(liveHome), false, `the suite must not write state into the live home (${liveHome})`)
 })
 
 test('core and contracts keep no provider-specific branch', () => {
   /** Product and adapter names no policy code may mention. */
   const forbidden = ['beads', 'hindsight', 'openviking', 'better-sqlite3', 'node:sqlite', 'fake-adapter', '@deepseek-ai/cordis']
-
-  /**
-   * Drop comments in a single left-to-right pass, keeping string and template
-   * contents, so prose cannot be mistaken for a branch while a name inside a
-   * comparison still is one.
-   */
-  function codeOnly(source) {
-    let out = ''
-    let i = 0
-    while (i < source.length) {
-      const char = source[i]
-      const next = source[i + 1]
-      if (char === '/' && next === '/') {
-        while (i < source.length && source[i] !== '\n') i += 1
-        continue
-      }
-      if (char === '/' && next === '*') {
-        i += 2
-        while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) i += 1
-        i += 2
-        continue
-      }
-      if (char === '`' || char === '"' || char === "'") {
-        const quote = char
-        out += char
-        i += 1
-        while (i < source.length && source[i] !== quote) {
-          if (source[i] === '\\') {
-            out += source[i]
-            i += 1
-          }
-          out += source[i]
-          i += 1
-        }
-        out += quote
-        i += 1
-        continue
-      }
-      out += char
-      i += 1
-    }
-    return out
-  }
 
   /** Collect every TypeScript source of a package, recursively. */
   function sourcesOf(pkg, found = []) {
@@ -490,18 +519,45 @@ test('core and contracts keep no provider-specific branch', () => {
 })
 
 test('the adapter SDK and the controller bundle stay self-contained', () => {
-  /** Every module specifier a built file imports. */
+  /**
+   * Every module specifier a built file imports.
+   *
+   * Comments are stripped first: the bundle keeps its doc comments, one of which
+   * contains the phrase `from "unreadable"`, and without the scrub the scan would
+   * report a module named `unreadable`. The capture excludes whitespace for the
+   * same reason it does in `boundaries.test.mjs`.
+   */
   function specifiersOf(source) {
-    return [...source.matchAll(/\bfrom\s*['"]([^'"]+)['"]/g)].map(match => match[1])
+    return [...codeOnly(source).matchAll(/\bfrom\s*['"]([^'"\s]+)['"]/g)].map(match => match[1])
   }
 
-  const built = {
-    'packages/adapter-sdk/lib/index.js': [],
-    'packages/adapter-sdk/lib/testing.js': [],
-    'packages/controller/lib/index.js': ['@deepseek-ai/cordis'],
+  const externalsOf = relative =>
+    specifiersOf(readFileSync(join(repoRoot, relative), 'utf8')).filter(specifier => !specifier.startsWith('.'))
+
+  // The SDK halves carry no external import at all.
+  for (const relative of ['packages/adapter-sdk/lib/index.js', 'packages/adapter-sdk/lib/testing.js']) {
+    assert.deepEqual(externalsOf(relative), [], `${relative} external imports`)
   }
-  for (const [relative, expected] of Object.entries(built)) {
-    const found = specifiersOf(readFileSync(join(repoRoot, relative), 'utf8')).filter(specifier => !specifier.startsWith('.'))
-    assert.deepEqual(found, expected, `${relative} external imports`)
-  }
+
+  // The published bundle states one invariant: it may reach the host runtime and
+  // Node builtins, and nothing else. A `@dsh-mywork/*` import would mean a
+  // workspace package was NOT inlined; any other `@deepseek-ai/*` would mean the
+  // bundle depends on something the host does not promise to provide.
+  const externals = externalsOf('packages/controller/lib/index.js')
+  assert.deepEqual(
+    externals.filter(specifier => !specifier.startsWith('node:')),
+    ['@deepseek-ai/cordis'],
+    'the only non-builtin external may be the host runtime',
+  )
+  assert.deepEqual(
+    externals.filter(specifier => specifier.startsWith('@dsh-mywork/')),
+    [],
+    'the workspace packages must be inlined, not imported',
+  )
+  // Guard the extraction: a scan that found nothing would pass the two checks
+  // above vacuously.
+  assert.ok(
+    externals.filter(specifier => specifier.startsWith('node:')).length >= 3,
+    `expected the bundle to import its Node builtins, found ${externals.join(', ')}`,
+  )
 })
