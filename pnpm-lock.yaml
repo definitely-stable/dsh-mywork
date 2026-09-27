@@ -213,6 +213,24 @@ importers:
       '@dsh-mywork/core':
         specifier: workspace:*
         version: link:../core
+      '@dsh-mywork/evidence':
+        specifier: workspace:*
+        version: link:../evidence
+      '@dsh-mywork/execution':
+        specifier: workspace:*
+        version: link:../execution
+      '@dsh-mywork/lease':
+        specifier: workspace:*
+        version: link:../lease
+      '@dsh-mywork/planner':
+        specifier: workspace:*
+        version: link:../planner
+      '@dsh-mywork/scheduler':
+        specifier: workspace:*
+        version: link:../scheduler
+      '@dsh-mywork/storage':
+        specifier: workspace:*
+        version: link:../storage
 
   packages/core:
     devDependencies:

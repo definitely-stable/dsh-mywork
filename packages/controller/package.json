@@ -24,7 +24,7 @@
     }
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "node --max-old-space-size=8192 ../../node_modules/tsdown/dist/run.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
@@ -34,6 +34,12 @@
     "@deepseek-ai/cordis": "4.0.2",
     "@dsh-mywork/adapter-sdk": "workspace:*",
     "@dsh-mywork/contracts": "workspace:*",
-    "@dsh-mywork/core": "workspace:*"
+    "@dsh-mywork/core": "workspace:*",
+    "@dsh-mywork/evidence": "workspace:*",
+    "@dsh-mywork/execution": "workspace:*",
+    "@dsh-mywork/lease": "workspace:*",
+    "@dsh-mywork/planner": "workspace:*",
+    "@dsh-mywork/scheduler": "workspace:*",
+    "@dsh-mywork/storage": "workspace:*"
   }
 }
