@@ -9,6 +9,14 @@
 #   - id: mywork-controller
 #     config:
 #       diagnostics: true
+#
+# The UI row is a second insert in the same patch: its host half is empty by
+# design, and the `dsh.client` declaration in its manifest is what makes the
+# browser half (`exports["./client"]`) load. The row names the BARE package name
+# on purpose — a row mounted from a subpath export never carries a client half
+# (docs/cookbook/adding-a-settings-card.md:58).
 - insert:
     - id: mywork-controller
       name: '@dsh-mywork/controller'
+    - id: mywork-web
+      name: '@dsh-mywork/web'
