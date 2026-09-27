@@ -174,3 +174,70 @@ test('a migration carrying an allocated number keeps the canonical set valid', a
     store.close()
   }
 })
+
+test('an adopted version is kept instead of re-derived', async () => {
+  // The book is one database and the numbers land in the journals of others
+  // (F-63b): when the book is lost, the recorded number must come back, not a
+  // fresh one that renumbers a migration onto a version already taken.
+  const store = await openCanonical(tempDir())
+  try {
+    const floor = highestOccupied(store)
+    const recorded = floor + 7
+    const allocator = allocatorModule.createMigrationAllocator(store, {
+      adopt: [{ key: 'background_job', version: recorded }],
+    })
+
+    assert.equal(allocator.allocate({ key: 'background_job' }), recorded, 'the adopted number is the answer')
+    const fresh = allocator.allocate({ key: 'attempt_worktree' })
+    assert.ok(fresh > recorded, `a new request got ${fresh}, which must sit above the adopted ${recorded}`)
+    assert.deepEqual(
+      allocator.allocated().map(allocation => allocation.version),
+      [recorded, fresh],
+      'the adoption is written back into the book, so the next open needs no recovery',
+    )
+  } finally {
+    store.close()
+  }
+})
+
+test('an adoption the book contradicts is refused as a version conflict', async () => {
+  const store = await openCanonical(tempDir())
+  try {
+    const floor = highestOccupied(store)
+    const allocator = allocatorModule.createMigrationAllocator(store, {
+      adopt: [{ key: 'background_job', version: floor }],
+    })
+    assert.throws(
+      () => allocator.allocate({ key: 'background_job' }),
+      error => allocatorModule.isMigrationAllocatorError(error) && error.code === 'version-conflict',
+      'a number the schema already occupies cannot be adopted for a new migration',
+    )
+  } finally {
+    store.close()
+  }
+})
+
+test('a malformed adoption is refused before a transaction starts', async () => {
+  const store = await openCanonical(tempDir())
+  try {
+    assert.throws(
+      () => allocatorModule.createMigrationAllocator(store, {
+        adopt: [{ key: 'background_job', version: 9 }, { key: 'attempt_worktree', version: 9 }],
+      }),
+      error => allocatorModule.isMigrationAllocatorError(error) && error.code === 'invalid-request',
+      'one version cannot belong to two migrations',
+    )
+    assert.throws(
+      () => allocatorModule.createMigrationAllocator(store, { adopt: [{ key: 'background_job', version: 0 }] }),
+      error => allocatorModule.isMigrationAllocatorError(error) && error.code === 'invalid-request',
+      'a version is a positive integer',
+    )
+    assert.throws(
+      () => allocatorModule.createMigrationAllocator(store, { adopt: [{ key: '  ', version: 9 }] }),
+      error => allocatorModule.isMigrationAllocatorError(error) && error.code === 'invalid-request',
+      'an adoption is identified by a stable key',
+    )
+  } finally {
+    store.close()
+  }
+})

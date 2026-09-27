@@ -51,6 +51,7 @@ import { createMyWorkApplication } from './app.ts'
 /** The composition root and the database schema it owns, as this package's surface. */
 export {
   MYWORK_DATABASE_MIGRATIONS,
+  adoptedAllocations,
   createMyWorkApplication,
   myworkDatabaseMigrations,
   type MyWorkApplication,
@@ -65,7 +66,9 @@ export {
   createMigrationAllocator,
   isMigrationAllocatorError,
   type Allocation,
+  type AllocationAdoption,
   type MigrationAllocator,
+  type MigrationAllocatorErrorCode,
   type MigrationAllocatorOptions,
   type MigrationRequest,
 } from './migration-allocator.ts'

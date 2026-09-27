@@ -58,13 +58,15 @@ import {
   canonicalMigrations,
   createBackgroundJobMigration,
   openStore,
+  readMigrationJournal,
   resolveMyWorkLayout,
   stateDatabasePath,
+  type AppliedMigration,
   type Migration,
   type MyWorkLayout,
   type MyWorkStore,
 } from '@dsh-mywork/storage'
-import { createMigrationAllocator, type MigrationAllocator } from './migration-allocator.ts'
+import { createMigrationAllocator, type AllocationAdoption, type MigrationAllocator } from './migration-allocator.ts'
 
 /**
  * The schema every database starts from, in the canonical order.
@@ -87,14 +89,38 @@ export const MYWORK_DATABASE_MIGRATIONS = canonicalMigrations([
 /**
  * Schema that exists as a factory and therefore needs a number from the
  * allocator: the key is the request's stable identity, never a version.
+ *
+ * `journalName` is the label the migration writes into `schema_migrations`. It
+ * is spelled out rather than derived from `key`, because the recovery below
+ * reads that label back and a naming convention that drifts (`background_job`
+ * against `background-job`) would silently stop matching (F-63b).
  */
 const ALLOCATED_MIGRATIONS: readonly {
   readonly key: string
+  readonly journalName: string
   readonly create: (version: number) => Migration
 }[] = Object.freeze([
-  Object.freeze({ key: 'background_job', create: createBackgroundJobMigration }),
-  Object.freeze({ key: 'artifact-retention', create: createArtifactRetentionMigration }),
+  Object.freeze({ key: 'background_job', journalName: 'background-job', create: createBackgroundJobMigration }),
+  Object.freeze({ key: 'artifact-retention', journalName: 'artifact-retention', create: createArtifactRetentionMigration }),
 ])
+
+/**
+ * The versions one numbered database already recorded, as allocator adoptions.
+ *
+ * The allocator's book is `registry.sqlite` and the numbers land in the journal
+ * of `controller.sqlite`, so the book can be lost while the record survives. A
+ * key whose journal row is absent is simply not adopted: no other build numbered
+ * it in this database.
+ * @param journal - rows of the target database's `schema_migrations`.
+ * @returns one adoption per allocated migration that journal already records.
+ */
+export function adoptedAllocations(journal: readonly AppliedMigration[]): readonly AllocationAdoption[] {
+  const byJournalName = new Map(ALLOCATED_MIGRATIONS.map(request => [request.journalName, request.key]))
+  return Object.freeze(journal.flatMap(row => {
+    const key = byJournalName.get(row.name)
+    return key === undefined ? [] : [Object.freeze({ key, version: row.version })]
+  }))
+}
 
 /**
  * The whole schema of a database: the base list plus every migration the
@@ -348,9 +374,21 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
       // migration that exists as a factory receives its number **before** the
       // database it lands in is opened. The numbers are therefore decided once,
       // and the controller database opens straight onto its final schema.
-      allocator = createMigrationAllocator(registry, { now: () => clock.now() })
+      //
+      // The book is not the only record, though: the numbers it hands out are
+      // written into the controller's journal, which survives the book (F-63b).
+      // Reading that journal first means a lost book *adopts* the versions the
+      // controller already recorded instead of renumbering migrations onto them
+      // — a renumbering the journal check cannot see, because it compares
+      // versions and not names, so it would end with a schema change that never
+      // runs while the stamp says it did.
+      const controllerPath = stateDatabasePath(layout, 'controller')
+      allocator = createMigrationAllocator(registry, {
+        now: () => clock.now(),
+        adopt: adoptedAllocations(readMigrationJournal(controllerPath)),
+      })
       controller = await openStore({
-        path: stateDatabasePath(layout, 'controller'),
+        path: controllerPath,
         migrations: myworkDatabaseMigrations(allocator),
       })
 

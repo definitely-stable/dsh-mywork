@@ -36,6 +36,13 @@ export type StorageErrorCode =
    * inside the wait budget (F-34); single-writer discipline, made explicit.
    */
   | 'lock-timeout'
+  /**
+   * A state file exists but its journal cannot be read (F-63b). Separate from
+   * `invalid-input`, which blames the caller: here the caller's path is fine and
+   * the file itself refused to answer, and a reader that treats that as "no
+   * journal yet" would renumber versions onto migrations that already own them.
+   */
+  | 'state-unreadable'
 
 /** Every storage error code, so a test or a doctor can pin the vocabulary. */
 export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
@@ -49,6 +56,7 @@ export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
   'migrations-required',
   'migration-journal-inconsistent',
   'lock-timeout',
+  'state-unreadable',
 ])
 
 /**
@@ -69,6 +77,13 @@ export const MIGRATION_JOURNAL_INCONSISTENT: StorageErrorCode = 'migration-journ
  * when the wait budget ran out (F-34).
  */
 export const LOCK_TIMEOUT: StorageErrorCode = 'lock-timeout'
+
+/**
+ * A state file exists but its migration journal could not be read (F-63b): the
+ * allocator must adopt the versions that file already records, and it cannot do
+ * that from a file that refuses to answer.
+ */
+export const STATE_UNREADABLE: StorageErrorCode = 'state-unreadable'
 
 /** Options accepted by the {@link StorageError} constructor. */
 export interface StorageErrorOptions {

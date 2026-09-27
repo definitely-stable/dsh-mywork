@@ -50,6 +50,7 @@ export {
   LOCK_TIMEOUT,
   MIGRATION_JOURNAL_INCONSISTENT,
   MIGRATIONS_REQUIRED,
+  STATE_UNREADABLE,
   STORAGE_ERROR_CODES,
   StorageError,
   isStorageError,
@@ -100,6 +101,7 @@ export {
   type SqlRow,
   type SqlValue,
 } from './sql.ts'
+export { JOURNAL_TABLE, readMigrationJournal } from './journal-file.ts'
 export {
   compact,
   pruneAuditEvents,
