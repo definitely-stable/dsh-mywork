@@ -93,8 +93,16 @@ export function pruneInboxDedup(executor: SqlExecutor, window: RetentionWindow):
  *
  * The log is append-only by trigger, so this is the explicit deletion path: the
  * guard is read, dropped, the window is applied, and the very same guard is put
- * back — inside one transaction, so a failure leaves the log guarded.
- * @param executor - connection or open transaction.
+ * back in a `finally` on the same executor — success or failure.
+ *
+ * What this function guarantees is the restore. What makes the three steps **one
+ * unit** is the caller's transaction: call it as
+ * `store.transaction(tx => pruneAuditEvents(tx, window))`. On a bare connection
+ * every statement autocommits, so a crash between the drop and the restore would
+ * leave the log unguarded until the next prune; a parameter type cannot express
+ * "must be inside a transaction", so the contract is stated here rather than
+ * implied.
+ * @param executor - open transaction (preferred, see above) or connection.
  * @param window - explicit boundary.
  */
 export function pruneAuditEvents(executor: SqlExecutor, window: RetentionWindow): PruneResult {

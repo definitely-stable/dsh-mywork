@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import test, { after } from 'node:test'
 
 import { storage } from '../lib/fixtures.mjs'
@@ -80,13 +81,36 @@ test('a database created by this build starts in incremental auto-vacuum mode', 
     store.close()
   }
 
-  // The mode is only honoured when it is set before the first table exists:
-  // a database that predates this build keeps the old mode, which is what
-  // F-39's compact() vacuums once.
-  const legacy = await storage.openSqlite({ path: join(dir, 'legacy.sqlite'), busyTimeoutMs: 5_000 })
+  // The mode is only honoured while the database has no schema, so one created
+  // before F-35 keeps `NONE` — and `compact()` is what adopts `INCREMENTAL`,
+  // because only the rewrite `VACUUM` performs applies a pending change.
+  const legacyPath = join(dir, 'legacy.sqlite')
+  const raw = new DatabaseSync(legacyPath)
+  raw.exec('CREATE TABLE t (id INTEGER PRIMARY KEY) STRICT')
+  raw.close()
+
+  const legacy = await storage.openSqlite({ path: legacyPath, busyTimeoutMs: 5_000 })
   try {
-    legacy.exec('CREATE TABLE t (id INTEGER PRIMARY KEY) STRICT')
+    assert.equal(
+      Number(legacy.get('PRAGMA auto_vacuum').auto_vacuum),
+      0,
+      'the pragma on an existing schema is ignored, so the old database keeps NONE',
+    )
   } finally {
     legacy.close()
+  }
+
+  await storage.compact({ path: legacyPath })
+
+  const compacted = await storage.openSqlite({ path: legacyPath, busyTimeoutMs: 5_000 })
+  try {
+    assert.equal(
+      Number(compacted.get('PRAGMA auto_vacuum').auto_vacuum),
+      2,
+      'compact() is what moves an existing database to INCREMENTAL',
+    )
+    assert.equal(compacted.get('PRAGMA journal_mode').journal_mode, 'wal', 'compaction kept the database on WAL')
+  } finally {
+    compacted.close()
   }
 })

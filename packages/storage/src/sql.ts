@@ -138,10 +138,12 @@ export async function openSqlite(options: OpenSqliteOptions): Promise<SqliteConn
  * `WAL` and `foreign_keys` were already here; F-35 closes the two gaps that
  * remained: `synchronous = NORMAL` (the WAL recommendation — a process crash
  * still cannot lose a committed transaction) and `auto_vacuum = INCREMENTAL`,
- * which returns pages to the filesystem as they are freed instead of only on an
- * explicit `VACUUM` (F-39). SQLite only honours `auto_vacuum` when it is set
- * before the first table exists, so a database created earlier keeps the old
- * mode until `compact()` vacuums it once.
+ * which only *prepares* the database for reclamation. Freed pages stay on the
+ * freelist — this pragma does not return them by itself — and moving them back
+ * to the filesystem is the explicit `compact()` of F-39
+ * (`wal_checkpoint(TRUNCATE)` + `VACUUM`). SQLite honours the pragma only while
+ * the database has no schema, so one created earlier keeps its old mode until
+ * that first `compact()` rewrites it.
  */
 function configure(database: DatabaseSync, path: string, synchronous: 'NORMAL' | 'FULL'): void {
   database.exec('PRAGMA foreign_keys = ON')

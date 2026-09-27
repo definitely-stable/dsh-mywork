@@ -142,3 +142,47 @@ test('a lease that expired returns the job to the pool, and a settled job leaves
     store.close()
   }
 })
+
+test('a claim whose guarded update changes no row refuses instead of handing out a foreign lease', async () => {
+  const dir = tempDir()
+  const { path, migrations } = await jobsMigrations(dir)
+  const store = await storage.openStore({ path, migrations })
+  try {
+    const job = store.transaction(tx =>
+      storage.enqueueBackgroundJob(tx, { kind: 'export', payload: { file: 'state' }, now: 5_000 }))
+
+    // An executor that reports "the guarded UPDATE matched nothing" — what a race
+    // with a second controller looks like from inside this transaction. The
+    // caller must not receive a record whose owner is somebody else, so the guard
+    // answers with a typed refusal instead of the row.
+    assert.throws(
+      () => store.transaction(tx => {
+        const racing = {
+          exec: sql => tx.exec(sql),
+          run: (sql, ...params) => (sql.startsWith('UPDATE background_job') ? 0 : tx.run(sql, ...params)),
+          get: (sql, ...params) => tx.get(sql, ...params),
+          all: (sql, ...params) => tx.all(sql, ...params),
+        }
+        return storage.claimDueBackgroundJob(racing, { owner: 'worker-b', now: 5_100, leaseMs: 1_000 })
+      }),
+      error => error.name === 'StorageError'
+        && error.code === 'conflict'
+        && /claimed by another worker/.test(error.message)
+        && error.details.changed === 0,
+      'zero changed rows is a conflict, never a job owned by another worker',
+    )
+
+    assert.deepEqual(
+      store.transaction(tx => tx.all('SELECT status, owner FROM background_job').map(row => [row.status, row.owner])),
+      [['pending', null]],
+      'the refused claim left the job untouched and unowned',
+    )
+    assert.equal(
+      store.transaction(tx => storage.claimDueBackgroundJob(tx, { owner: 'worker-b', now: 5_200, leaseMs: 1_000 })).jobId,
+      job.jobId,
+      'a real claim still works after the refused one',
+    )
+  } finally {
+    store.close()
+  }
+})

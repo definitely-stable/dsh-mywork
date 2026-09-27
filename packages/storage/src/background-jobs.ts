@@ -239,7 +239,17 @@ export function claimDueBackgroundJob(
     String(candidate.job_id),
     input.now,
   )
-  if (changed !== 1) return undefined
+  if (changed !== 1) {
+    // The read and the write carry the same predicate inside one transaction, so
+    // zero changed rows means the row moved under us: the caller must not be
+    // handed a record whose `owner` is somebody else. The guard is load-bearing,
+    // and `jobs-durable` pins it with an executor that reports zero.
+    throw new StorageError(
+      'conflict',
+      `dsh-mywork: background job "${String(candidate.job_id)}" was claimed by another worker before this lease landed`,
+      { details: { jobId: String(candidate.job_id), owner: input.owner, changed } },
+    )
+  }
   return jobOf(executor, String(candidate.job_id))
 }
 
