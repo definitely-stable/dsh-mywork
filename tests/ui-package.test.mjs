@@ -77,9 +77,20 @@ function loadClientBundle() {
 function baselineRequire() {
   const createElement = (type, props, ...children) => ({ type, props: { ...props, children } })
   const react = { createElement }
+  // The browser half declares its view state through the platform store engine
+  // (`defineStore`), which this workspace does not install. The stand-in only
+  // has to answer the call: the store's behaviour is asserted against the real
+  // registration in `tests/ui-attributes.test.mjs`.
+  const store = {
+    defineStore: spec => ({
+      spec,
+      create: () => ({ actions: {}, getSnapshot: () => spec.init(), subscribe: () => () => {} }),
+    }),
+  }
   const table = new Map([
     ['react', react],
     ['react/jsx-runtime', { jsx: createElement, jsxs: createElement }],
+    ['@deepseek-ai/dsh-client-store', store],
   ])
   return specifier => {
     assert.ok(table.has(specifier), `the bundle requested "${specifier}", which is not a baseline module`)
