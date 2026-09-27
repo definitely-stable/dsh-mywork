@@ -9,10 +9,12 @@
  *
  * **Which values are canon.** R-16 (`01-MASTER-PLAN.md` §16, D05) fixes exactly
  * two: **60 steps and 2 000 000 tokens per attempt**. They are marked `CANON`
- * below and a divergence from them is a defect, not a setting. Every other value
- * is a **PROPOSAL** this card could not settle: the owner picks the real numbers
- * (D05), and {@link budgetLimitsFrom} exists so a deployment replaces any of them
- * without editing this file. No value is hidden — each constant says what it is.
+ * below and a divergence from them is a defect, not a setting. The other four
+ * were written as proposals and **confirmed by the owner on 2026-09-27** as part
+ * of the D05 decision, so they are defaults a deployment runs with rather than
+ * numbers awaiting a decision; {@link budgetLimitsFrom} still exists so a
+ * deployment replaces any of them without editing this file. No value is hidden —
+ * each constant says what it is.
  *
  * **Which limits have no default.** The three per-day ceilings
  * (`maxOptimizerCostPerDay`, `workspaceDailyBudget`, `providerDailyBudget`) are
@@ -43,9 +45,9 @@ import {
 /**
  * The limits a deployment runs with when it declares none.
  *
- * Two are canon (R-16, D05) and four are proposals awaiting the owner's D05
- * confirmation. The object is frozen and every value is stated explicitly, so
- * `undefined` here can only mean "this build means not to check it".
+ * Two are canon (R-16, D05) and four were proposals the owner confirmed on
+ * 2026-09-27 (D05). The object is frozen and every value is stated explicitly,
+ * so `undefined` here can only mean "this build means not to check it".
  */
 export const DEFAULT_BUDGET_LIMITS: BudgetLimits = Object.freeze({
   /** CANON (R-16): 60 steps of the agent cycle per attempt. */
@@ -53,27 +55,26 @@ export const DEFAULT_BUDGET_LIMITS: BudgetLimits = Object.freeze({
   /** CANON (R-16): 2 000 000 tokens per attempt. */
   maxTokensPerTask: 2_000_000,
   /**
-   * PROPOSAL (D05, owner confirmation required): 8 attempts per task. Retries
-   * plus one review loop fit inside it, and a runaway loop stops on the eighth.
+   * CONFIRMED (D05, 2026-09-27): 8 attempts per task. Retries plus one review
+   * loop fit inside it, and a runaway loop stops on the eighth.
    */
   maxAttempts: 8,
   /**
-   * PROPOSAL (D05, owner confirmation required): 4 review loops per task — one
-   * more round of "changes requested" than a healthy task ever needs.
+   * CONFIRMED (D05, 2026-09-27): 4 review loops per task — one more round of
+   * "changes requested" than a healthy task ever needs.
    */
   maxReviewLoops: 4,
   /**
-   * PROPOSAL (D05, owner confirmation required): 12 planner calls per task.
-   * Re-planning is occasional; a task that re-plans twelve times is stuck.
+   * CONFIRMED (D05, 2026-09-27): 12 planner calls per task. Re-planning is
+   * occasional; a task that re-plans twelve times is stuck.
    */
   maxPlannerCalls: 12,
   /**
-   * PROPOSAL (D05, owner confirmation required): 25 cost units per task, in the
-   * unit `ModelRate` prices in — the deployment's own cost unit. With the rate
-   * shape this build documents (cost per single token) that is 25 major units; a
-   * deployment whose rates are per million tokens must say so in its rates or
-   * override this value, because a ceiling in the wrong unit stops the work it
-   * was meant to protect.
+   * CONFIRMED (D05, 2026-09-27): 25 cost units per task, in the unit `ModelRate`
+   * prices in — the deployment's own cost unit. With the rate shape this build
+   * documents (cost per single token) that is 25 major units; a deployment whose
+   * rates are per million tokens must say so in its rates or override this value,
+   * because a ceiling in the wrong unit stops the work it was meant to protect.
    */
   maxCostPerTask: 25,
 })
