@@ -446,6 +446,13 @@ export {
   type RolloverOutcome,
   type SessionWindowInput,
 } from './session.ts'
+/** The §30 limits a deployment runs with until it states its own (F-52, D05). */
+export {
+  DEFAULT_BUDGET_LIMITS,
+  budgetLimitsFrom,
+  budgetOutcome,
+  type BudgetOutcome,
+} from './budget-defaults.ts'
 /** The D15 worker tool surface: an allowlist derived from the §31 permission sets (F-56). */
 export {
   WORKER_SURFACE_PERMISSIONS,

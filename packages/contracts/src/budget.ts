@@ -5,7 +5,11 @@
  * §30 names eight limits and one outcome — exceeding any of them stops the work
  * and hands the decision to a pause, an escalation, or a human. This module
  * carries the limits and the shape of the decision; which of the three outcomes
- * a deployment applies is workflow policy and lives in the caller.
+ * a deployment applies is workflow policy and lives in the caller. A ninth
+ * limit, {@link BudgetLimitName} `maxSteps`, is the agent cycle's own ceiling
+ * (D05, F-52/F-53): it is declared in this same vocabulary rather than in a
+ * second mechanism, so one gate decides every ceiling and one ledger records
+ * every counter.
  *
  * Three rules are baked into the types rather than left to a caller's care:
  *
@@ -44,6 +48,15 @@ export interface BudgetConsumption {
   readonly reviewLoops: number
   /** Planner calls made so far. */
   readonly plannerCalls: number
+  /**
+   * Steps of the agent cycle taken in the **current** attempt (D05, F-52/F-53).
+   *
+   * Counted here, so it is always known: a step is an event the runtime records,
+   * never a measurement somebody failed to take. A new attempt starts it over by
+   * an explicit rule (`@dsh-mywork/core` `stepBudget`), because the step ceiling
+   * is a per-attempt ceiling and a task that retried would otherwise never finish.
+   */
+  readonly steps: number
 }
 
 /** Consumption of a scope that has spent nothing yet. */
@@ -53,9 +66,14 @@ export const EMPTY_BUDGET_CONSUMPTION: BudgetConsumption = Object.freeze({
   attempts: 0,
   reviewLoops: 0,
   plannerCalls: 0,
+  steps: 0,
 })
 
-/** One §30 limit, named exactly as §30 names it. */
+/**
+ * One budget limit. The first eight are §30's own names, kept in §30's order;
+ * `maxSteps` is the ninth, added by D05 (F-52/F-53) in the same vocabulary so
+ * one gate checks every ceiling and one ledger records every counter.
+ */
 export type BudgetLimitName =
   /** Tokens one task may spend. */
   | 'maxTokensPerTask'
@@ -73,8 +91,16 @@ export type BudgetLimitName =
   | 'workspaceDailyBudget'
   /** Cost one provider may spend per day. */
   | 'providerDailyBudget'
+  /**
+   * Steps of the agent cycle one attempt may take (D05, F-52/F-53).
+   *
+   * The counter is {@link BudgetConsumption} `steps`; a step is one round of the
+   * cycle inside one attempt, and `@dsh-mywork/core` `stepBudget` decides the
+   * next one against this ceiling.
+   */
+  | 'maxSteps'
 
-/** Every limit §30 names, in its order. */
+/** Every limit this build checks: §30's eight, in its order, then the D05 step ceiling. */
 export const BUDGET_LIMIT_NAMES: readonly BudgetLimitName[] = Object.freeze([
   'maxTokensPerTask',
   'maxCostPerTask',
@@ -84,6 +110,7 @@ export const BUDGET_LIMIT_NAMES: readonly BudgetLimitName[] = Object.freeze([
   'maxOptimizerCostPerDay',
   'workspaceDailyBudget',
   'providerDailyBudget',
+  'maxSteps',
 ])
 
 /** The scope one limit governs (§30: per task, per day, per provider). */
@@ -107,6 +134,7 @@ export const BUDGET_LIMIT_SCOPES: Readonly<Record<BudgetLimitName, BudgetScope>>
   maxOptimizerCostPerDay: 'optimizer-day',
   workspaceDailyBudget: 'workspace-day',
   providerDailyBudget: 'provider-day',
+  maxSteps: 'task',
 })
 
 /**
@@ -131,6 +159,8 @@ export interface BudgetLimits {
   readonly workspaceDailyBudget?: number
   /** {@link BudgetLimitName} `providerDailyBudget`. */
   readonly providerDailyBudget?: number
+  /** {@link BudgetLimitName} `maxSteps`. */
+  readonly maxSteps?: number
 }
 
 /** The unit of work an admission decision covers. */
@@ -145,14 +175,17 @@ export type BudgetRequestKind =
   | 'planner-call'
   /** One optimizer run (charges `maxOptimizerCostPerDay`). */
   | 'optimizer-call'
+  /** One step of an agent cycle inside an attempt (charges `maxSteps`). */
+  | 'step'
 
-/** Every request kind, in §30 order. */
+/** Every request kind, in §30 order, with the D05 step kind last. */
 export const BUDGET_REQUEST_KINDS: readonly BudgetRequestKind[] = Object.freeze([
   'attempt',
   'model-call',
   'review-loop',
   'planner-call',
   'optimizer-call',
+  'step',
 ])
 
 /**

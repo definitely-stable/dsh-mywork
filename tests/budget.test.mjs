@@ -37,6 +37,8 @@ function chargeFor(limit) {
       return { kind: 'review-loop' }
     case 'maxPlannerCalls':
       return { kind: 'planner-call' }
+    case 'maxSteps':
+      return { kind: 'step' }
     case 'maxTokensPerTask':
       return { kind: 'model-call', tokens: core.knownAmount(1) }
     case 'maxOptimizerCostPerDay':
@@ -200,6 +202,43 @@ test('an attempt limit admits the attempt that lands on the ceiling and refuses 
   })
   assert.equal(planner.kind, 'refused')
   assert.equal(planner.refusal.limit, 'maxPlannerCalls')
+
+  // F-53: the agent cycle's step ceiling is the same mechanism with its own
+  // counter, decided by the same gate and recorded in the same ledger.
+  const steppedOnce = core.chargeConsumption(contracts.EMPTY_BUDGET_CONSUMPTION, { steps: 1 }).consumption
+  const secondStep = decide({
+    limits: { maxSteps: 3 },
+    ledgers: [{ scope: 'task', consumption: steppedOnce }],
+    request: { kind: 'step' },
+  })
+  assert.equal(secondStep.kind, 'admitted')
+  assert.deepEqual(secondStep.checks, [{
+    limit: 'maxSteps',
+    scope: 'task',
+    declared: 3,
+    used: { kind: 'known', value: 1 },
+    requested: { kind: 'known', value: 1 },
+  }])
+
+  const pastTheCeiling = decide({
+    limits: { maxSteps: 3 },
+    ledgers: [{ scope: 'task', consumption: core.chargeConsumption(steppedOnce, { steps: 2 }).consumption }],
+    request: { kind: 'step' },
+  })
+  assert.equal(pastTheCeiling.kind, 'refused')
+  assert.equal(pastTheCeiling.refusal.limit, 'maxSteps')
+  assert.equal(pastTheCeiling.refusal.reason, 'limit-exceeded')
+  assert.deepEqual(pastTheCeiling.refusal.used, { kind: 'known', value: 3 })
+
+  // A step is not an attempt: an exhausted attempt ceiling does not stop a step,
+  // exactly as an exhausted attempt ceiling does not stop a review loop.
+  const stepPastAttempts = decide({
+    limits: { maxAttempts: 1 },
+    ledgers: [taskLedger({ attempts: 9 })],
+    request: { kind: 'step' },
+  })
+  assert.equal(stepPastAttempts.kind, 'admitted')
+  assert.deepEqual(stepPastAttempts.checks, [])
 })
 
 test('a declared limit the request does not measure is refused, not treated as free', () => {
@@ -268,6 +307,14 @@ test('a settlement never reports a measurement it was not given', () => {
   })
   assert.equal(core.amountValue(statedZero.charged.tokens), 0)
   assert.equal(core.amountValue(statedZero.consumption.tokens), 0)
+
+  // F-53: a step is a count like the others, so omitting it adds none and stating
+  // it adds exactly that many — never "unknown", because nobody measures a count.
+  const stepped = core.chargeConsumption(contracts.EMPTY_BUDGET_CONSUMPTION, { steps: 3 })
+  assert.equal(stepped.consumption.steps, 3)
+  assert.equal(stepped.charged.steps, 3)
+  assert.equal(stepped.consumption.attempts, 0, 'a step is not an attempt')
+  assert.equal(stepped.consumption.tokens.kind, 'unknown', 'the charge still states no token measurement')
 
   const measured = core.chargeConsumption(contracts.EMPTY_BUDGET_CONSUMPTION, {
     tokens: core.knownAmount(7),
@@ -391,6 +438,8 @@ test('the per-day scopes are checked against their own ledgers', () => {
 })
 
 test('every §30 limit is declared, scoped, and actually read by the gate', () => {
+  // §30's eight names, in §30's order, plus the agent cycle's own ceiling (D05,
+  // F-52/F-53) — the ninth limit, in the same vocabulary rather than beside it.
   assert.deepEqual([...contracts.BUDGET_LIMIT_NAMES], [
     'maxTokensPerTask',
     'maxCostPerTask',
@@ -400,6 +449,7 @@ test('every §30 limit is declared, scoped, and actually read by the gate', () =
     'maxOptimizerCostPerDay',
     'workspaceDailyBudget',
     'providerDailyBudget',
+    'maxSteps',
   ])
   assert.deepEqual(
     Object.keys(contracts.BUDGET_LIMIT_SCOPES).sort(),
@@ -485,4 +535,8 @@ test('a malformed limit, ledger, or request fails loud', () => {
     TypeError,
   )
   assert.throws(() => core.chargeConsumption(contracts.EMPTY_BUDGET_CONSUMPTION, { reviewLoops: -1 }), TypeError)
+  // F-53: the step counter is validated like every other counter, on both sides.
+  assert.throws(() => core.chargeConsumption(contracts.EMPTY_BUDGET_CONSUMPTION, { steps: -1 }), TypeError)
+  assert.throws(() => core.chargeConsumption(contracts.EMPTY_BUDGET_CONSUMPTION, { steps: 1.5 }), TypeError)
+  assert.throws(() => decide({ limits: {}, ledgers: [taskLedger({ steps: 1.5 })], request: { kind: 'step' } }), TypeError)
 })
