@@ -202,11 +202,14 @@ export function listBackgroundJobs(
  * A job is claimable while it is `pending`, or while it is `running` with a
  * lease that has expired — which is how a worker that died mid-job is recovered.
  * The update is guarded by the same predicate as the read and reports its
- * changed rows, so two workers inside one transaction cannot both take it.
+ * changed rows, so two workers cannot both take it — provided the caller runs
+ * the claim inside one transaction.
  * @param executor - connection or open transaction.
  * @param input - worker, clock reading, lease length, optional kind.
  * @returns the claimed job, or `undefined` when nothing is due.
  * @throws {StorageError} `invalid-input` for a non-positive lease.
+ * @throws {StorageError} `conflict` when the guarded update changed no row,
+ * which means another worker took the job between the read and the write.
  */
 export function claimDueBackgroundJob(
   executor: SqlExecutor,

@@ -385,6 +385,14 @@ export function listArtifactDeletionCandidates(
  * removing the mark first would abort the operation — and it is what stops a
  * later artifact from inheriting an old permission when an id is derived
  * deterministically and reused.
+ *
+ * What this does **not** close: the emergency door
+ * ({@link dropArtifactDeleteGuard}) deletes an artifact without spending its
+ * mark, so a plain `DELETE` there can still leave an orphan mark that a
+ * recreated id would inherit. Closing that needs the mark to name the
+ * generation it authorized, which is a schema change rather than this step's
+ * work; the residual hole and the probe that shows it are recorded in the
+ * stage-2 gate evidence.
  * @param executor - connection or open transaction; use one transaction so the
  * artifact and its mark commit together.
  * @param window - explicit boundary on `created_at`.

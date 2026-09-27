@@ -36,7 +36,7 @@ test('a registered provider that cannot resolve the named model is model-not-rou
 
   assert.equal(decision.kind, 'refused')
   assert.equal(decision.reason, 'model-not-routable')
-  assert.notEqual(decision.reason, 'provider-outage', 'an empty catalogue is not an outage')
+  assert.notEqual(decision.reason, 'provider-outage', 'a catalogue that cannot resolve the model is not an outage')
   assert.notEqual(decision.reason, 'route-absent', 'the provider IS registered')
   assert.deepEqual(catalog.askedRoutes, ['glm/sonnet'], 'the route was asked and refused')
 })
