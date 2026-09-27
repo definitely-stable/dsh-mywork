@@ -46,6 +46,29 @@ import {
 } from '@dsh-mywork/core'
 import { mountModelCatalog } from './model-catalog.ts'
 import { mountDshRuntime } from './dsh-session.ts'
+import { createMyWorkApplication } from './app.ts'
+
+/** The composition root and the database schema it owns, as this package's surface. */
+export {
+  MYWORK_DATABASE_MIGRATIONS,
+  createMyWorkApplication,
+  myworkDatabaseMigrations,
+  type MyWorkApplication,
+  type MyWorkApplicationOptions,
+  type MyWorkSubsystem,
+  type MyWorkSubsystemName,
+} from './app.ts'
+
+/** The migration-version allocator of the composition layer (F-63). */
+export {
+  MigrationAllocatorError,
+  createMigrationAllocator,
+  isMigrationAllocatorError,
+  type Allocation,
+  type MigrationAllocator,
+  type MigrationAllocatorOptions,
+  type MigrationRequest,
+} from './migration-allocator.ts'
 
 /** The §29 catalog binding the controller mounts, re-exported as its public surface. */
 export {
@@ -72,6 +95,7 @@ export {
   DSH_SESSION_SERVICE,
   DshAgentRuntime,
   DshSessionAdapter,
+  DshSessionRefusal,
   mountDshRuntime,
   type DshAgent,
   type DshAgentRegistry,
@@ -108,15 +132,39 @@ export interface Config {
 
 /**
  * Mount the controller for one composition row.
+ *
+ * The row owns exactly one lifecycle: the application service created here opens
+ * the state databases, brings the subsystems up, and publishes the ports it
+ * owns into `myworkAdapters`. `apply` awaits that startup, so a caller that
+ * awaited the plugin can rely on the store existing — and a row whose home is not
+ * writable fails the mount instead of half-mounting.
  * @param ctx - the plugin's host context.
  * @param config - optional row configuration.
  * @throws {TypeError} when the row configuration is malformed.
  */
-export function apply(ctx: Context, config?: Config): void {
-  const service = new MyWorkControllerService(ctx, resolveControllerConfig(config), resolveClock(ctx))
-  ctx.effect(() => () => service.stop(), 'mywork controller shutdown')
+export async function apply(ctx: Context, config?: Config): Promise<void> {
+  const resolved = resolveControllerConfig(config)
+  const clock = resolveClock(ctx)
+  const service = new MyWorkControllerService(ctx, resolved, clock)
   const adapters = new MyWorkAdaptersService(ctx)
-  ctx.effect(() => () => adapters.close(), 'mywork adapters shutdown')
+  const app = createMyWorkApplication({
+    clock,
+    adapters,
+    diagnostics: resolved.diagnostics,
+  })
+  // One effect, one owner: the snapshot service settles first, then the
+  // application takes the subsystems, the stores, and the registrations down.
+  // Two separate effects would let one half of the row outlive the other.
+  ctx.effect(
+    () => () => {
+      service.stop()
+      return app.stop().then(() => {
+        adapters.close()
+      })
+    },
+    'mywork controller shutdown',
+  )
+  await app.start()
   // §29/§36: the DSH LLM registry becomes a port the policy can negotiate. A
   // profile without it still mounts the controller — the binding reports the
   // absence instead of failing the row.

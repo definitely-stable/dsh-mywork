@@ -3,15 +3,22 @@
  * Reproducible MyWork smoke check.
  *
  * Mounts the built controller plugin on a real Cordis context, asserts the
- * published service and its lifecycle, unloads it, and exercises the
- * deterministic fakes. Keyless by construction: no model, no provider, no
- * subprocess, and no wall-clock dependency.
+ * published service and its lifecycle, checks the state database the composition
+ * root opens, unloads it, and exercises the deterministic fakes. Keyless by
+ * construction: no model, no provider, no subprocess, and no wall-clock
+ * dependency.
+ *
+ * The mount opens real state, so this script points `DSH_HOME` at a fresh
+ * directory under `.tmp/` **before** the first mount: the layout is resolved
+ * inside the plugin's `apply`, and aiming it at the live profile would create
+ * databases in the operator's own home.
  *
  * Run `pnpm run smoke` (or `pnpm run check`), which builds first.
  */
 
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -25,6 +32,7 @@ const entries = {
   adapterSdk: 'packages/adapter-sdk/lib/index.js',
   testing: 'packages/adapter-sdk/lib/testing.js',
   controller: 'packages/controller/lib/index.js',
+  storage: 'packages/storage/lib/index.js',
 }
 
 const missing = Object.values(entries).filter(relative => !existsSync(join(repoRoot, relative)))
@@ -34,9 +42,23 @@ if (missing.length > 0) {
   process.exit(1)
 }
 
-const [contracts, core, adapterSdk, testing, controller] = await Promise.all(
+const [contracts, core, adapterSdk, testing, controller, storage] = await Promise.all(
   Object.values(entries).map(relative => import(pathToFileURL(join(repoRoot, relative)).href)),
 )
+
+/**
+ * The isolated home every mount below runs in.
+ *
+ * Removed first so a stale database from an earlier run cannot make the store
+ * check pass on its own.
+ */
+const dshHome = join(repoRoot, '.tmp', 'smoke-home')
+rmSync(dshHome, { recursive: true, force: true })
+mkdirSync(dshHome, { recursive: true })
+process.env.DSH_HOME = dshHome
+
+/** Path of the state database the mount is expected to open. */
+const stateDatabase = join(dshHome, 'dsh-mywork', 'state', 'controller.sqlite')
 
 const controllerManifest = JSON.parse(
   readFileSync(join(repoRoot, 'packages', 'controller', 'package.json'), 'utf8'),
@@ -117,6 +139,17 @@ await step('mount publishes myworkController and freezes its snapshot', async ()
   mounted = { ctx, fiber, service }
 })
 
+await step('the mount opens controller.sqlite in the isolated home', () => {
+  assert.ok(mounted !== undefined, 'the mount step must run first')
+  // The composition root opens real state; the isolation is what makes that safe.
+  assert.equal(resolve(dshHome).startsWith(resolve(repoRoot, '.tmp')), true)
+  assert.notEqual(resolve(dshHome), resolve(join(homedir(), '.dsh')), 'the live profile is never addressed')
+  assert.notEqual(resolve(dshHome), resolve(tmpdir()), 'the home must be a directory of its own')
+  assert.equal(existsSync(stateDatabase), true, `expected the mount to create ${stateDatabase}`)
+  assert.ok(statSync(stateDatabase).size > 0, 'the state database must not be empty')
+  assert.equal(existsSync(join(dshHome, 'dsh-mywork', 'state', 'registry.sqlite')), true)
+})
+
 await step('unload removes the service and settles the controller', async () => {
   assert.ok(mounted !== undefined, 'the mount step must run first')
   const { ctx, fiber, service } = mounted
@@ -126,6 +159,44 @@ await step('unload removes the service and settles the controller', async () => 
   assert.equal(info.status, 'stopped')
   assert.equal(info.stoppedAt, 1_000)
   assert.equal(core.controllerUptimeMs({ phase: 'mounted', mountedAt: 1_000 }, 1_400), 400)
+})
+
+await step('the state database carries the canonical schema', async () => {
+  // Read through the layer the root writes with — no raw SQL here — and only after
+  // the unload, so the application's own handle is already closed.
+  //
+  // The schema is the base list plus the migrations the allocator numbers, and the
+  // numbers are asked for exactly as the root asks for them: a scratch database
+  // reproduces the allocation (7 and 8) without a version literal in this script.
+  const scratch = await storage.openStore({
+    path: join(dshHome, 'migration-numbers.sqlite'),
+    migrations: controller.MYWORK_DATABASE_MIGRATIONS,
+  })
+  let migrations
+  try {
+    migrations = controller.myworkDatabaseMigrations(controller.createMigrationAllocator(scratch))
+  } finally {
+    scratch.close()
+  }
+  assert.deepEqual(migrations.map(migration => migration.version), [1, 2, 3, 4, 5, 6, 7, 8])
+
+  const store = await storage.openStore({ path: stateDatabase, migrations })
+  try {
+    assert.equal(store.schemaVersion, 8)
+    assert.deepEqual(store.migrations.map(migration => migration.version), [1, 2, 3, 4, 5, 6, 7, 8])
+    assert.notEqual(
+      store.transaction(tx => tx.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'background_job'")),
+      undefined,
+      'the background_job table must exist in the state database',
+    )
+    assert.notEqual(
+      store.transaction(tx => tx.get("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = 'artifacts_no_delete'")),
+      undefined,
+      'the conditional retention trigger must be installed',
+    )
+  } finally {
+    store.close()
+  }
 })
 
 await step('diagnostics config writes one line per lifecycle transition', async () => {
@@ -238,8 +309,15 @@ await step('the controller publishes myworkAdapters and accepts a compatible ada
   await fiber.await()
   const adapters = ctx.get(contracts.MYWORK_ADAPTERS_SERVICE)
   assert.ok(adapters !== undefined, 'myworkAdapters must be published while mounted')
+  // The composition root publishes the ports it owns (F-31): the registry is no
+  // longer empty when the row is mounted, and these two rows are exactly it.
+  assert.deepEqual(
+    adapters.list().map(manifest => manifest.adapterId).sort(),
+    ['mywork-evidence', 'mywork-lease'],
+    'the mount must publish the artifact store and the lease store',
+  )
   const handle = adapters.register(testing.fakeAdapterRegistration({ id: 'smoke-memory' }))
-  assert.equal(adapters.size, 1)
+  assert.equal(adapters.size, 3, 'the fake adapter joins the two published rows')
   const resolved = adapters.resolve('memory', { capabilities: ['retain', 'recall'] })
   assert.equal(resolved.ok, true, 'a capability-compatible adapter must resolve')
   assert.equal(resolved.adapter, handle.adapter)
