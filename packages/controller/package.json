@@ -27,8 +27,12 @@
     "build": "node --max-old-space-size=8192 ../../node_modules/tsdown/dist/run.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.2"
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.2.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
