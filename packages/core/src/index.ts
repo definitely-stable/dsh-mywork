@@ -231,6 +231,17 @@ export {
   type ReviewTransition,
   type ReviewTransitionCommand,
 } from './review.ts'
+/** The D15 deny-only rule for automatic approvers (F-57, R-22). */
+export {
+  AUTO_REVIEW_ALLOWING_VERDICTS,
+  AUTO_REVIEW_COMMANDS,
+  AUTO_REVIEW_ESCALATION_GATE,
+  AUTO_REVIEW_RULING_KINDS,
+  assertAutoReviewCommand,
+  ruleOnAutoReview,
+  type AutoReviewRequest,
+  type AutoReviewRuling,
+} from './review.ts'
 export {
   AGENT_INSTANCE_STATES_WITH_ATTEMPT,
   AGENT_INSTANCE_TRANSITIONS,
@@ -466,3 +477,5 @@ export {
   type WorkerSurfaceReport,
   type WorkerToolRestrictPort,
 } from './worker-surface.ts'
+/** The step circuit-breaker of one agent cycle (F-53, D05, RT-2). */
+export { stepBudget, stepsOfNewAttempt, type StepBreakerInput } from './step-breaker.ts'
