@@ -16,8 +16,8 @@
  *
  * The lock lives in `.tmp/locks/<name>.lock`, is taken with `O_EXCL`, and is
  * released even when the command fails. A lock whose owner died is broken at
- * once, because the file names the owner's pid; {@link STALE_MS} is the second,
- * coarser detector for a lock nobody can vouch for.
+ * once, because the file names the owner's pid, and {@link STALE_MS} breaks one
+ * whose owner cannot be trusted to release it (a reused id, a hung process).
  * @module
  */
 
@@ -86,16 +86,23 @@ function isAlive(pid) {
 }
 
 /**
- * Whether a held lock is provably abandoned.
+ * Whether a held lock is abandoned.
  *
- * A named owner is checked for liveness; a lock that names nobody (an older
- * revision wrote it, or the write did not land) is judged by age instead.
+ * The pid is the precise answer and the reason a killed build no longer blocks
+ * anyone: it is asked first, and a **live** owner keeps the lock. Age is asked
+ * in the same breath rather than only when nobody is named, because a pid
+ * outlives the meaning it had here — a reused id names a process that has
+ * nothing to do with this lock, and a hung owner names one that will never
+ * release it — and a lock nobody can break is worse than a build that retries.
+ * {@link STALE_MS} is far longer than any real build for exactly that reason. A
+ * lock whose owner has not been written yet is protected by its own fresh mtime,
+ * so the two questions cannot race into stealing a just-taken lock.
  * @param path - the lock file to judge.
  */
 function abandoned(path) {
+  if (Date.now() - statSync(path).mtimeMs > STALE_MS) return true
   const owner = ownerOf(path)
-  if (owner !== undefined) return !isAlive(owner)
-  return Date.now() - statSync(path).mtimeMs > STALE_MS
+  return owner !== undefined && !isAlive(owner)
 }
 
 /** Take the lock, or report that the wait expired. */
