@@ -73,6 +73,14 @@ export type MyWorkErrorCode =
   | 'PLAN_MUTATION_RECOVERY'
   /** The change would create a dependency cycle and was refused. */
   | 'ENTITY_CYCLE'
+  /**
+   * An approval no longer covers the artifact in front of the caller: the head
+   * SHA or the diff hash moved after it was given (§19, E-23). Kept apart from
+   * {@link MyWorkErrorCode} `STALE_REVISION` on purpose — that one is an
+   * aggregate revision a retry can re-read, while this one means the work itself
+   * changed and must be reviewed again.
+   */
+  | 'STALE_APPROVAL'
 
 /** Every error code, in the order the architecture lists them. */
 export const MYWORK_ERROR_CODES: readonly MyWorkErrorCode[] = Object.freeze([
@@ -96,6 +104,7 @@ export const MYWORK_ERROR_CODES: readonly MyWorkErrorCode[] = Object.freeze([
   'PLAN_MUTATION_STAGED',
   'PLAN_MUTATION_RECOVERY',
   'ENTITY_CYCLE',
+  'STALE_APPROVAL',
 ])
 
 /**

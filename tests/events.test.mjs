@@ -173,8 +173,11 @@ test('the error vocabulary is exactly the one the architecture lists', () => {
   // The first thirteen are §42. The next four are the v0.2 additions of §5.18,
   // and the last three are the staged-plan codes ADR024 names for the TaskGraph
   // adapter (`PLAN_MUTATION_STAGED`, `PLAN_MUTATION_RECOVERY`) and the cycle
-  // refusal. Keeping them in one pinned list is what makes an accidental removal
-  // or rename fail loudly.
+  // refusal. `STALE_APPROVAL` closes the list because E-23 adds it for an
+  // approval whose head moved; the integrator reads the catalogue at run time and
+  // answers with `STALE_REVISION` while the member is absent, so the addition is
+  // additive rather than a rename (MW-025). Keeping them in one pinned list is
+  // what makes an accidental removal or rename fail loudly.
   assert.deepEqual([...contracts.MYWORK_ERROR_CODES], [
     'ADAPTER_UNAVAILABLE',
     'CAPABILITY_UNSUPPORTED',
@@ -196,5 +199,6 @@ test('the error vocabulary is exactly the one the architecture lists', () => {
     'PLAN_MUTATION_STAGED',
     'PLAN_MUTATION_RECOVERY',
     'ENTITY_CYCLE',
+    'STALE_APPROVAL',
   ])
 })
