@@ -144,12 +144,13 @@ export const INTEGRATION_REFUSAL_REASONS: readonly IntegrationRefusalReason[] = 
 /**
  * Code a stale approval is refused with.
  *
- * E-23 adds `STALE_APPROVAL` to the closed §42 catalogue; this module is written
- * against the catalogue as it is *now*, so the code is looked up at run time:
- * while the catalogue does not carry the new member the refusal is answered with
- * `STALE_REVISION`, which is the code core's own `assertReviewApprovalCurrent`
- * already uses for exactly this condition, and the moment the member lands the
- * integrator answers with it without an edit here.
+ * E-23 added `STALE_APPROVAL` to the closed §42 catalogue, so the lookup below
+ * is the live path and the fallback is not: it stays for the consumer whose
+ * *inlined* catalogue predates the addition, because every package here bundles
+ * its dependencies and an older bundle would otherwise answer with a code its
+ * own copy of the catalogue cannot carry. `STALE_REVISION` is what core's
+ * `assertReviewApprovalCurrent` uses for exactly this condition, which is why it
+ * is the fallback rather than a second new member.
  * @returns the refusal code, read from the catalogue rather than written down.
  */
 export function staleApprovalCode(): MyWorkErrorCode {
@@ -488,6 +489,7 @@ export interface Integrator {
 /** Failure codes a port may raise from a guard, before the integrator can have written anything. */
 const GUARDED_CODES: readonly string[] = Object.freeze([
   'STALE_REVISION',
+  'STALE_APPROVAL',
   'TASK_CONFLICT',
   'STALE_FENCE',
   'LEASE_LOST',
