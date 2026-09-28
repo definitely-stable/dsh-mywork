@@ -199,16 +199,25 @@ await step('the state database carries the canonical schema', async () => {
   }
 })
 
-await step('diagnostics config writes one line per lifecycle transition', async () => {
+await step('diagnostics config writes one line each for mount, reconciliation, and stop', async () => {
   const ctx = new Context()
   const lines = await capturingStderr(async () => {
     const fiber = ctx.plugin(controller, { diagnostics: true })
     await fiber.await()
     await fiber.dispose()
   })
-  assert.equal(lines.length, 2, `expected exactly two diagnostic lines, received ${JSON.stringify(lines)}`)
+  // Three lines, not two: §16.1 reconciles the state before the first admission
+  // and never after, and that step reports what it found (`packages/controller/src/app.ts`,
+  // the `reconcile` port). It runs inside the mount, so it sits between the mount
+  // line and the stop line, and the set is pinned here so a fourth line — or a
+  // silent loss of the reconciliation report — fails the smoke instead of passing.
+  assert.equal(lines.length, 3, `expected exactly three diagnostic lines, received ${JSON.stringify(lines)}`)
   assert.match(lines[0], /^dsh-mywork: controller mounted service=myworkController version=\d+\.\d+\.\d+ contexts=control\n$/)
-  assert.match(lines[1], /^dsh-mywork: controller stopped service=myworkController version=\d+\.\d+\.\d+ uptimeMs=\d+\n$/)
+  assert.match(
+    lines[1],
+    /^dsh-mywork: reconciled .+: \d+ staged operation\(s\), \d+ open claim\(s\), \d+ stale lease\(s\)\n$/,
+  )
+  assert.match(lines[2], /^dsh-mywork: controller stopped service=myworkController version=\d+\.\d+\.\d+ uptimeMs=\d+\n$/)
 })
 
 await step('configuration resolution accepts defaults and rejects malformed rows', () => {

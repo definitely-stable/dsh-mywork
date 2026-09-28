@@ -60,6 +60,55 @@ export {
   type MyWorkSubsystemName,
 } from './app.ts'
 
+/** The deployment modes, the client layer, and the one graceful shutdown (E-44). */
+export {
+  MYWORK_DEPLOYMENT_MODES,
+  MYWORK_SHUTDOWN_STEPS,
+  createClientSessions,
+  createGracefulShutdown,
+  resolveMyWorkDeployment,
+  type MyWorkClientSession,
+  type MyWorkClientSessions,
+  type MyWorkDeployment,
+  type MyWorkDeploymentMode,
+  type MyWorkGracefulShutdown,
+  type MyWorkGracefulShutdownOptions,
+  type MyWorkShutdownEntry,
+  type MyWorkShutdownProbe,
+  type MyWorkShutdownStep,
+  type ResolveMyWorkDeploymentOptions,
+} from './deployment.ts'
+
+/** The typed failures of the controller runtime (MW-028). */
+export {
+  CONTROLLER_RUNTIME_ERROR_CODES,
+  ControllerRuntimeError,
+  isControllerRuntimeError,
+  type ControllerRuntimeErrorCode,
+  type ControllerRuntimeErrorOptions,
+} from './errors.ts'
+
+/** The clock-driven lease heartbeat (E-43). */
+export {
+  heartbeatIntervalMs,
+  startControllerHeartbeat,
+  type ControllerHeartbeat,
+  type ControllerHeartbeatOptions,
+  type HeartbeatLifecycle,
+} from './heartbeat.ts'
+
+/** The leadership runtime behind the composition root (E-42…E-45). */
+export {
+  MYWORK_STARTUP_STEPS,
+  createControllerRuntime,
+  type ControllerLeadershipObservation,
+  type ControllerRuntime,
+  type ControllerRuntimeOptions,
+  type ControllerStartupEntry,
+  type ControllerStartupStepName,
+  type MyWorkRuntimeStorage,
+} from './runtime-root.ts'
+
 /** The migration-version allocator of the composition layer (F-63). */
 export {
   MigrationAllocatorError,
@@ -200,6 +249,11 @@ export async function apply(ctx: Context, config?: Config): Promise<void> {
     clock,
     adapters,
     diagnostics: resolved.diagnostics,
+    // This row *is* the embedded deployment: it lives inside the DSH host
+    // process, so unloading the row stops the controller with it. A resident
+    // (headless) profile mounts the same application with `mode: 'resident'`
+    // from its own entry point and owns its own stop (§5.1, MW-028 E-44).
+    mode: 'embedded',
   })
   // One effect, one owner: the snapshot service settles first, then the
   // application takes the subsystems, the stores, and the registrations down.
