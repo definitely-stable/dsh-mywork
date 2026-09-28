@@ -570,3 +570,38 @@ test('the evidence tables reject a value of the wrong type instead of coercing i
   assert.equal(store.transaction(tx => Number(tx.get('SELECT COUNT(*) AS n FROM artifacts').n)), 1)
   store.close()
 })
+
+test('the artifact vocabulary carries gate-result, and the store refuses a kind it does not know', async () => {
+  // `gate-result` is the kind MW-023 stores a verification verdict under. The
+  // vocabulary stays closed: this pins the additive change and proves the store
+  // reads the very same list, so a kind that only looks similar is refused.
+  const kinds = [...contracts.ARTIFACT_KINDS]
+  assert.ok(Object.isFrozen(contracts.ARTIFACT_KINDS), 'the artifact vocabulary is closed')
+  assert.equal(kinds.at(-1), 'gate-result', 'the new kind is appended last')
+  assert.equal(kinds.at(-2), 'gate-decision', 'appended after gate-decision, never reinterpreting it')
+  assert.equal(new Set(kinds).size, kinds.length, 'no kind may appear twice')
+
+  const dir = tempDir()
+  const store = await openEvidenceDatabase(dir)
+  const artifacts = evidence.createArtifactStore(store, { now: () => 4_200 })
+  const request = artifactRequest({
+    artifactId: 'ev-gate',
+    kind: 'gate-result',
+    bytes: new TextEncoder().encode('verdict pass exit 0'),
+  })
+  const { ref, created } = artifacts.put(request)
+
+  assert.equal(created, true)
+  const stored = artifacts.get(ref)
+  assert.equal(stored.metadata.kind, 'gate-result')
+  assert.deepEqual(stored.bytes, request.bytes)
+
+  // Positive control for the closure: the same write path refuses a kind the
+  // vocabulary does not carry, so accepting `gate-result` was not a blanket.
+  refusal(
+    () => artifacts.put(artifactRequest({ artifactId: 'ev-typo', kind: 'gate-result-typo' })),
+    'invalid-input',
+  )
+  assert.equal(store.transaction(tx => Number(tx.get('SELECT COUNT(*) AS n FROM artifacts').n)), 1)
+  store.close()
+})

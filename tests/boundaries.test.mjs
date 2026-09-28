@@ -675,6 +675,16 @@ const controllerSources = collect(join(repoRoot, 'packages', 'controller', 'src'
 const memoryNativeSources = collect(join(repoRoot, 'packages', 'memory-native', 'src'), ['.ts'])
 
 /**
+ * The two packages E-stage added, under the same scan as the rest of the
+ * infrastructure layer (F-42, E-03/E-14). Both spawn a process or read a
+ * repository, so they are exactly the kind of package an unlisted dependency
+ * would hide in: without an entry here a SQLite driver or a product name could
+ * appear in either and this suite would stay green.
+ */
+const gateRunnerSources = collect(join(repoRoot, 'packages', 'gate-runner', 'src'), ['.ts'])
+const worktreeAdapterSources = collect(join(repoRoot, 'packages', 'worktree-adapter', 'src'), ['.ts'])
+
+/**
  * `beads-adapter` joins the scan beyond F-42's five packages, deliberately.
  *
  * It was the one remaining unscanned package, and the `specifiersOf` hole found
@@ -731,6 +741,22 @@ const INFRA_PACKAGES = [
     min: 3,
     allowed: ['@dsh-mywork/contracts', '@dsh-mywork/core'],
     expected: ['@dsh-mywork/contracts'],
+  },
+  {
+    key: 'gate-runner',
+    sources: gateRunnerSources,
+    min: 4,
+    allowed: ['@dsh-mywork/contracts'],
+    expected: ['@dsh-mywork/contracts'],
+    nodePrefix: true,
+  },
+  {
+    key: 'worktree-adapter',
+    sources: worktreeAdapterSources,
+    min: 4,
+    allowed: ['@dsh-mywork/contracts', '@dsh-mywork/core'],
+    expected: ['@dsh-mywork/contracts'],
+    nodePrefix: true,
   },
   {
     key: 'controller',
