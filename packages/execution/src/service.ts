@@ -31,6 +31,8 @@ import {
   ATTEMPT_TERMINAL_STATES,
   AUDIT_SCHEMA,
   MAX_CLAIMANT_LENGTH,
+  WORKTREE_REFUSAL_CODES,
+  resolveWorktreeRefusal,
   type AttemptRecord,
   type AttemptSettlementCommand,
   type ClaimCommand,
@@ -43,6 +45,7 @@ import {
   type ClockPort,
   type DomainEvent,
   type EpochMs,
+  type GitPort,
   type MyWorkErrorShape,
   type OperationMeta,
   type Result,
@@ -50,6 +53,9 @@ import {
   type TaskGraphPort,
   type TaskId,
   type WorkspaceId,
+  type WorktreePort,
+  type WorktreeRefusal,
+  type WorktreeRequest,
 } from '@dsh-mywork/contracts'
 import {
   assertControllerEpoch,
@@ -84,6 +90,7 @@ import {
   settleAttempt,
   writeSteps,
 } from './store.ts'
+import { assertAttemptWorktreeSchema, insertAttemptWorktree, readAttemptWorktree } from './worktree-store.ts'
 import { CLAIM_SAGA_SCHEMA_NAME, CLAIM_SAGA_SCHEMA_VERSION } from './schema.ts'
 
 /** What the saga needs to run. */
@@ -97,6 +104,69 @@ export interface ClaimSagaDeps {
   readonly graph: TaskGraphPort
   /** Time source; a fake clock keeps the saga deterministic in tests. */
   readonly clock: ClockPort
+  /**
+   * Isolated worktrees of this deployment (§19).
+   *
+   * Present means every attempt is created with a checkout of its own, cut from
+   * a base commit this saga pinned first. Absent means the saga runs exactly as
+   * it did before worktree isolation existed — which is what keeps every existing
+   * caller working, and what the plan's E-04 names as the first risk.
+   */
+  readonly worktrees?: WorktreePort
+  /**
+   * Shared checkout the worktrees are cut from.
+   *
+   * Required together with {@link ClaimSagaDeps.worktrees} and
+   * {@link ClaimSagaDeps.git}: a saga that isolated some attempts and not others
+   * would be worse than one that never did.
+   */
+  readonly repository?: string
+  /**
+   * Git reader of that shared checkout.
+   *
+   * `ClaimCommand` carries no base SHA, and §19 requires the base to be pinned
+   * **before** the attempt exists — so the saga reads it from the repository the
+   * attempt will work next to, through the port, rather than inventing one.
+   */
+  readonly git?: GitPort
+}
+
+/** The three dependencies isolation needs, resolved once when the saga is built. */
+interface ClaimIsolation {
+  /** The port that creates and removes the checkouts. */
+  readonly port: WorktreePort
+  /** Shared checkout every worktree is cut from. */
+  readonly repository: string
+  /** Git reader of that checkout, used to pin the base commit. */
+  readonly git: GitPort
+}
+
+/**
+ * Resolve the isolation dependencies, refusing a partial configuration.
+ *
+ * A caller that supplies `worktrees` but no `repository` would otherwise get a
+ * saga that silently skips isolation — the one failure mode §19 must not have,
+ * because the acceptance criterion is "parallel attempts do not write to the
+ * shared checkout" and a silent fallback would break it without saying so.
+ * @param deps - the saga's dependencies.
+ * @returns the resolved isolation, or `undefined` when it is not configured at all.
+ * @throws {ExecutionError} `invalid-input` when only some of the three are supplied.
+ */
+function resolveIsolation(deps: ClaimSagaDeps): ClaimIsolation | undefined {
+  const supplied = [deps.worktrees, deps.repository, deps.git].filter(value => value !== undefined).length
+  if (supplied === 0) return undefined
+  if (supplied !== 3) {
+    throw new ExecutionError(
+      'invalid-input',
+      'dsh-mywork: worktree isolation needs worktrees, repository, and git together; '
+        + 'a partial configuration would run attempts without the checkout §19 requires',
+    )
+  }
+  return Object.freeze({
+    port: deps.worktrees as WorktreePort,
+    repository: deps.repository as string,
+    git: deps.git as GitPort,
+  })
 }
 
 /**
@@ -160,6 +230,39 @@ function refusalShape(error: unknown): MyWorkErrorShape | undefined {
         ? (details as Readonly<Record<string, unknown>>)
         : Object.freeze({ code }),
   }
+}
+
+/**
+ * The worktree refusal a failed port answer carries, when it carries one.
+ *
+ * Read from `details.refusal` and validated against the closed vocabulary rather
+ * than parsed out of the message: the error code alone is not enough, because
+ * `WORKTREE_DIRTY` and `WORKTREE_MISSING` both travel as `TASK_CONFLICT` and the
+ * saga has to report which situation it actually met.
+ * @param error - the failure a worktree or git port answered with.
+ */
+function refusalOfFailure(error: MyWorkErrorShape): WorktreeRefusal | undefined {
+  return resolveWorktreeRefusal(error.details?.['refusal'])
+}
+
+/**
+ * The worktree refusal a failed `GitPort.resolveHead` answer stands for.
+ *
+ * The git port answers a repository with no commit in its own words —
+ * `TASK_CONFLICT` with `details.reason === 'no-head'` — rather than speaking
+ * {@link WorktreeRefusal}, and the saga is where that answer has to be
+ * translated: §19 pins the base commit **before** the attempt exists, so a
+ * repository with nothing to pin is a claim that can never produce an isolated
+ * attempt, not a transient fault to recover from. The worktree adapter reads the
+ * same token the same way when it refuses `prepare`
+ * (`packages/worktree-adapter/src/adapter.ts`), so the two paths agree on one
+ * spelling of "there is no commit to cut from".
+ * @param error - the failure a git or worktree port answered with.
+ */
+function isolationRefusalOfFailure(error: MyWorkErrorShape): WorktreeRefusal | undefined {
+  const spelled = refusalOfFailure(error)
+  if (spelled !== undefined) return spelled
+  return error.details?.['reason'] === 'no-head' ? 'EMPTY_REPOSITORY' : undefined
 }
 
 /** The §9 steps in order, so the journal and the state machine cannot drift apart. */
@@ -251,6 +354,14 @@ export function createClaimSaga(deps: ClaimSagaDeps): ClaimSaga {
       { version: CLAIM_SAGA_SCHEMA_VERSION, name: CLAIM_SAGA_SCHEMA_NAME },
     ]),
   )
+  const isolation = resolveIsolation(deps)
+  if (isolation !== undefined) {
+    // §19's binding table is checked by name, not by version: the number comes
+    // from the allocator at the composition root (F-63, D08), so this layer
+    // cannot name it — and a store missing the table must fail here, where the
+    // saga was wired, instead of halfway through a claim.
+    store.transaction(tx => assertAttemptWorktreeSchema(tx))
+  }
   const now = (): EpochMs => deps.clock.now()
 
   /** Write the evidence, the audit row, and the outbox event of one settled fact. */
@@ -429,6 +540,26 @@ export function createClaimSaga(deps: ClaimSagaDeps): ClaimSaga {
   }
 
   /**
+   * Record that the attempt step failed and move the saga to a state a reconciler
+   * can act on.
+   *
+   * The state is read inside the transaction rather than taken from a caller's
+   * copy: the transaction that failed rolled back, so the row is at whatever state
+   * the last commit left it.
+   * @param operationId - the saga whose step failed.
+   * @param to - the state to move to (`abandoned` for a precondition, `recovering` for a retryable fault).
+   * @param failure - one-line description recorded on the intent and in the journal.
+   */
+  function failAttemptStep(operationId: string, to: ClaimIntentState, failure: string): void {
+    store.transaction(tx => {
+      const current = readIntent(tx, operationId)
+      if (current === undefined) return
+      advanceIntent(tx, current.operationId, current.state, to, now(), { failure })
+      writeSteps(tx, current.operationId, markStep(readSteps(tx, current.operationId), 'attempt', 'failed', failure))
+    })
+  }
+
+  /**
    * §9 steps 3-5 against a saga whose claim already holds: create the attempt,
    * project it, and complete.
    *
@@ -448,6 +579,34 @@ export function createClaimSaga(deps: ClaimSagaDeps): ClaimSaga {
       expectedRevision: intent.baseRevision,
       controllerEpoch: intent.controllerEpoch,
     })
+    // §19: the base commit is pinned **before** the attempt exists. Two reasons,
+    // and the order matters for both. A repository with no commit is a
+    // precondition, and refusing it before an attempt is recorded means there is
+    // nothing to revoke afterwards; and the pin has to describe the checkout as it
+    // was before any work, which is only true while the attempt does not exist yet.
+    let baseSha: string | undefined
+    if (isolation !== undefined) {
+      const head = await isolation.git.resolveHead(isolation.repository, meta)
+      if (!head.ok) {
+        const refusal = isolationRefusalOfFailure(head.error)
+        const failure = `${head.error.code}: ${head.error.message}`
+        if (refusal === 'EMPTY_REPOSITORY') {
+          // A precondition, not a transient fault: the claim is abandoned because
+          // it can never produce an isolated attempt, and the caller is told which
+          // situation it met rather than being invited to retry.
+          failAttemptStep(intent.operationId, 'abandoned', failure)
+          return fail(
+            new MyWorkError('TASK_CONFLICT', head.error.message, {
+              details: { ...head.error.details, refusal, reason: 'worktree-precondition' },
+            }),
+            meta,
+          )
+        }
+        failAttemptStep(intent.operationId, 'recovering', failure)
+        return fail(head.error, meta)
+      }
+      baseSha = head.value
+    }
     let attempt: AttemptRecord
     try {
       attempt = store.transaction(tx => {
@@ -512,6 +671,70 @@ export function createClaimSaga(deps: ClaimSagaDeps): ClaimSaga {
         )
       }
       throw error
+    }
+
+    // §19: the checkout, created outside any transaction. `MyWorkStore.transaction`
+    // is synchronous by construction — an async body is refused because it would
+    // commit before its work finished — so the git process cannot run inside one,
+    // and the saga's discipline is what carries the durable intent across the gap:
+    // the attempt and its fence are already committed, so a crash here leaves a
+    // statement of what was about to happen rather than a half-written row.
+    if (isolation !== undefined && baseSha !== undefined) {
+      const request: WorktreeRequest = Object.freeze({
+        workspaceId: attempt.workspaceId,
+        taskId: attempt.taskId,
+        attemptId: attempt.id,
+        baseSha,
+      })
+      const prepared = await isolation.port.prepare(request, meta)
+      if (!prepared.ok) {
+        const refusal = refusalOfFailure(prepared.error)
+        const failure = `${prepared.error.code}: ${prepared.error.message}`
+        const at = now()
+        store.transaction(tx => {
+          const current = readIntent(tx, intent.operationId)
+          if (current === undefined) return
+          // The attempt never ran, so it is revoked rather than failed: revoking
+          // releases the task's lease slot and records that the lease was taken
+          // back before any work happened, while the intent is abandoned because
+          // the claim produced no execution at all.
+          settleAttempt(tx, attempt.id, attempt.state, 'revoked', at)
+          advanceIntent(tx, current.operationId, current.state, 'abandoned', at, { failure })
+          writeSteps(tx, current.operationId, markStep(readSteps(tx, current.operationId), 'attempt', 'failed', failure))
+        })
+        return fail(
+          new MyWorkError(
+            refusal === undefined ? 'TASK_CONFLICT' : WORKTREE_REFUSAL_CODES[refusal],
+            prepared.error.message,
+            { details: { ...prepared.error.details, refusal, attemptId: attempt.id, reason: 'worktree-refused' } },
+          ),
+          meta,
+        )
+      }
+      store.transaction(tx => {
+        const existing = readAttemptWorktree(tx, attempt.id)
+        if (existing !== undefined) {
+          // The same fact arriving twice (a saga resumed after a crash between the
+          // checkout and its row). It is verified rather than duplicated: a binding
+          // that disagreed would mean the attempt is about to work in a checkout
+          // nobody recorded, which is the state §19 exists to make impossible.
+          if (existing.path !== prepared.value.path || existing.baseSha !== prepared.value.baseSha) {
+            throw new ExecutionError(
+              'conflict',
+              `dsh-mywork: attempt "${attempt.id}" is bound to "${existing.path}", not to "${prepared.value.path}"`,
+              { details: { attemptId: attempt.id, recorded: existing.path, prepared: prepared.value.path } },
+            )
+          }
+          return
+        }
+        insertAttemptWorktree(tx, {
+          attemptId: attempt.id,
+          path: prepared.value.path,
+          branch: prepared.value.branch,
+          baseSha: prepared.value.baseSha,
+          createdAt: now(),
+        })
+      })
     }
 
     // §9 step 4: the projection. A graph that refuses here does **not** undo the
