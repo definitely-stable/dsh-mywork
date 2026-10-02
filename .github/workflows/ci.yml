@@ -46,7 +46,7 @@ jobs:
       - name: Smoke
         run: node scripts/smoke.mjs
       - name: Unit and contract tests
-        run: node --test --test-isolation=none "tests/**/*.test.mjs"
+        run: node scripts/run-tests.mjs "tests/**/*.test.mjs"
 
   beads-backend:
     name: beads backend — real bd, no skips
@@ -101,7 +101,7 @@ jobs:
       - name: Beads contract checks (an absent backend is fatal here)
         env:
           MYWORK_REQUIRE_BEADS: '1'
-        run: node --test --test-isolation=none tests/beads-adapter.test.mjs
+        run: node scripts/run-tests.mjs tests/beads-adapter.test.mjs
 
   profile:
     name: gate P — bundle installs and mounts (needs dsh)
