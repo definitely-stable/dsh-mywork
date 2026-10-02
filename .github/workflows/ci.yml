@@ -72,10 +72,10 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $version = '1.3.0'
-          $archive = Join-Path $env:RUNNER_TEMP "beads_$version_windows_amd64.zip"
+          $archive = Join-Path $env:RUNNER_TEMP "beads_${version}_windows_amd64.zip"
           $destination = Join-Path $env:RUNNER_TEMP "beads-$version"
           $expectedSha256 = 'fa4c72c5d27f68f906e89a759656b5a051b330088c4acc38fa445cbb561e5cdf'
-          $uri = "https://github.com/gastownhall/beads/releases/download/v$version/beads_$version_windows_amd64.zip"
+          $uri = "https://github.com/gastownhall/beads/releases/download/v${version}/beads_${version}_windows_amd64.zip"
 
           Invoke-WebRequest -Uri $uri -OutFile $archive
           $actualSha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
