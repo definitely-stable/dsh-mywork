@@ -22,7 +22,7 @@
     }
   },
   "scripts": {
-    "build": "node --max-old-space-size=8192 ../../node_modules/tsdown/dist/run.mjs",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "engines": {

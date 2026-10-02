@@ -2,10 +2,16 @@
 
 MyWork — плагин для DeepSeek Harness (DSH), который ведёт длительную работу
 нескольких агентов: команды и роли, граф задач, попытки и lease, контекст,
-review, память и доска. Репозиторий содержит каркас v0.1 (этап `00-foundation`).
+review, память и доска. Текущая реализация охватывает foundation и execution
+pipeline этапов 0–4: durable state, planner/scheduler policies, worker, verification
+gates, независимый review и integrator уже реализованы как отдельные runtime
+компоненты. Автономная цепочка scheduler → worker → review → integrator и
+транспорт данных для web-панели ещё не замкнуты end-to-end.
 
 План и рабочие материалы лежат в `.work/` (каталог исключён из Git):
-архитектура, план исполнения, карточки задач и отчёты.
+архитектура, план исполнения, карточки задач и отчёты. Durable repository truth,
+необходимая для сборки и проверки текущего кода, находится в versioned source,
+tests и README; содержимое `.work/` не является частью поставляемого пакета.
 
 ## Структура
 
@@ -370,19 +376,22 @@ pnpm run pack:local     # pnpm pack контроллера в .tmp/pack
 pnpm run verify:profile # упаковка + установка и boot в изолированном DSH-профиле
 ```
 
-`pnpm run build` собирает пакеты по отдельности. Сборка **контроллера** тяжелее
-остальных: `tsdown` инлайнит в его бандл все девять рабочих пакетов (граница
-требует, чтобы из внешнего в `lib/index.js` остались только `@deepseek-ai/cordis`
-и node-builtins), поэтому её декларационный проход не помещается в дефолтную кучу
-Node: `--max-old-space-size=6144` падает с «Ineffective mark-compacts near heap
-limit» (exit 134), а 8192 собирает за ~50 с. Флаг прописан прямо в скрипте
-`packages/controller/package.json`, так что `corepack pnpm -r run build` работает и
-локально, и в CI без внешних переменных.
+`pnpm run build` собирает пакеты по отдельности. Controller остаётся
+self-contained runtime bundle: `tsdown` инлайнит в него девять рабочих пакетов,
+а внешними остаются только `@deepseek-ai/cordis` и node-builtins. Controller —
+delivery/composition package, а не SDK surface; ни один workspace-пакет от него
+не зависит, поэтому для него отключён bundled DTS-проход. Проверка типов не
+ослаблена: `pnpm run typecheck` по-прежнему запускает `tsc --noEmit` для
+controller. Это убирает отдельный многогигабайтный declaration graph и не требует
+специального heap override в package script.
 
-`pnpm run test` запускает `node --test --test-isolation=none` по
-`tests/**/*.test.mjs`: обычный `node --test` поднимает по процессу на файл и в
-ограниченном (sandbox) шелле падает со `spawn EPERM` — то же ограничение, что и
-у esbuild в `verify:profile`. Тесты не требуют модели, сети и подпроцессов.
+`pnpm run test` проходит через `scripts/run-tests.mjs` и сохраняет
+single-process режим Node test runner: на Node 22 используется
+`--experimental-test-isolation=none`, а на Node 23.6+ —
+`--test-isolation=none`. Process-per-file режим намеренно не используется,
+поскольку в ограниченном sandbox создание дочернего test process может завершаться
+`spawn EPERM`. Сами integration/contract suites при необходимости запускают
+контролируемые subprocesses (например Git или Beads); LLM для тестов не требуется.
 
 `verify:profile` создаёт изолированный `DSH_HOME` в `.tmp/verify-profile`,
 устанавливает собранный tarball через `dsh plugin --profile <name> add`,
