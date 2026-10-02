@@ -158,7 +158,32 @@ async function readCollection<T>(
   if (!Array.isArray(values)) {
     throw new TypeError(`dsh-mywork: scheduler state source "${name}" must return an array`)
   }
-  return Object.freeze([...values])
+  return Object.freeze(values.map(value => snapshotData(value)))
+}
+
+/**
+ * Own and deeply freeze plain scheduler data.
+ *
+ * Projection sources are ports, not trusted object owners: retaining one of
+ * their object identities would let a later mutation rewrite a snapshot the
+ * scheduler already read. Scheduler observation contracts contain data only,
+ * so structuredClone is the exact boundary we need here.
+ */
+function snapshotData<T>(value: T): T {
+  return freezeData(structuredClone(value)) as T
+}
+
+/** Recursively freeze one structured-clone result. */
+function freezeData(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    for (const entry of value) freezeData(entry)
+    return Object.freeze(value)
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const entry of Object.values(value as Record<string, unknown>)) freezeData(entry)
+    return Object.freeze(value)
+  }
+  return value
 }
 
 /**
@@ -196,10 +221,7 @@ async function readReadyTasks(graph: TaskGraphPort): Promise<readonly SchedulerO
 
 /** Copy the Task Graph value so a mutable adapter object cannot mutate a completed snapshot. */
 function snapshotTask(task: Task): Task {
-  return Object.freeze({
-    ...task,
-    dependsOn: Object.freeze([...task.dependsOn]),
-  })
+  return snapshotData(task)
 }
 
 /**

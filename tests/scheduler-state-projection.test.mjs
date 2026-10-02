@@ -195,10 +195,20 @@ test('composed collection sources are read into owned frozen arrays', async () =
 
   const observed = await projection.read()
   reviewRows.push({ review: { id: 'R-2' }, workspaceId: 'W-1' })
+  reviewRows[0].workspaceId = 'W-mutated'
+  instanceRows[0].instanceId = 'I-mutated'
+  agentRows[0].identity.id = 'mutated-agent'
+  workspaceRows[0].workspaceId = 'W-mutated'
   assert.equal(observed.reviews.length, 1, 'the observation must not retain the source array identity')
+  assert.equal(observed.reviews[0].workspaceId, 'W-1', 'nested source mutation must not rewrite a snapshot')
+  assert.equal(observed.instances[0].instanceId, 'I-1')
+  assert.equal(observed.agents[0].identity.id, 'Neo-1')
+  assert.equal(observed.workspaces[0].workspaceId, 'W-1')
   for (const field of ['reviews', 'instances', 'agents', 'workspaces']) {
     assert.equal(Object.isFrozen(observed[field]), true, `${field} array must be frozen`)
+    assert.equal(Object.isFrozen(observed[field][0]), true, `${field} values must be frozen`)
   }
+  assert.equal(Object.isFrozen(observed.agents[0].identity), true, 'nested agent data must be frozen')
 })
 
 
