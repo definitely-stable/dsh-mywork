@@ -2357,7 +2357,14 @@ function approvalArtifactId(reviewId: ReviewId, artifact: ReviewedArtifact): str
       return store.transaction(tx => {
         assertSchema(tx)
         const ids = tx
-          .all('SELECT attempt_id FROM attempt WHERE task_id = ? ORDER BY created_at, attempt_id', taskId)
+          .all(
+            // Fence is the causal attempt sequence for one task. created_at may
+            // tie under a fake clock (or a coarse real clock), and attempt_id is
+            // identity rather than chronology, so neither can satisfy the
+            // public "oldest first" contract as a tie-breaker.
+            'SELECT attempt_id FROM attempt WHERE task_id = ? ORDER BY fence, created_at, attempt_id',
+            taskId,
+          )
           .map(row => String(row['attempt_id']))
         const attempts: AttemptRecord[] = []
         for (const id of ids) {
