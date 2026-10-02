@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { pnpmLaunch } from '../scripts/lib/process.mjs'
+import { pnpmLaunch, resolveCommandOnPath } from '../scripts/lib/process.mjs'
 
 /** The extensionless store link quoted from `.tmp/pack-logs/pnpm-pack.err.log`. */
 const STORE_SHIM = 'H:\\.pnpm-store\\v11\\links\\@\\pnpm\\12.4.2\\hash\\bin\\..\\node_modules\\pnpm\\pnpm'
@@ -65,4 +65,37 @@ test('a real .cjs npm_execpath is spawned through the current node', () => {
   assert.equal(launch.shell, false)
   assert.equal(launch.command, process.execPath)
   assert.deepEqual(launch.args, [cjs])
+})
+
+
+test('a bare Windows command prefers a launchable npm shim from PATH', () => {
+  const resolved = resolveCommandOnPath('dsh', {
+    platform: 'win32',
+    where: () => [
+      'C:\\npm\\prefix\\dsh',
+      'C:\\npm\\prefix\\dsh.cmd',
+      'C:\\other\\dsh.exe',
+    ],
+  })
+  assert.equal(resolved, 'C:\\other\\dsh.exe', 'a real executable avoids a shell when one is available')
+
+  const shim = resolveCommandOnPath('dsh', {
+    platform: 'win32',
+    where: () => ['C:\\npm\\prefix\\dsh', 'C:\\npm\\prefix\\dsh.cmd'],
+  })
+  assert.equal(shim, 'C:\\npm\\prefix\\dsh.cmd', 'an npm .cmd shim is preferred over its POSIX shim')
+})
+
+test('an explicit Windows command path is never rewritten through PATH', () => {
+  let lookedUp = false
+  const explicit = 'C:\\tools\\dsh.cmd'
+  const resolved = resolveCommandOnPath(explicit, {
+    platform: 'win32',
+    where: () => {
+      lookedUp = true
+      return ['C:\\wrong\\dsh.cmd']
+    },
+  })
+  assert.equal(resolved, explicit)
+  assert.equal(lookedUp, false)
 })

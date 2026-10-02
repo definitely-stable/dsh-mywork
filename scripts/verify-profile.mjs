@@ -18,7 +18,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { packController, packUi, repoRoot } from './pack.mjs'
-import { quoteCommandArg, runCaptured } from './lib/process.mjs'
+import { quoteCommandArg, resolveCommandOnPath, runCaptured } from './lib/process.mjs'
 
 /** Profile name created inside the isolated home. */
 const PROFILE = 'mywork-verify'
@@ -77,13 +77,14 @@ let logIndex = 0
  *   the spawn specification, where `label` is printed for the run record.
  */
 function resolveDsh() {
-  const candidate = option('dsh-bin') ?? process.env.DSH_BIN ?? defaultDshBin()
-  if (candidate === undefined) {
+  const requested = option('dsh-bin') ?? process.env.DSH_BIN ?? defaultDshBin()
+  if (requested === undefined) {
     fail(
       'cannot locate the dsh CLI: pass --dsh-bin <path>, set DSH_BIN, or install dsh '
       + `(looked for ${join(homedir(), '.dsh', 'bin', 'dsh.cmd')})`,
     )
   }
+  const candidate = resolveCommandOnPath(requested)
   if (candidate.endsWith('.js') || candidate.endsWith('.mjs')) {
     return { command: process.execPath, prefix: [candidate], shell: false, label: `${process.execPath} ${candidate}` }
   }
@@ -114,13 +115,14 @@ function fail(message) {
  * Assert a condition or fail the verification, printing the captured streams.
  * @param {boolean} condition - the assertion.
  * @param {string} message - failure description.
- * @param {{ status?: number, stdout?: string, stderr?: string, outPath?: string, errPath?: string }} [captured]
+ * @param {{ status?: number, error?: Error, stdout?: string, stderr?: string, outPath?: string, errPath?: string }} [captured]
  *   the failing command's result, when the assertion is about a command.
  */
 function expect(condition, message, captured) {
   if (!condition) {
     if (captured !== undefined) {
       console.error(`     exit=${String(captured.status)}`)
+      if (captured.error !== undefined) console.error(`     spawn: ${captured.error.name}: ${captured.error.message}`)
       console.error(`     stdout: ${JSON.stringify((captured.stdout ?? '').slice(-2000))}`)
       console.error(`     stderr: ${JSON.stringify((captured.stderr ?? '').slice(-2000))}`)
       console.error(`     logs: ${String(captured.outPath)}\n           ${String(captured.errPath)}`)

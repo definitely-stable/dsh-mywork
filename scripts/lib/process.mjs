@@ -55,6 +55,35 @@ export function quoteCommandArg(value) {
 }
 
 /**
+ * Resolve a bare Windows command name to a launchable PATH entry.
+ *
+ * npm global installs commonly expose both an extensionless POSIX shim and a
+ * .cmd shim. Node's shell-free spawn cannot execute the former on Windows, so
+ * prefer a real .exe and then a .cmd/.bat launcher. Explicit paths are left
+ * untouched; non-Windows platforms already let spawn resolve executable names.
+ *
+ * @param {string} command - command name or explicit path.
+ * @param {{ platform?: string, where?: (command: string) => string[] }} [options]
+ *   - injectable platform/PATH lookup for tests.
+ * @returns {string} the resolved launch target, or the original command when PATH has no match.
+ */
+export function resolveCommandOnPath(command, options = {}) {
+  const platform = options.platform ?? process.platform
+  if (platform !== 'win32' || /[\\/]/.test(command)) return command
+
+  const where = options.where ?? (name => {
+    const result = spawnSync('where.exe', [name], { encoding: 'utf8', shell: false })
+    if (result.status !== 0 || typeof result.stdout !== 'string') return []
+    return result.stdout.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '')
+  })
+  const candidates = where(command)
+  return candidates.find(candidate => /\.exe$/i.test(candidate))
+    ?? candidates.find(candidate => /\.(?:cmd|bat)$/i.test(candidate))
+    ?? candidates[0]
+    ?? command
+}
+
+/**
  * Whether a path exists and is a regular file.
  * @param {string} path - candidate path.
  * @returns {boolean} true when a readable regular file sits there.
