@@ -409,7 +409,7 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
    */
   const state = createSchedulerStateProjection({
     graph,
-    adapters,
+    ...(adapters === undefined ? {} : { adapters }),
     ...(options.schedulerStateSources === undefined ? {} : { sources: options.schedulerStateSources }),
   })
 
