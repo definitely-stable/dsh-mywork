@@ -74,6 +74,50 @@ export function splitPlanEdgeKey(key: string): { readonly from: string; readonly
   return { from: from ?? '', to: to ?? '' }
 }
 
+/** Versioned prefix for edge references written to the durable mutation journal. */
+export const PLAN_EDGE_REF_V1_PREFIX = 'edge:v1:'
+
+/**
+ * Encode an edge reference for durable TEXT storage.
+ *
+ * `planEdgeKey` deliberately uses NUL because it is an unambiguous in-memory
+ * composite key, but `node:sqlite` reads TEXT containing an embedded NUL only up
+ * to that byte on affected runtimes. A JSON tuple keeps the endpoints lossless
+ * while the prefix leaves room for future journal formats.
+ */
+function durablePlanEdgeRef(edge: { readonly from: string; readonly to: string }): string {
+  return `${PLAN_EDGE_REF_V1_PREFIX}${JSON.stringify([edge.from, edge.to])}`
+}
+
+/**
+ * Decode a durable edge reference.
+ *
+ * Intact pre-v1 NUL-joined refs are accepted for compatibility. A legacy value
+ * already truncated by a SQLite read has no separator and is rejected instead
+ * of inventing an empty endpoint.
+ */
+function splitDurablePlanEdgeRef(
+  ref: string,
+): { readonly from: string; readonly to: string } | undefined {
+  if (ref.startsWith(PLAN_EDGE_REF_V1_PREFIX)) {
+    try {
+      const decoded: unknown = JSON.parse(ref.slice(PLAN_EDGE_REF_V1_PREFIX.length))
+      if (
+        Array.isArray(decoded)
+        && decoded.length === 2
+        && typeof decoded[0] === 'string'
+        && typeof decoded[1] === 'string'
+      ) {
+        return { from: decoded[0], to: decoded[1] }
+      }
+    } catch {
+      // A malformed durable ref is unresolved recovery input, never a partial edge.
+    }
+    return undefined
+  }
+  return ref.includes('\u0000') ? splitPlanEdgeKey(ref) : undefined
+}
+
 /**
  * Whether a state satisfies a dependency.
  *
@@ -159,17 +203,17 @@ export function resolvePlanEdges(
  * A step for an edge between two created tasks is journalled by its keys — the
  * ids do not exist when the journal is written — so marking it as landed needs
  * the same resolution the application used.
- * @param ref - step reference, either a pair key or a `key:` pair key.
+ * @param ref - versioned durable step reference (or an intact legacy NUL pair).
  * @param created - created keys resolved to ids so far.
  * @returns the resolved pair key, or `undefined` while a key is unresolved.
  */
 export function resolvedEdgePair(ref: string, created: Readonly<Record<string, TaskId>>): string | undefined {
-  if (!ref.includes('key:')) return ref
-  const { from, to } = splitPlanEdgeKey(ref)
+  const edge = splitDurablePlanEdgeRef(ref)
+  if (edge === undefined) return undefined
   const resolve = (endpoint: string): string | undefined =>
     endpoint.startsWith('key:') ? created[endpoint.slice('key:'.length)] : endpoint
-  const resolvedFrom = resolve(from)
-  const resolvedTo = resolve(to)
+  const resolvedFrom = resolve(edge.from)
+  const resolvedTo = resolve(edge.to)
   if (resolvedFrom === undefined || resolvedTo === undefined) return undefined
   return planEdgeKey({ from: resolvedFrom, to: resolvedTo })
 }
@@ -812,7 +856,7 @@ export function materializePlanPart(
  * building its inverse resolve that prefix through the created ids.
  */
 function planEdgeRef(edge: TaskDependency, keys: ReadonlySet<string>): string {
-  return planEdgeKey({
+  return durablePlanEdgeRef({
     from: keys.has(edge.from) ? `key:${edge.from}` : edge.from,
     to: keys.has(edge.to) ? `key:${edge.to}` : edge.to,
   })
@@ -869,7 +913,7 @@ export function planSteps(
     for (const key of spec.dependsOnKeys ?? []) {
       pushEdge(
         'add-edge',
-        planEdgeKey({ from: `key:${spec.key}`, to: `key:${key}` }),
+        durablePlanEdgeRef({ from: `key:${spec.key}`, to: `key:${key}` }),
         `intra-plan ${spec.key} depends on ${key}`,
       )
     }

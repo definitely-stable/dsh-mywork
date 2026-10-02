@@ -1672,6 +1672,12 @@ test('the journal of an edge between created tasks names ids, and its inverse re
     const edgeSteps = record.steps.filter(step => step.kind === 'add-edge')
     assert.equal(edgeSteps.length, 1)
     assert.equal(edgeSteps[0].state, 'applied', 'the edge landed, so the journal must not say otherwise')
+    assert.equal(
+      edgeSteps[0].ref.includes('\u0000'),
+      false,
+      'a durable TEXT journal ref must never contain the in-memory NUL separator',
+    )
+    assert.match(edgeSteps[0].ref, /^edge:v1:/, 'the durable edge-ref format is explicit and versioned')
 
     // The inverse of that step must carry the ids too: a revert that wrote the
     // plan keys back into the graph would be a second defect, not a rollback.
