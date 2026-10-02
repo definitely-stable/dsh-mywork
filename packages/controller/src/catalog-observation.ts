@@ -5,10 +5,10 @@
  * catalog port. This object is the I/O boundary: refresh() resolves the catalog
  * and performs provider reads; read() returns only the last immutable snapshot.
  *
- * A registry that currently has no model-catalog adapter is a valid empty
- * observation. If a catalog adapter was already registered when this object was
- * created, read() refuses until the first refresh completes so a live provider
- * cannot be misreported as an empty route set.
+ * A deployment with no adapter registry at all is a known empty observation.
+ * When a registry exists, read() refuses until refresh() completes once: even an
+ * empty registry is mutable composition state, so "no provider is registered"
+ * becomes scheduler data only after the observation boundary actually sampled it.
  * @module
  */
 
@@ -58,7 +58,7 @@ export function createCatalogObservation(
   adapters?: MyWorkAdapters<undefined>,
 ): CatalogObservation {
   let current = EMPTY_CATALOG_SNAPSHOT
-  let ready = adapters === undefined || adapters.list('model-catalog').length === 0
+  let ready = adapters === undefined
   let refreshing: Promise<CatalogSnapshot> | undefined
 
   function read(): CatalogSnapshot {

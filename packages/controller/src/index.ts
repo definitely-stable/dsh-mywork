@@ -295,10 +295,10 @@ export async function apply(ctx: Context, config?: Config): Promise<void> {
   // ports, so one attempt runs in one real, scoped DSH session. Same rule as
   // above: an absent platform surface is reported, not repaired.
   mountDshRuntime(ctx, adapters)
-  // The scheduler consumes only an observed snapshot. Provider/catalog I/O is
-  // completed here, outside every scheduler tick; a deployment with no catalog
-  // adapter refreshes to the canonical empty snapshot.
-  await app.catalog.refresh()
+  // No catalog refresh happens on the plugin mount path: listModels() may touch
+  // a provider, and controller availability must not depend on provider latency.
+  // The scheduler is still unarmed; its future owner must complete catalog.refresh()
+  // before start(), then refresh again on catalog/config change events.
 }
 
 /**

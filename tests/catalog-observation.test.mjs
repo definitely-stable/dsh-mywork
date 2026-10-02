@@ -24,17 +24,26 @@ function registerCatalog(adapters, catalog, id = 'test-catalog') {
   })
 }
 
-test('a deployment with no catalog adapter has a truthful empty observation without a refusal', async () => {
+test('an empty registry becomes an empty observation only after refresh, without a refusal', async () => {
   const refusals = []
   const adapters = adapterSdk.createAdapterRegistry({
     observer: { onRefused: refusal => refusals.push(refusal) },
   })
   const observation = controller.createCatalogObservation(adapters)
 
+  assert.equal(observation.ready, false, 'a mutable registry has not been observed merely because it is empty right now')
+  assert.throws(
+    () => observation.read(),
+    error => controller.isControllerRuntimeError(error) && error.code === 'state-unavailable',
+  )
+  assert.deepEqual(await observation.refresh(), { providers: [], models: [], outages: [] })
   assert.equal(observation.ready, true)
   assert.deepEqual(observation.read(), { providers: [], models: [], outages: [] })
-  assert.deepEqual(await observation.refresh(), { providers: [], models: [], outages: [] })
   assert.equal(refusals.length, 0, 'absence is observed through list(), not manufactured as a resolve refusal')
+
+  const noRegistry = controller.createCatalogObservation()
+  assert.equal(noRegistry.ready, true, 'without a registry there is no live catalog surface to observe')
+  assert.deepEqual(noRegistry.read(), { providers: [], models: [], outages: [] })
 })
 
 test('a registered catalog is unavailable to read until refresh, then read performs zero provider I/O', async () => {
