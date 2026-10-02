@@ -533,8 +533,24 @@ test('the adapter SDK and the controller bundle stay self-contained', () => {
    * same reason it does in `boundaries.test.mjs`.
    */
   function specifiersOf(source) {
-    return [...codeOnly(source).matchAll(/\bfrom\s*['"]([^'"\s]+)['"]/g)].map(match => match[1])
+    const code = codeOnly(source)
+    return [
+      ...[...code.matchAll(/(?:^|\n)\s*(?:import|export)\b[^;]*?\bfrom\s*['"]([^'"\s]+)['"]/g)].map(match => match[1]),
+      ...[...code.matchAll(/(?:^|\n)\s*import\s*['"]([^'"\s]+)['"]/g)].map(match => match[1]),
+      ...[...code.matchAll(/\bimport\s*\(\s*['"]([^'"\s]+)['"]/g)].map(match => match[1]),
+    ]
   }
+
+  assert.deepEqual(
+    specifiersOf('const message = `review moved from "${review.state}" to "awaiting-review"`'),
+    [],
+    'diagnostic prose inside a template literal is not a module specifier',
+  )
+  assert.deepEqual(
+    specifiersOf('import { value } from "pkg";\nimport "side-effect";\nconst lazy = import("dynamic")'),
+    ['pkg', 'side-effect', 'dynamic'],
+    'the scanner still covers static, side-effect, and dynamic imports',
+  )
 
   const externalsOf = relative =>
     specifiersOf(readFileSync(join(repoRoot, relative), 'utf8')).filter(specifier => !specifier.startsWith('.'))
