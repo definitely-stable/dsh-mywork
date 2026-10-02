@@ -29,7 +29,14 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test, { after } from 'node:test'
 
-import { adapterSdk, adapterTesting, beads, contracts, core } from './lib/fixtures.mjs'
+// This suite has its own narrow built-surface fixture. Importing the global
+// domain fixture would require every workspace package to be built even though
+// this contract exercises only the Beads adapter and its three direct workspace
+// dependencies.
+import * as adapterSdk from '../packages/adapter-sdk/lib/index.js'
+import * as beads from '../packages/beads-adapter/lib/index.js'
+import * as contracts from '../packages/contracts/lib/index.js'
+import * as core from '../packages/core/lib/index.js'
 
 // ---------------------------------------------------------------------------
 // Fixtures and helpers

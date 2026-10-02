@@ -60,6 +60,11 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
+      # This contract imports built packages like a consumer, but it only needs
+      # the Beads adapter and its workspace dependency closure. Building the
+      # whole workspace here would duplicate Gate L for no additional evidence.
+      - name: Build Beads contract subjects
+        run: corepack pnpm --filter @dsh-mywork/beads-adapter... run build
       # Installing the backend and failing to reach it are different errors.
       # This step failing means "the backend was not installed"; the test step
       # failing means "the backend is installed and the contract is broken".
