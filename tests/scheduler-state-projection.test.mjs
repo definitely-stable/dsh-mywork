@@ -88,6 +88,27 @@ test('missing runtime sources fail closed before the task graph is touched', asy
   assert.equal(tasks.readyCalls, 0, 'an incomplete projection must not perform a partial graph read')
 })
 
+test('an unavailable cached catalog fails before any TaskGraph or runtime source read starts', async () => {
+  const tasks = graph({ 'T-1': task('T-1') })
+  let sourceReads = 0
+  const countedSources = sources({
+    reviews: { read: () => { sourceReads += 1; return [] } },
+    instances: { read: () => { sourceReads += 1; return [] } },
+    agents: { read: () => { sourceReads += 1; return [] } },
+    workspaces: { read: () => { sourceReads += 1; return [] } },
+  })
+  const unavailable = Object.assign(new Error('catalog not observed'), { code: 'state-unavailable' })
+  const projection = controller.createSchedulerStateProjection({
+    graph: tasks,
+    catalog: { read: () => { throw unavailable } },
+    sources: countedSources,
+  })
+
+  await assert.rejects(projection.read(), error => error === unavailable)
+  assert.equal(tasks.readyCalls, 0)
+  assert.equal(sourceReads, 0, 'a catalog prerequisite failure must not launch a partial state observation')
+})
+
 test('ready references are expanded once and a task that moved meanwhile is dropped', async () => {
   const tasks = graph(
     {

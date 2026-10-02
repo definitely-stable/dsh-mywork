@@ -125,13 +125,16 @@ export function createSchedulerStateProjection(
         )
       }
 
-      const [workers, reviews, instances, agents, workspaces, catalog] = await Promise.all([
+      // The cached catalog is the only synchronous prerequisite. Read it
+      // before starting any other source so an unobserved catalog fails closed
+      // without launching a partial TaskGraph/runtime observation in parallel.
+      const catalog = snapshotData(deps.catalog.read())
+      const [workers, reviews, instances, agents, workspaces] = await Promise.all([
         readReadyTasks(deps.graph),
         readCollection(sources.reviews!, 'reviews'),
         readCollection(sources.instances!, 'instances'),
         readCollection(sources.agents!, 'agents'),
         readCollection(sources.workspaces!, 'workspaces'),
-        Promise.resolve(snapshotData(deps.catalog.read())),
       ])
 
       return Object.freeze({
