@@ -69,3 +69,54 @@ export {
   type ClaimExecutor,
 } from './store.ts'
 export { createClaimSaga, type ClaimSaga, type ClaimSagaDeps } from './service.ts'
+export { buildAttemptPrompt, contextSnapshotArtifactId, createWorker, workerReportArtifactId, CONTEXT_SNAPSHOT_ARTIFACT_PREFIX, WORKER_REPORT_ARTIFACT_PREFIX, WORKER_REPORT_SCHEMA, type AttemptContextPort, type AttemptContextRequest, type AttemptRunReport, type Worker, type WorkerAdmission, type WorkerDeps, type WorkerResumeRequest, type WorkerRunOptions } from './worker.ts'
+export { assertGatesSatisfied, readGateResults, REVIEW_ADMISSION_REFUSAL, type GateAdmission, type GateAdmissionOptions } from './gates-admission.ts'
+export { INTEGRATION_OPERATION_DDL, INTEGRATION_OPERATION_INDEX_DDL, INTEGRATION_SCHEMA_NAME, INTEGRATION_STATES, INTEGRATION_TERMINAL_STATES, advanceIntegrationOperation, createIntegrationMigration, insertIntegrationOperation, isIntegrationTerminal, readIntegrationOperation, type IntegrationOperationPatch, type IntegrationOperationRecord, type IntegrationState } from './integration-schema.ts'
+export { DEFAULT_LANDING_STRATEGY, INTEGRATION_DECISION_OPTIONS, INTEGRATION_REFUSAL_CODES, INTEGRATION_REFUSAL_REASONS, INTEGRATION_REF_PREFIX, createIntegrator, integrationCommitMessage, staleApprovalCode, taskRefTrailer, type IntegrationAttentionRequest, type IntegrationCommand, type IntegrationDecisionRequest, type IntegrationEscalation, type IntegrationEscalationPort, type IntegrationFinalizeCommand, type IntegrationGatePort, type IntegrationGateRequest, type IntegrationOutcome, type IntegrationRecordPort, type IntegrationRefusalReason, type IntegrationSubject, type Integrator, type IntegratorDeps } from './integrator.ts'
+export {
+  DEFAULT_MAX_REVIEW_LOOPS,
+  REVIEW_AGENT_PRESET,
+  REVIEW_HARNESS_POLICY,
+  REVIEW_POOL,
+  REVIEW_SESSION_PURPOSE,
+  createReviewQueue,
+  readReviewVerdictDraft,
+  resolveReviewLoopLimit,
+  type ApproveReviewCommand,
+  type AttentionRequest,
+  type AutomaticVerdictCommand,
+  type AutomaticVerdictOutcome,
+  type ClaimReviewCommand,
+  type EscalateReviewCommand,
+  type RejectReviewCommand,
+  type RequestReviewCommand,
+  type ReviewActor,
+  type ReviewApprovalOutcome,
+  type ReviewClaim,
+  type ReviewEscalationOutcome,
+  type ReviewEvidenceInput,
+  type ReviewEvidencePackage,
+  type ReviewFindingsCommand,
+  type ReviewProgress,
+  type ReviewQueue,
+  type ReviewQueueDeps,
+  type ReviewRejectionOutcome,
+  type ReviewRequestOutcome,
+  type ReviewRevisionCommand,
+  type ReviewRunScope,
+  type ReviewVerdictDraft,
+  type ReviewVerdictOutcome,
+  type ReviewerGrant,
+  type SubmitVerdictCommand,
+} from './review-queue.ts'
+export {
+  REVIEW_CLAIM_ALLOCATION_KEY,
+  REVIEW_CLAIM_FIELDS,
+  REVIEW_CLAIM_SCHEMA_NAME,
+  REVIEW_CLAIM_STATE_CHECK,
+  REVIEW_CLAIM_TABLE,
+  createReviewClaimMigration,
+  type ReviewClaimMigrationOptions,
+} from './review-schema.ts'
+export { ATTEMPT_WORKTREE_DDL, ATTEMPT_WORKTREE_SCHEMA_NAME, ATTEMPT_WORKTREE_TABLE, createAttemptWorktreeMigration } from './worktree-schema.ts'
+export { assertAttemptWorktreeSchema, insertAttemptWorktree, listAttemptWorktrees, readAttemptWorktree, settleAttemptWorktree, type AttemptWorktreeInput, type AttemptWorktreeRecord } from './worktree-store.ts'

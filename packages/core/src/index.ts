@@ -231,6 +231,17 @@ export {
   type ReviewTransition,
   type ReviewTransitionCommand,
 } from './review.ts'
+/** The D15 deny-only rule for automatic approvers (F-57, R-22). */
+export {
+  AUTO_REVIEW_ALLOWING_VERDICTS,
+  AUTO_REVIEW_COMMANDS,
+  AUTO_REVIEW_ESCALATION_GATE,
+  AUTO_REVIEW_RULING_KINDS,
+  assertAutoReviewCommand,
+  ruleOnAutoReview,
+  type AutoReviewRequest,
+  type AutoReviewRuling,
+} from './review.ts'
 export {
   AGENT_INSTANCE_STATES_WITH_ATTEMPT,
   AGENT_INSTANCE_TRANSITIONS,
@@ -446,3 +457,28 @@ export {
   type RolloverOutcome,
   type SessionWindowInput,
 } from './session.ts'
+/** The §30 limits a deployment runs with until it states its own (F-52, D05). */
+export {
+  DEFAULT_BUDGET_LIMITS,
+  budgetLimitsFrom,
+  budgetOutcome,
+  type BudgetOutcome,
+} from './budget-defaults.ts'
+/** The D15 worker tool surface: an allowlist derived from the §31 permission sets (F-56). */
+export {
+  WORKER_SURFACE_PERMISSIONS,
+  WORKER_TOOL_ALLOWLIST,
+  WORKER_TOOLS_BY_PERMISSION,
+  WorkerSurfaceError,
+  applyWorkerSurface,
+  isWorkerSurfaceError,
+  workerToolAllowlist,
+  workerTools,
+  type WorkerSurfaceErrorOptions,
+  type WorkerSurfaceInput,
+  type WorkerSurfaceReason,
+  type WorkerSurfaceReport,
+  type WorkerToolRestrictPort,
+} from './worker-surface.ts'
+/** The step circuit-breaker of one agent cycle (F-53, D05, RT-2). */
+export { stepBudget, stepsOfNewAttempt, type StepBreakerInput } from './step-breaker.ts'

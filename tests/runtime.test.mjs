@@ -10,6 +10,7 @@
  * assertion rather than a quiet omission.
  */
 
+import { assertScratchHome, scratchDshHome } from './lib/tmp-home.mjs'
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -18,6 +19,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 /** Repository root; every artifact below is addressed from here. */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+// Mounting the controller opens its SQLite state under `$DSH_HOME`, so the
+// variable is pinned to a scratch directory inside `.tmp` before the bundles
+// below are imported. `assertScratchHome()` repeats the check in every test that
+// mounts or starts something.
+scratchDshHome('runtime')
 
 /** Built entry points this suite exercises. */
 const entries = {
@@ -392,6 +399,7 @@ test('start creates a real scoped DSH session and reports the route the deployme
     // effort. What the handle reports must be this answer, not our request.
     resolveRoute: request => ({ provider: request.provider, model: 'deepseek-v4.1-flash-2026', reasoningEffort: 'max' }),
   })
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
 
   const handle = await runtime.start({
@@ -427,6 +435,7 @@ test('start creates a real scoped DSH session and reports the route the deployme
 
 test('a run without a scope pins nothing and invents no defaults', async () => {
   const dsh = fakeDsh()
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const handle = await runtime.start({ runId: 'run-unscoped', workspacePath: '/w', prompt: 'work' })
 
@@ -438,6 +447,7 @@ test('a run without a scope pins nothing and invents no defaults', async () => {
 })
 
 test('a permission policy the deployment will not install fails the run before the prompt', async () => {
+  assertScratchHome()
   const noCommand = fakeDsh({ noPermissionCommand: true })
   await assert.rejects(
     new controller.DshAgentRuntime(noCommand.api).start({
@@ -464,6 +474,7 @@ test('a permission policy the deployment will not install fails the run before t
 })
 
 test('resume after a process restart re-asserts the scope on the same real session', async () => {
+  assertScratchHome()
   const dsh = fakeDsh()
   const before = new controller.DshAgentRuntime(dsh.api)
   const handle = await before.start({
@@ -516,6 +527,7 @@ test('resume after a process restart re-asserts the scope on the same real sessi
 
 test('stop cancels the turn, is idempotent, and never disposes the session', async () => {
   const dsh = fakeDsh()
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const handle = await runtime.start({ runId: 'run-stop', workspacePath: '/w', prompt: 'work', scope: SCOPE })
 
@@ -534,6 +546,7 @@ test('stop cancels the turn, is idempotent, and never disposes the session', asy
 
 test('a session the platform does not know is an invalid reference, not an outage', async () => {
   const dsh = fakeDsh()
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const absent = { runId: 'run-absent', sessionId: 'session-absent' }
 
@@ -555,6 +568,7 @@ test('stop surfaces a real cancellation outage instead of reading it as "already
   // "no live agent" answer for a session the roster still holds. Every other
   // failure has to reach the caller, or an outage would look like a settled run.
   const dsh = fakeDsh({ cancelFails: dshFailure('gateway/internal', 'the command runtime fell over') })
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const handle = await runtime.start({ runId: 'run-cancel-fails', workspacePath: '/w', prompt: 'work' })
 
@@ -564,6 +578,7 @@ test('stop surfaces a real cancellation outage instead of reading it as "already
 
 test('a duplicate and a late delivery are absorbed by the cursor the port reports', async () => {
   const dsh = fakeDsh({ duplicateLast: true, lateEvent: 'late/arrival' })
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const handle = await runtime.start({ runId: 'run-events', workspacePath: '/w', prompt: 'work', scope: SCOPE })
 
@@ -595,6 +610,7 @@ test('a duplicate and a late delivery are absorbed by the cursor the port report
 
 test('the scoped permission and route are durable evidence in the session log', async () => {
   const dsh = fakeDsh()
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const handle = await runtime.start({ runId: 'run-evidence', workspacePath: '/w', prompt: 'work', scope: SCOPE })
 
@@ -610,6 +626,7 @@ test('the scoped permission and route are durable evidence in the session log', 
 
 test('reading the log releases the opened stream instead of holding the subscription', async () => {
   const dsh = fakeDsh()
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const handle = await runtime.start({ runId: 'run-stream', workspacePath: '/w', prompt: 'work' })
 
@@ -624,6 +641,7 @@ test('reading the log releases the opened stream instead of holding the subscrip
 
 test('a call the caller already cancelled never reaches the platform', async () => {
   const dsh = fakeDsh()
+  assertScratchHome()
   const runtime = new controller.DshAgentRuntime(dsh.api)
   const aborted = AbortSignal.abort()
 
@@ -642,6 +660,7 @@ test('a call the caller already cancelled never reaches the platform', async () 
 })
 
 test('the controller registers both DSH ports and unload removes them', async () => {
+  assertScratchHome()
   const dsh = fakeDsh()
   const ctx = new Context()
   await ctx.plugin({
@@ -692,6 +711,7 @@ test('the controller registers both DSH ports and unload removes them', async ()
 })
 
 test('a profile without the DSH session controller mounts the controller and registers no session port', async () => {
+  assertScratchHome()
   const ctx = new Context()
   const fiber = ctx.plugin(controller, { diagnostics: false })
   await fiber.await()

@@ -1,2 +1,29 @@
 packages:
   - packages/*
+
+# The controller and the web package declare `@deepseek-ai/dsh` as a peer so the
+# platform's compatibility gate actually evaluates them
+# (`packages/boot/app-boot/src/plugin-compatibility.ts` reads peerDependencies
+# only). Auto-installing that peer would pull the whole DSH CLI into this
+# workspace, and the lockfile would then depend on a registry the build does not
+# need: the bundle is delivered as a tarball, and `scripts/verify-profile.mjs`
+# proves it mounts. DSH writes the same setting into its own profiles
+# (`packages/boot/app-boot/src/profile.ts`), so the delivery channel is
+# unaffected. Without this, `pnpm install --frozen-lockfile` fails with
+# ERR_PNPM_OUTDATED_LOCKFILE for a dependency that must never be installed.
+autoInstallPeers: false
+
+# `packages/execution` outgrew Node's default old-space ceiling while the E-stage
+# modules were added: a plain `pnpm -r run build` died with exit 134
+# (`FATAL ERROR: Ineffective mark-compacts near heap limit`, ~4 GB cap) and,
+# because tsdown runs with `clean: true`, it left `packages/execution/lib` empty
+# and every suite that loads `tests/lib/fixtures.mjs` failed on the missing entry
+# point instead of on its own subject (MW-023 §4, N-1…N-5).
+#
+# Raising the ceiling in the workspace config rather than in one command makes
+# the canonical build (`corepack pnpm -r run build`) work as written and covers
+# every package at once. `nodeOptions` is pnpm's own setting: it is exported as
+# NODE_OPTIONS to each lifecycle script, so `packages/beads-adapter`'s explicit
+# `node --max-old-space-size=8192 …` script and this ceiling agree. A caller that
+# sets NODE_OPTIONS itself keeps its value.
+nodeOptions: --max-old-space-size=8192

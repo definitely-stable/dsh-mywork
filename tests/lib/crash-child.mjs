@@ -14,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const [databasePath, mode] = process.argv.slice(2)
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const { openStore } = await import(pathToFileURL(resolve(repoRoot, 'packages', 'storage', 'lib', 'index.js')).href)
+const { MYWORK_MIGRATIONS, openStore } = await import(pathToFileURL(resolve(repoRoot, 'packages', 'storage', 'lib', 'index.js')).href)
 
 /** The event the crashed transaction tried to commit. */
 const event = {
@@ -22,7 +22,7 @@ const event = {
   payload: { taskId: 'T-1', from: 'ready', to: 'assigned', at: 1_000 },
 }
 
-const store = await openStore({ path: databasePath })
+const store = await openStore({ path: databasePath, migrations: MYWORK_MIGRATIONS })
 store.transaction(tx => {
   tx.outbox.append({ event, workspaceId: 'W-1', correlationId: 'corr-crash', eventId: 'e-crash' })
   tx.inbox.applyOnce('crash-consumer', 'e-crash', () => 'applied')

@@ -1,0 +1,19 @@
+# The dsh-mywork UI bundle patch: a profile that lists `@dsh-mywork/web` in
+# `dsh.profile.bundles` gains this row.
+#
+# The row lives HERE, in the package that owns the browser half, and not in the
+# controller's patch: a patch that names a package the profile has not installed
+# cannot activate, and the boot reports that as a warning rather than a failure
+# (`mywork-web (@dsh-mywork/web): failed to import`). Declaring it in its own
+# bundle makes the installer of the package the installer of its row — the same
+# shape the installed 0.4.3 reference uses (`dsh.bundle.patch` + `dsh.client` in
+# one manifest).
+#
+# The row is a bare plugin by package name: the host half (exports ".") runs in
+# the host process, and the `dsh.client` declaration in package.json makes the
+# browser half (exports "./client") load in the web GUI. A row mounted from a
+# subpath export never carries a client half
+# (docs/cookbook/adding-a-settings-card.md:58).
+- insert:
+    - id: mywork-web
+      name: '@dsh-mywork/web'

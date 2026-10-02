@@ -2,27 +2,47 @@
 
 MyWork — плагин для DeepSeek Harness (DSH), который ведёт длительную работу
 нескольких агентов: команды и роли, граф задач, попытки и lease, контекст,
-review, память и доска. Репозиторий содержит каркас v0.1 (этап `00-foundation`).
+review, память и доска. Текущая реализация охватывает foundation и execution
+pipeline этапов 0–4: durable state, planner/scheduler policies, worker, verification
+gates, независимый review и integrator уже реализованы как отдельные runtime
+компоненты. Автономная цепочка scheduler → worker → review → integrator и
+транспорт данных для web-панели ещё не замкнуты end-to-end.
 
 План и рабочие материалы лежат в `.work/` (каталог исключён из Git):
-архитектура, план исполнения, карточки задач и отчёты.
+архитектура, план исполнения, карточки задач и отчёты. Durable repository truth,
+необходимая для сборки и проверки текущего кода, находится в versioned source,
+tests и README; содержимое `.work/` не является частью поставляемого пакета.
 
 ## Структура
 
 ```text
-packages/contracts     @dsh-mywork/contracts    — доменные контракты, имена сервисов, порты
-packages/core          @dsh-mywork/core         — чистые политики: переходы состояний, authority, конфигурация §6 и Team Work §13, граф, часы, routing §29, бюджет §30 и Context Fabric §21
-packages/storage       @dsh-mywork/storage      — durable state: SQLite, schemaVersion, миграции, outbox/inbox
-packages/lease         @dsh-mywork/lease        — controller lease §5.3, монотонный epoch и lifecycle §16.1/§49
-packages/adapter-sdk   @dsh-mywork/adapter-sdk  — каталог портов §36, registry и capability negotiation §37/§44, conformance kit §39, ошибки и fakes
-packages/controller    @dsh-mywork/controller   — Cordis-плагин (bundle) и его patch-слой
-tests/                 доменные тесты (node:test, без LLM; один тест поднимает процесс-потомок)
-scripts/               smoke, локальная упаковка и проверка изолированного профиля
+packages/contracts     @dsh-mywork/contracts       — доменные контракты, порты, словари и матрица authority §8
+packages/core          @dsh-mywork/core            — чистые политики: переходы состояний, конфигурация §6 и Team Work §13, граф, routing §29, бюджет §30, Context Fabric §21, память §23, skills
+packages/storage       @dsh-mywork/storage         — durable state: SQLite, schemaVersion, миграции, outbox/inbox, retention
+packages/evidence      @dsh-mywork/evidence        — Artifact Store и append-only Audit §32–§34
+packages/lease         @dsh-mywork/lease           — controller lease §5.3, монотонный epoch и lifecycle §16.1/§49
+packages/adapter-sdk   @dsh-mywork/adapter-sdk     — каталог портов §36, registry и capability negotiation §37/§44, conformance kit §39, ошибки и fakes
+packages/planner       @dsh-mywork/planner         — staged plan mutation, BlockerResolutionGate и recovery §9/ADR024
+packages/scheduler     @dsh-mywork/scheduler       — детерминированный планировщик §20 и fairness по workspace
+packages/execution     @dsh-mywork/execution       — claim saga §9, воркер §17/§22, адмиссия гейтов §19, review-очередь §24, интегратор §25
+packages/gate-runner   @dsh-mywork/gate-runner     — прогон гейтов §19: вердикт на точный head, лог как артефакт
+packages/worktree-adapter @dsh-mywork/worktree-adapter — единственное место, где исполнение запускает git: worktree попытки §19
+packages/memory-native @dsh-mywork/memory-native   — native и disabled memory providers §23.8
+packages/beads-adapter @dsh-mywork/beads-adapter   — Beads TaskGraph adapter и memory provider §37/§39
+packages/controller    @dsh-mywork/controller      — Cordis-плагин: runtime root, app, heartbeat, deployment
+packages/web           @dsh-mywork/web             — клиентская половина панели (native slots, мост темы, ru/en)
+tests/                 доменные тесты (node:test, без LLM; часть тестов поднимает процесс-потомок)
+scripts/               smoke, локальная упаковка, проверка изолированного профиля, сборка под локом
 ```
 
-Границы `contracts → core → adapter-sdk → controller` соблюдены: контроллер
-зависит от нижних пакетов, обратных зависимостей нет. Пакеты пока `private`:
-публикация в реестр не выполняется и требует отдельного решения владельца.
+Границы слоёв проверяет `tests/boundaries.test.mjs`: он обходит все пакеты и
+читает **реальные импорты собранных бандлов**, а не подстроки исходников, поэтому
+незаявленная зависимость падает на нём, а не в рантайме. Домен (`contracts`,
+`core`) не импортирует DSH, Beads и конкретные memory-провайдеры; бандл
+`packages/execution` собирается ровно с одним внешним импортом `node:crypto`,
+поэтому процессы запускают только `gate-runner` и `worktree-adapter`. Пакеты пока
+`private`: публикация в реестр не выполняется и требует отдельного решения
+владельца.
 
 Домен описан контрактами (Task/Attempt/Review, Role/Blueprint/Identity,
 revisions, `OperationMeta`, `Result`/`MyWorkError`, event envelope, матрица
@@ -273,6 +293,39 @@ Lifecycle следует порядку §16.1: `activate()` получает le
 событию UI. Провалившаяся активация возвращает lease, чтобы не блокировать
 здорового преемника до истечения.
 
+## Конвейер исполнения (§9, §17, §19, §21–§25)
+
+Попытка проходит путь admission → claim → worktree → снимок контекста → сессия →
+оседание, и порядок этих шагов — часть контракта, а не деталь реализации (§22,
+§9). База фиксируется **до** создания попытки, поэтому у репозитория без коммита
+отказывает `EMPTY_REPOSITORY`: скрытого первого коммита не появляется, и изоляция
+не пишет в общий checkout. Воркер не имеет власти над графом — он никогда не
+переводит задачу в `done`; повторный запуск по тому же attempt отвечает из записи,
+не открывая вторую сессию, а поздний результат отвергается `STALE_FENCE`. Каждый
+выход оседает ровно один раз: оседание — durable-строка, а не счётчик вызовов.
+
+Изоляцию даёт `@dsh-mywork/worktree-adapter` — единственный пакет, запускающий
+`git`. Worktree режется от зафиксированного `baseSha`, а `cleanup` отказывается
+удалять грязное и чужое.
+
+Гейты §19 — типизированные вердикты, а не строки лога: `pass` единственный
+вердикт, допускающий review, поэтому отсутствующий инструмент, таймаут и
+отменённый прогон не могут быть приняты за успех. Вердикт принадлежит точному
+head: сдвинувшийся head обесценивает вердикты (`GATE_HEAD_MOVED`), а пустая
+политика — типизированный отказ `GATE_UNCONFIGURED`, не «пропуск». Воркер
+записывает каждый вердикт артефактом `gate-result` до того, как отчёт о
+завершении станет возможен, и при отказе или красном обязательном гейте попытка
+оседает как `failed`; очередь review отказывает без полного зелёного набора
+обязательных гейтов (`REVIEW_GATES_MISSING`). Сам `packages/execution` процессов
+не запускает: порт `AttemptGatePort` инъецируется, а исполняет его `gate-runner`.
+
+Review §24 — отдельная очередь с отдельным исполнителем: ревьюер с тем же
+`agentId`, что и воркер, отвергается `SECURITY_DENIED`, сессия ревьюера read-only,
+а одобрение, чей head сдвинулся, не интегрируется как одобренное
+(`STALE_APPROVAL`). Интегратор §25 закрывает граф только за пройденными гейтами и
+одобренным review, а конфликт слияния даёт наблюдаемый исход, не молчаливый
+`done`.
+
 ## Runtime state
 
 Runtime-данные не лежат в репозитории: `@dsh-mywork/storage` открывает SQLite под
@@ -283,13 +336,34 @@ Runtime-данные не лежат в репозитории: `@dsh-mywork/sto
 применяет эффект второй раз. Тесты поднимают свои базы во временных каталогах и
 живого профиля DSH не касаются.
 
+## Правила приёмки карточек (D19)
+
+Карточка переводится в `done` **только если** все её исполнения имеют
+`result = succeeded`. При наличии `failed` карточка остаётся `todo` либо
+переводится в `failed`, а в отчёте появляется строка-обоснование с `sessionId`
+упавшего прогона. Правило применяется вперёд: карточки, закрытые до D19, не
+переоткрываются. Машинная проверка — контракт для `scripts/ledger-sync.mjs`
+(F-27): для каждой карточки `status=done` должно выполняться
+`executions.every(e => e.result !== 'failed')`.
+
 ## Требования
 
 - Node.js >= 22.18 (проверено на 24.19.0)
 - pnpm 12.4.2 (пин в `packageManager`)
-- DSH 0.1.5-rc.2 — для `verify:profile`
+- DSH 0.1.7-rc.2 — для `verify:profile` (фактическая версия CLI; здесь ранее было указано 0.1.5-rc.2)
 
 ## Команды
+
+Пакетный менеджер: `corepack pnpm -r run <script>` (обычный `pnpm` сломан, см. `.work/plan-v0.3/evidence/foundation-01-pnpm.md`). Флаг `-r` обязателен: без него запуск падает из-за вложенного `pnpm` 11.7.0 из `.bin` DSH-чекаута.
+
+Скрипт, который сам запускает `pnpm` (как `verify:profile`), нужно запускать с
+shell-free entry менеджера в `npm_execpath`, иначе он возьмёт сломанный `pnpm` из
+`PATH`:
+
+```sh
+$env:npm_execpath = "$env:LOCALAPPDATA\node\corepack\v1\pnpm\12.4.2\bin\pnpm.mjs"
+node scripts/verify-profile.mjs
+```
 
 ```sh
 pnpm install
@@ -302,10 +376,22 @@ pnpm run pack:local     # pnpm pack контроллера в .tmp/pack
 pnpm run verify:profile # упаковка + установка и boot в изолированном DSH-профиле
 ```
 
-`pnpm run test` запускает `node --test --test-isolation=none` по
-`tests/**/*.test.mjs`: обычный `node --test` поднимает по процессу на файл и в
-ограниченном (sandbox) шелле падает со `spawn EPERM` — то же ограничение, что и
-у esbuild в `verify:profile`. Тесты не требуют модели, сети и подпроцессов.
+`pnpm run build` собирает пакеты по отдельности. Controller остаётся
+self-contained runtime bundle: `tsdown` инлайнит в него девять рабочих пакетов,
+а внешними остаются только `@deepseek-ai/cordis` и node-builtins. Controller —
+delivery/composition package, а не SDK surface; ни один workspace-пакет от него
+не зависит, поэтому для него отключён bundled DTS-проход. Проверка типов не
+ослаблена: `pnpm run typecheck` по-прежнему запускает `tsc --noEmit` для
+controller. Это убирает отдельный многогигабайтный declaration graph и не требует
+специального heap override в package script.
+
+`pnpm run test` проходит через `scripts/run-tests.mjs` и сохраняет
+single-process режим Node test runner: на Node 22 используется
+`--experimental-test-isolation=none`, а на Node 23.6+ —
+`--test-isolation=none`. Process-per-file режим намеренно не используется,
+поскольку в ограниченном sandbox создание дочернего test process может завершаться
+`spawn EPERM`. Сами integration/contract suites при необходимости запускают
+контролируемые subprocesses (например Git или Beads); LLM для тестов не требуется.
 
 `verify:profile` создаёт изолированный `DSH_HOME` в `.tmp/verify-profile`,
 устанавливает собранный tarball через `dsh plugin --profile <name> add`,

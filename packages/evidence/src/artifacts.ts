@@ -20,9 +20,10 @@ import {
   type ArtifactPutRequest,
   type ArtifactRef,
 } from '@dsh-mywork/contracts'
-import type { SqlExecutor, SqlRow } from '@dsh-mywork/storage'
+import type { Migration, SqlExecutor, SqlRow } from '@dsh-mywork/storage'
 import { EvidenceError } from './errors.ts'
 import { readClosedRecord, readHash, readId, validateArtifactMetadata, validateArtifactPutRequest } from './metadata.ts'
+import { ARTIFACT_IMMUTABLE_MARKER } from './schema.ts'
 
 /** Result of a successful {@link putArtifact}. */
 export interface ArtifactPutResult {
@@ -223,4 +224,217 @@ export function getArtifact(executor: SqlExecutor, ref: ArtifactRef): Artifact {
     metadata,
     bytes,
   })
+}
+
+/** Journal label of the migration that makes artifact deletion conditional. */
+export const ARTIFACT_RETENTION_MIGRATION_NAME = 'artifact-retention'
+
+/**
+ * Tombstones: the artifacts the retention job has marked for deletion.
+ *
+ * A row here is a permission, not a deletion: the artifact goes only when the
+ * retention job runs, and only while no audit entry refers to it.
+ */
+export const ARTIFACT_TOMBSTONE_DDL = `
+CREATE TABLE IF NOT EXISTS artifact_tombstone (
+  artifact_id TEXT NOT NULL PRIMARY KEY,
+  marked_at INTEGER NOT NULL,
+  reason TEXT
+) STRICT;
+`
+
+/**
+ * The conditional delete guard that replaces the unconditional one.
+ *
+ * An artifact may be deleted only when it carries a tombstone **and** nothing in
+ * the append-only audit names it. The `UPDATE` guard and the `INSERT` replace
+ * guard are never touched: an artifact still cannot be rewritten, and a second
+ * write under the same id is still refused.
+ */
+const ARTIFACT_DELETE_GUARD_DDL = `
+CREATE TRIGGER artifacts_no_delete BEFORE DELETE ON artifacts
+WHEN NOT EXISTS (SELECT 1 FROM artifact_tombstone WHERE artifact_id = OLD.artifact_id)
+  OR EXISTS (SELECT 1 FROM audit_events WHERE artifact_id = OLD.artifact_id)
+BEGIN
+  SELECT RAISE(ABORT, '${ARTIFACT_IMMUTABLE_MARKER}');
+END;
+`
+
+/**
+ * The migration that opens one explicit deletion path for artifacts (F-40).
+ *
+ * The version comes from the single allocator (F-63) at the composition root;
+ * writing one here would collide with every other pending request (R-04). The
+ * kernel for a database that predates this build is `artifacts_no_delete`, which
+ * this migration drops and recreates conditionally.
+ * @param version - the allocated version this migration brings the database to.
+ * @throws {EvidenceError} `invalid-input` for a version that is not a positive integer.
+ */
+export function createArtifactRetentionMigration(version: number): Migration {
+  if (!Number.isInteger(version) || version < 1) {
+    throw new EvidenceError(
+      'invalid-input',
+      `dsh-mywork: a migration version must be a positive integer allocated by the version allocator, received ${String(version)}`,
+    )
+  }
+  return Object.freeze({
+    version,
+    name: ARTIFACT_RETENTION_MIGRATION_NAME,
+    up(context: SqlExecutor): void {
+      context.exec(ARTIFACT_TOMBSTONE_DDL)
+      context.exec('DROP TRIGGER IF EXISTS artifacts_no_delete')
+      context.exec(ARTIFACT_DELETE_GUARD_DDL)
+    },
+  })
+}
+
+/** One retention window over artifacts. */
+export interface ArtifactRetentionWindow {
+  /** Boundary on `created_at`: artifacts written before it are candidates. */
+  readonly olderThan: number
+}
+
+/** What a dry run found, without deleting anything. */
+export interface ArtifactRetentionDryRun {
+  /** The boundary that was applied. */
+  readonly cutoff: number
+  /** Identities a real run would delete. */
+  readonly candidates: readonly string[]
+}
+
+/** What a retention run did. */
+export interface ArtifactRetentionResult {
+  /** The boundary that was applied. */
+  readonly cutoff: number
+  /** Identities that qualified. */
+  readonly candidates: number
+  /** Identities that were deleted. */
+  readonly deleted: number
+}
+
+/** Inputs of {@link markArtifactForDeletion}. */
+export interface MarkArtifactForDeletionInput {
+  /** Artifact to mark. */
+  readonly artifactId: string
+  /** Clock reading of the mark. */
+  readonly markedAt: number
+  /** Why it was marked; free text for the operator. */
+  readonly reason?: string
+}
+
+/** The predicate a candidate has to satisfy: tombstoned, old enough, unreferenced. */
+const CANDIDATE_SQL = `
+SELECT a.artifact_id AS artifact_id
+FROM artifacts a
+JOIN artifact_tombstone t ON t.artifact_id = a.artifact_id
+WHERE a.created_at < ?
+  AND NOT EXISTS (SELECT 1 FROM audit_events e WHERE e.artifact_id = a.artifact_id)
+ORDER BY a.created_at, a.artifact_id
+`
+
+/**
+ * Mark an artifact as deletable by the retention job.
+ *
+ * Marking is idempotent; it does not delete anything by itself, which is what
+ * makes a dry run meaningful.
+ * @param executor - connection or open transaction.
+ * @param input - artifact, clock reading, optional reason.
+ * @throws {EvidenceError} `invalid-input` for a blank id or a bad stamp.
+ */
+export function markArtifactForDeletion(executor: SqlExecutor, input: MarkArtifactForDeletionInput): void {
+  if (typeof input.artifactId !== 'string' || input.artifactId.trim().length === 0) {
+    throw new EvidenceError('invalid-input', 'dsh-mywork: an artifact to mark needs a non-empty identity')
+  }
+  if (!Number.isInteger(input.markedAt) || input.markedAt < 0) {
+    throw new EvidenceError('invalid-input', `dsh-mywork: a mark needs a clock reading, received ${String(input.markedAt)}`)
+  }
+  executor.run(
+    'INSERT INTO artifact_tombstone (artifact_id, marked_at, reason) VALUES (?, ?, ?) ON CONFLICT(artifact_id) DO NOTHING',
+    input.artifactId,
+    input.markedAt,
+    input.reason ?? null,
+  )
+}
+
+/**
+ * List what a retention run would delete, without deleting it.
+ * @param executor - connection or open transaction.
+ * @param window - explicit boundary on `created_at`.
+ * @throws {EvidenceError} `invalid-input` for a boundary that is not a non-negative integer.
+ */
+export function listArtifactDeletionCandidates(
+  executor: SqlExecutor,
+  window: ArtifactRetentionWindow,
+): ArtifactRetentionDryRun {
+  const cutoff = cutoffOf(window)
+  const candidates = executor.all(CANDIDATE_SQL, cutoff).map(row => String(row.artifact_id))
+  return Object.freeze({ cutoff, candidates: Object.freeze(candidates) })
+}
+
+/**
+ * Delete the tombstoned artifacts the window and the audit allow.
+ *
+ * A referenced artifact is never deleted, even with a tombstone: the audit says
+ * what happened, and an entry that points at bytes nobody can read any more is
+ * a hole in the record. Run {@link listArtifactDeletionCandidates} first — the
+ * deletion is irreversible.
+ *
+ * The tombstone is **spent** with the artifact it authorized: the mark goes in
+ * the same loop, right after the delete. The order is load-bearing — the
+ * `artifacts_no_delete` guard demands the mark at the moment of the delete, so
+ * removing the mark first would abort the operation — and it is what stops a
+ * later artifact from inheriting an old permission when an id is derived
+ * deterministically and reused.
+ *
+ * What this does **not** close: the emergency door
+ * ({@link dropArtifactDeleteGuard}) deletes an artifact without spending its
+ * mark, so a plain `DELETE` there can still leave an orphan mark that a
+ * recreated id would inherit. Closing that needs the mark to name the
+ * generation it authorized, which is a schema change rather than this step's
+ * work; the residual hole and the probe that shows it are recorded in the
+ * stage-2 gate evidence.
+ * @param executor - connection or open transaction; use one transaction so the
+ * artifact and its mark commit together.
+ * @param window - explicit boundary on `created_at`.
+ */
+export function pruneArtifacts(executor: SqlExecutor, window: ArtifactRetentionWindow): ArtifactRetentionResult {
+  const { cutoff, candidates } = listArtifactDeletionCandidates(executor, window)
+  let deleted = 0
+  for (const artifactId of candidates) {
+    const removed = executor.run('DELETE FROM artifacts WHERE artifact_id = ?', artifactId)
+    deleted += removed
+    if (removed === 1) {
+      executor.run('DELETE FROM artifact_tombstone WHERE artifact_id = ?', artifactId)
+    }
+  }
+  return Object.freeze({ cutoff, candidates: candidates.length, deleted })
+}
+
+/**
+ * Drop the delete guard and return its SQL, so a caller can put it back.
+ *
+ * This is the emergency path, not the retention path: a tombstoned, unreferenced
+ * artifact passes the conditional guard on its own. The `UPDATE` and `INSERT`
+ * guards are untouched even here, so an artifact still cannot be rewritten while
+ * the guard is down.
+ * @param executor - connection or open transaction.
+ * @returns the guard's SQL, or `undefined` when it was already absent.
+ */
+export function dropArtifactDeleteGuard(executor: SqlExecutor): string | undefined {
+  const guard = executor.get("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'artifacts_no_delete'")
+  if (guard === undefined) return undefined
+  executor.exec('DROP TRIGGER artifacts_no_delete')
+  return String(guard.sql)
+}
+
+/** The boundary of a window, refused when it is not a usable stamp. */
+function cutoffOf(window: ArtifactRetentionWindow): number {
+  const cutoff = window?.olderThan
+  if (typeof cutoff !== 'number' || !Number.isInteger(cutoff) || cutoff < 0) {
+    throw new EvidenceError(
+      'invalid-input',
+      `dsh-mywork: an artifact retention window must be a non-negative integer stamp, received ${String(cutoff)}`,
+    )
+  }
+  return cutoff
 }

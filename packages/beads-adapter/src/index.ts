@@ -34,6 +34,28 @@ export {
 } from './runner.ts'
 
 export {
+  BEADS_BINARY_NOT_FOUND,
+  BEADS_INSTALL_HINT,
+  BeadsLaunchRefusal,
+  findBeadsBinary,
+  findBeadsEntry,
+  resolveBeadsLaunch,
+  type BeadsLaunch,
+  type ResolveBeadsLaunchOptions,
+} from './launch.ts'
+
+export {
+  DEFAULT_PROBE_TIMEOUT_MS,
+  describeBeadsProbe,
+  probeBeads,
+  type BeadsProbeAvailable,
+  type BeadsProbeFailure,
+  type BeadsProbeResult,
+  type BeadsProbeUnavailable,
+  type ProbeBeadsOptions,
+} from './probe.ts'
+
+export {
   BEADS_INIT_COMMAND,
   classifyBeadsFailure,
   discoverWorkspace,

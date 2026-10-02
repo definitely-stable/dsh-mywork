@@ -57,6 +57,13 @@ export type ArtifactKind =
    * instead. Added additively; no existing kind is reinterpreted.
    */
   | 'gate-decision'
+  /**
+   * The verdict of one verification gate and the log it produced (§19). §19
+   * requires the exit code and the output of every gate to survive as evidence,
+   * including when the gate could not be run at all. Added additively after
+   * `gate-decision`; no existing kind is reinterpreted.
+   */
+  | 'gate-result'
 
 /** Every artifact kind, in the order §32 lists them. */
 export const ARTIFACT_KINDS: readonly ArtifactKind[] = Object.freeze([
@@ -72,6 +79,7 @@ export const ARTIFACT_KINDS: readonly ArtifactKind[] = Object.freeze([
   'context-snapshot',
   'checkpoint',
   'gate-decision',
+  'gate-result',
 ])
 
 /**

@@ -25,6 +25,14 @@
  * Stop means stop the work (§51, MW-001 §6.8): the active turn is cancelled and
  * the session is left in place as durable evidence. Nothing here disposes a
  * session.
+ *
+ * A refusal says why it refused. Both ports answer with the adapter's transport
+ * codes — unchanged, because callers already branch on them — and every refusal
+ * that is about a session additionally names one of the four
+ * `SessionRefusalReason` causes of the contract (§22, §36, §42). That is what
+ * keeps "this session is gone", "this session is not live", "this scope
+ * contradicts the record", and "this deployment cannot serve the call" from
+ * being four spellings of the same word (MW-015 P21).
  * @module
  */
 
@@ -32,9 +40,11 @@ import type { Context } from '@deepseek-ai/cordis'
 import {
   AdapterError,
   portContractVersion,
+  type AdapterErrorCode,
   type MyWorkAdapters,
 } from '@dsh-mywork/adapter-sdk'
 import {
+  SESSION_REFUSAL_CODES,
   type AgentCallOptions,
   type AgentEventOptions,
   type AgentModelSelection,
@@ -45,12 +55,14 @@ import {
   type AgentRuntimeStatus,
   type AgentStartRequest,
   type HarnessPolicy,
+  type MyWorkErrorCode,
   type SessionCreateRequest,
   type SessionDescription,
   type SessionEvent,
   type SessionEventPage,
   type SessionId,
   type SessionPort,
+  type SessionRefusalReason,
 } from '@dsh-mywork/contracts'
 
 /** Cordis service name of the DSH session controller. */
@@ -270,6 +282,56 @@ const NEVER_ABORTED = new AbortController().signal
 export const DSH_REQUEST_ID_PREFIX = 'dsh-mywork-'
 
 /**
+ * The adapter code each refusal keeps.
+ *
+ * An {@link AdapterErrorCode} describes *how* a call failed — unreachable,
+ * unknown reference, conflicting state — which is a transport fact and not a
+ * cause. Four different session causes share `unavailable`, so the cause
+ * travels beside the code instead of replacing it, and every code below is the
+ * one this binding raised before the reasons existed: a caller that already
+ * branched on the transport code keeps branching the same way.
+ */
+const ADAPTER_CODE_OF_REFUSAL: Readonly<Record<SessionRefusalReason, AdapterErrorCode>> = Object.freeze({
+  'session-missing': 'invalid-ref',
+  'session-not-live': 'unavailable',
+  'session-scope-mismatch': 'conflict',
+  'runtime-unavailable': 'unavailable',
+})
+
+/**
+ * A refusal of the DSH binding that names *why* it refused (§36, §39, §42).
+ *
+ * The transport code answers "how did the call fail" and cannot answer "what is
+ * wrong": a caller that has to decide between retrying, resuming, and reporting
+ * an outage must not read "this session is gone" and "this deployment is down"
+ * as the same answer. The reason travels as data beside the code, together with
+ * the canonical §42 code it maps to, so nothing is inferred from the message.
+ *
+ * The subclass deliberately keeps the base class's name: the SDK recognises an
+ * adapter error across a bundle boundary by name plus code
+ * (`AdapterError[Symbol.hasInstance]`), and a class that renamed itself would
+ * stop being recognised by a caller holding another copy of the SDK.
+ */
+export class DshSessionRefusal extends AdapterError {
+  /** Why the binding refused, from the closed vocabulary of the contract. */
+  readonly reason: SessionRefusalReason
+
+  /** Canonical §42 code the reason maps to; see `SESSION_REFUSAL_CODES`. */
+  readonly refusalCode: MyWorkErrorCode
+
+  /**
+   * @param reason - the cause, as the contract names it.
+   * @param message - human-readable detail; never parsed by callers.
+   * @param options - optional underlying platform failure.
+   */
+  constructor(reason: SessionRefusalReason, message: string, options: { cause?: unknown } = {}) {
+    super(ADAPTER_CODE_OF_REFUSAL[reason], message, options)
+    this.reason = reason
+    this.refusalCode = SESSION_REFUSAL_CODES[reason]
+  }
+}
+
+/**
  * The DSH session adapter: the record surface of §36 over the live controller.
  */
 export class DshSessionAdapter implements SessionPort {
@@ -327,7 +389,7 @@ export class DshSessionAdapter implements SessionPort {
     refuseIfAborted(options.signal, `cancelling session "${sessionId}"`)
     const exists = await this.#sessionExists(sessionId, options.signal)
     if (!exists) {
-      throw new AdapterError('invalid-ref', `dsh-mywork: session "${sessionId}" does not exist`)
+      throw new DshSessionRefusal('session-missing', `dsh-mywork: session "${sessionId}" does not exist`)
     }
     try {
       await this.#api.controller.cancel({ sessionId })
@@ -384,8 +446,8 @@ export class DshSessionAdapter implements SessionPort {
       )[Symbol.asyncIterator]()
       const first = await iterator.next()
       if (first.done === true) {
-        throw new AdapterError(
-          'unavailable',
+        throw new DshSessionRefusal(
+          'runtime-unavailable',
           `dsh-mywork: the session log of "${sessionId}" opened with no frame`,
         )
       }
@@ -400,8 +462,8 @@ export class DshSessionAdapter implements SessionPort {
       await iterator?.return?.(undefined)
     }
     if (opening.type !== 'snapshot') {
-      throw new AdapterError(
-        'unavailable',
+      throw new DshSessionRefusal(
+        'runtime-unavailable',
         `dsh-mywork: the session log of "${sessionId}" opened with a "${opening.type}" frame instead of a snapshot`,
       )
     }
@@ -503,8 +565,8 @@ export class DshAgentRuntime implements AgentRuntimePort {
       const roster = await this.#api.controller.list({}, options.signal ?? NEVER_ABORTED)
       const found = roster.items.find(item => item.sessionId === handle.sessionId)
       if (found === undefined) {
-        throw new AdapterError(
-          'invalid-ref',
+        throw new DshSessionRefusal(
+          'session-missing',
           `dsh-mywork: session "${handle.sessionId}" of run "${handle.runId}" does not exist`,
         )
       }
@@ -585,8 +647,11 @@ export class DshAgentRuntime implements AgentRuntimePort {
    * @param sessionId - session to pin.
    * @param permission - policy to install.
    * @param signal - caller-owned cancellation.
-   * @throws {AdapterError} `unavailable` when the profile serves no command
-   *   runtime, no agent for the session, or a command that refuses the policy.
+   * @throws {AdapterError} `cancelled` for an aborted call; otherwise a
+   *   {@link DshSessionRefusal} naming `session-not-live` when this profile
+   *   serves no live agent for the session, and `runtime-unavailable` when it
+   *   serves no agent registry, no command runtime, no `/permission` command, or
+   *   a command that refuses the policy.
    */
   async #pinPermission(
     sessionId: SessionId,
@@ -596,15 +661,15 @@ export class DshAgentRuntime implements AgentRuntimePort {
     const agents = this.#api.agents
     const commands = this.#api.commands
     if (agents === undefined || commands === undefined) {
-      throw new AdapterError(
-        'unavailable',
+      throw new DshSessionRefusal(
+        'runtime-unavailable',
         `dsh-mywork: session "${sessionId}" cannot be pinned to ${permission}: this profile serves no agent registry or command runtime`,
       )
     }
     const agent = agents.get(sessionId)
     if (agent === undefined) {
-      throw new AdapterError(
-        'unavailable',
+      throw new DshSessionRefusal(
+        'session-not-live',
         `dsh-mywork: session "${sessionId}" has no live agent, so its permission policy cannot be pinned`,
       )
     }
@@ -616,14 +681,14 @@ export class DshAgentRuntime implements AgentRuntimePort {
       throw mapDshFailure(error, `pinning the permission policy of session "${sessionId}"`)
     }
     if (execution === undefined) {
-      throw new AdapterError(
-        'unavailable',
+      throw new DshSessionRefusal(
+        'runtime-unavailable',
         `dsh-mywork: this deployment has no /permission command, so session "${sessionId}" was not pinned to ${permission}`,
       )
     }
     if (execution.result.kind !== 'success') {
-      throw new AdapterError(
-        'unavailable',
+      throw new DshSessionRefusal(
+        'runtime-unavailable',
         `dsh-mywork: session "${sessionId}" was not pinned to ${permission}: ${execution.result.text ?? 'the command refused'}`,
       )
     }
@@ -787,9 +852,12 @@ function defaultRequestId(): string {
  *
  * The platform's codes are its own (`session/not-found`, `session/conflict`,
  * `agent-preset/conflict`, `gateway/cancelled`); MyWork's callers only ever see
- * the §42 adapter codes. An unrecognised failure is `unavailable` and keeps its
- * cause: a platform that answers something this binding cannot read is an
- * outage, not a caller mistake.
+ * the §42 adapter codes. The translation is also where the *cause* is named: an
+ * unknown reference the platform reports is `session-missing`, a refusal of the
+ * composition the caller asked for is `session-scope-mismatch`, and an
+ * unrecognised failure is `runtime-unavailable` and keeps its cause — a platform
+ * that answers something this binding cannot read is an outage, not a caller
+ * mistake.
  * @param error - whatever the platform threw.
  * @param what - the operation, for the message.
  */
@@ -797,17 +865,21 @@ function mapDshFailure(error: unknown, what: string): AdapterError {
   const code = dshErrorCode(error)
   const detail = error instanceof Error ? error.message : String(error)
   if (code === 'session/not-found') {
-    return new AdapterError('invalid-ref', `dsh-mywork: ${what}: ${detail}`, { cause: error })
+    return new DshSessionRefusal('session-missing', `dsh-mywork: ${what}: ${detail}`, { cause: error })
   }
   if (code === 'session/conflict' || code === 'agent-preset/conflict' || code === 'session/invalid-time-zone') {
-    return new AdapterError('conflict', `dsh-mywork: ${what}: ${detail}`, { cause: error })
+    return new DshSessionRefusal('session-scope-mismatch', `dsh-mywork: ${what}: ${detail}`, { cause: error })
   }
   if (code === 'gateway/cancelled') {
+    // Cancellation is not one of the four session causes: it says nothing about
+    // the session, only that the turn the caller asked for was stopped.
     return new AdapterError('cancelled', `dsh-mywork: ${what}: ${detail}`, { cause: error })
   }
-  return new AdapterError('unavailable', `dsh-mywork: ${what} failed${code === undefined ? '' : ` (${code})`}: ${detail}`, {
-    cause: error,
-  })
+  return new DshSessionRefusal(
+    'runtime-unavailable',
+    `dsh-mywork: ${what} failed${code === undefined ? '' : ` (${code})`}: ${detail}`,
+    { cause: error },
+  )
 }
 
 /** The platform's own failure code, when the failure carries one. */

@@ -1,0 +1,142 @@
+# MyWork CI — two gates that fail for different reasons.
+#
+# Defect R-21 was that a single "CI is green" gate silently mixed two very
+# different requirements: one that needs no DSH CLI at all, and one that only
+# means something once a real `dsh` binary installs the bundle. They are split
+# into separate jobs so "the CLI is missing" can never be reported as
+# "the plugin is broken".
+#
+#   gate L — `build-test`:   typecheck, build, smoke, tests. No DSH needed.
+#   gate P — `profile`:      installs dsh, packs the bundle, mounts it in an
+#                            isolated DSH_HOME. Needs the CLI.
+#
+# Every job runs on windows-latest: the scripts and the tests are
+# Windows-specific (`cmd /c`, `where.exe`, backslash paths, `.cmd` shims).
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: gate L — build and test (no dsh)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - name: Enable corepack
+        run: corepack enable
+      # `--frozen-lockfile` is only safe once `pnpm-lock.yaml` is committed
+      # clean (F-11); it is, so the install is reproducible.
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: corepack pnpm -r run typecheck
+      - name: Build
+        run: corepack pnpm -r run build
+      - name: Smoke
+        run: node scripts/smoke.mjs
+      - name: Unit and contract tests
+        run: node scripts/run-tests.mjs "tests/**/*.test.mjs"
+
+  beads-backend:
+    name: beads backend — real bd, no skips
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+      # This contract imports built packages like a consumer, but it only needs
+      # the Beads adapter and its workspace dependency closure. Building the
+      # whole workspace here would duplicate Gate L for no additional evidence.
+      - name: Build Beads contract subjects
+        run: corepack pnpm --filter @dsh-mywork/beads-adapter... run build
+      # Installing the backend and failing to reach it are different errors.
+      # This step failing means "the backend was not installed"; the test step
+      # failing means "the backend is installed and the contract is broken".
+      # The npm wrapper's postinstall is a network-dependent second-stage
+      # downloader. On windows-latest it installed the wrapper but left
+      # bin/bd.exe absent, so the job never reached the adapter contract. Install
+      # the pinned native release directly and pin its published SHA-256 instead.
+      - name: Install pinned Beads native binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '1.3.0'
+          $archive = Join-Path $env:RUNNER_TEMP "beads_${version}_windows_amd64.zip"
+          $destination = Join-Path $env:RUNNER_TEMP "beads-$version"
+          $expectedSha256 = 'fa4c72c5d27f68f906e89a759656b5a051b330088c4acc38fa445cbb561e5cdf'
+          $uri = "https://github.com/gastownhall/beads/releases/download/v${version}/beads_${version}_windows_amd64.zip"
+
+          Invoke-WebRequest -Uri $uri -OutFile $archive
+          $actualSha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "Beads archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256"
+          }
+
+          Remove-Item -LiteralPath $destination -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
+          $bd = Get-ChildItem -LiteralPath $destination -Filter 'bd.exe' -File -Recurse | Select-Object -First 1
+          if ($null -eq $bd) {
+            throw "Beads v$version archive contains no bd.exe"
+          }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $bd.DirectoryName
+          & $bd.FullName --version
+      - name: Beads version from PATH
+        run: |
+          where.exe bd
+          bd --version
+      # F-17: in this job an absent `bd` is fatal, not a skip. Without the
+      # variable the same file skips its real-backend layer loudly, which is
+      # what a developer machine wants; in CI 23 silent skips would be a hole.
+      - name: Beads contract checks (an absent backend is fatal here)
+        env:
+          MYWORK_REQUIRE_BEADS: '1'
+        run: node scripts/run-tests.mjs tests/beads-adapter.test.mjs
+
+  profile:
+    name: gate P — bundle installs and mounts (needs dsh)
+    needs: build-test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+      - name: Build
+        run: corepack pnpm -r run build
+      # Pinned exactly, not by range: a floating CLI version would make the
+      # gate non-reproducible.
+      - name: Install the DSH CLI
+        run: npm install -g @deepseek-ai/dsh@0.1.7-rc.2
+      - name: dsh version
+        run: dsh --version
+      - name: Pack the controller bundle
+        run: node scripts/pack.mjs
+      # What this proves, and what it does NOT:
+      #   `verify-profile.mjs` hashes the manifests of the REAL profile
+      #   ($env:USERPROFILE\.dsh) before and after the run. On a clean runner
+      #   that directory does not exist, so the "hashes are unchanged" half of
+      #   the check is VACUOUS here. The real proof is the `verify:profile:
+      #   PASS` line: it means the tarball installed and the plugin mounted in
+      #   the isolated DSH_HOME the script creates under .tmp/.
+      - name: Mount the bundle in an isolated DSH_HOME
+        run: node scripts/verify-profile.mjs --dsh-bin dsh

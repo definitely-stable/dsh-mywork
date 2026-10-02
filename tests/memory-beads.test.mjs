@@ -26,6 +26,7 @@
  * repository's answer to that.
  */
 
+import { assertScratchHome, scratchDshHome } from './lib/tmp-home.mjs'
 import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -35,6 +36,11 @@ import test, { after } from 'node:test'
 
 import { runCaptured } from '../scripts/lib/process.mjs'
 import { adapterSdk, adapterTesting, beads, contracts, core, memoryNative, repoRoot } from './lib/fixtures.mjs'
+
+// The §44 row mounts the controller, which opens its SQLite state under
+// `$DSH_HOME`; the variable is pinned to `.tmp` before that bundle is imported,
+// so this suite never writes into a live profile.
+scratchDshHome('memory-beads')
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -846,6 +852,7 @@ test('the beads and native providers agree on which writes may replace a record'
 // ---------------------------------------------------------------------------
 
 test('the §44 row registers the memory adapter and removes it with its fiber', async () => {
+  assertScratchHome()
   const memoryPlugin = await import(
     pathToFileURL(join(repoRoot, 'packages', 'beads-adapter', 'lib', 'memory-plugin.js')).href
   )

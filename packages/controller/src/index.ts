@@ -46,6 +46,81 @@ import {
 } from '@dsh-mywork/core'
 import { mountModelCatalog } from './model-catalog.ts'
 import { mountDshRuntime } from './dsh-session.ts'
+import { createMyWorkApplication } from './app.ts'
+
+/** The composition root and the database schema it owns, as this package's surface. */
+export {
+  MYWORK_DATABASE_MIGRATIONS,
+  adoptedAllocations,
+  createMyWorkApplication,
+  myworkDatabaseMigrations,
+  type MyWorkApplication,
+  type MyWorkApplicationOptions,
+  type MyWorkSubsystem,
+  type MyWorkSubsystemName,
+} from './app.ts'
+
+/** The deployment modes, the client layer, and the one graceful shutdown (E-44). */
+export {
+  MYWORK_DEPLOYMENT_MODES,
+  MYWORK_SHUTDOWN_STEPS,
+  createClientSessions,
+  createGracefulShutdown,
+  resolveMyWorkDeployment,
+  type MyWorkClientSession,
+  type MyWorkClientSessions,
+  type MyWorkDeployment,
+  type MyWorkDeploymentMode,
+  type MyWorkGracefulShutdown,
+  type MyWorkGracefulShutdownOptions,
+  type MyWorkShutdownEntry,
+  type MyWorkShutdownProbe,
+  type MyWorkShutdownStep,
+  type ResolveMyWorkDeploymentOptions,
+} from './deployment.ts'
+
+/** The typed failures of the controller runtime (MW-028). */
+export {
+  CONTROLLER_RUNTIME_ERROR_CODES,
+  ControllerRuntimeError,
+  isControllerRuntimeError,
+  type ControllerRuntimeErrorCode,
+  type ControllerRuntimeErrorOptions,
+} from './errors.ts'
+
+/** The clock-driven lease heartbeat (E-43). */
+export {
+  heartbeatIntervalMs,
+  startControllerHeartbeat,
+  type ControllerHeartbeat,
+  type ControllerHeartbeatOptions,
+  type HeartbeatLifecycle,
+} from './heartbeat.ts'
+
+/** The leadership runtime behind the composition root (E-42…E-45). */
+export {
+  MYWORK_STARTUP_STEPS,
+  createControllerRuntime,
+  type ControllerLeadershipObservation,
+  type ControllerRuntime,
+  type ControllerRuntimeOptions,
+  type ControllerStartupEntry,
+  type ControllerStartupStepName,
+  type MyWorkRuntimeStorage,
+} from './runtime-root.ts'
+
+/** The migration-version allocator of the composition layer (F-63). */
+export {
+  MigrationAllocatorError,
+  createMigrationAllocator,
+  isMigrationAllocatorError,
+  type Allocation,
+  type AllocationAdoption,
+  type MigrationAllocator,
+  type MigrationAllocatorErrorCode,
+  type MigrationAllocatorOptions,
+  type MigrationRequest,
+} from './migration-allocator.ts'
 
 /** The §29 catalog binding the controller mounts, re-exported as its public surface. */
 export {
@@ -72,6 +147,7 @@ export {
   DSH_SESSION_SERVICE,
   DshAgentRuntime,
   DshSessionAdapter,
+  DshSessionRefusal,
   mountDshRuntime,
   type DshAgent,
   type DshAgentRegistry,
@@ -87,6 +163,52 @@ export {
   type DshWireEvent,
   type DshWireHeader,
 } from './dsh-session.ts'
+
+/**
+ * The F-54/F-55 product-telemetry export, re-exported as this package's public
+ * surface: the record builder, the attribute allowlist and value shapes that
+ * bound what it may disclose, and the fail-open `emit` wrapper (D16).
+ */
+export {
+  PRODUCT_ATTRIBUTE_ALLOWLIST,
+  PRODUCT_ATTRIBUTE_SHAPES,
+  PRODUCT_EVENT_BODIES,
+  PRODUCT_EVENT_INPUT_FIELDS,
+  PRODUCT_EVENT_NAMES,
+  PRODUCT_EVENT_NAME_BY_OUTCOME,
+  PRODUCT_EVENT_OUTCOMES,
+  PRODUCT_TELEMETRY_SERVICE,
+  emitProductEvent,
+  resolveProductTelemetry,
+  toProductEvent,
+  type ProductAttributeShape,
+  type ProductEmitResult,
+  type ProductEventInput,
+  type ProductEventOutcome,
+  type ProductTelemetryContext,
+  type ProductTelemetryPort,
+  type ProductTelemetryRecord,
+  type ProductTelemetryResolution,
+  type ProductTelemetryScalar,
+  type ProductTelemetryUnavailableReason,
+} from './telemetry.ts'
+
+/**
+ * The §30 charge bridge over the platform token meter (F-51, D05):
+ * `measure()` in, a `BudgetCharge` out, and no counter of its own.
+ */
+export {
+  bridgeMeasurement,
+  createBudgetMeter,
+  type BudgetMeter,
+  type BudgetMeterPricing,
+  type MeasuredCharge,
+  type MeasurementBaseline,
+  type MeasurementBridgeInput,
+  type MeasurementSource,
+  type TokenMeasurement,
+  type TokenMeterPort,
+} from './budget-meter.ts'
 
 /** Plugin display name used by the Cordis loader in diagnostics. */
 export const name = '@dsh-mywork/controller'
@@ -108,15 +230,44 @@ export interface Config {
 
 /**
  * Mount the controller for one composition row.
+ *
+ * The row owns exactly one lifecycle: the application service created here opens
+ * the state databases, brings the subsystems up, and publishes the ports it
+ * owns into `myworkAdapters`. `apply` awaits that startup, so a caller that
+ * awaited the plugin can rely on the store existing — and a row whose home is not
+ * writable fails the mount instead of half-mounting.
  * @param ctx - the plugin's host context.
  * @param config - optional row configuration.
  * @throws {TypeError} when the row configuration is malformed.
  */
-export function apply(ctx: Context, config?: Config): void {
-  const service = new MyWorkControllerService(ctx, resolveControllerConfig(config), resolveClock(ctx))
-  ctx.effect(() => () => service.stop(), 'mywork controller shutdown')
+export async function apply(ctx: Context, config?: Config): Promise<void> {
+  const resolved = resolveControllerConfig(config)
+  const clock = resolveClock(ctx)
+  const service = new MyWorkControllerService(ctx, resolved, clock)
   const adapters = new MyWorkAdaptersService(ctx)
-  ctx.effect(() => () => adapters.close(), 'mywork adapters shutdown')
+  const app = createMyWorkApplication({
+    clock,
+    adapters,
+    diagnostics: resolved.diagnostics,
+    // This row *is* the embedded deployment: it lives inside the DSH host
+    // process, so unloading the row stops the controller with it. A resident
+    // (headless) profile mounts the same application with `mode: 'resident'`
+    // from its own entry point and owns its own stop (§5.1, MW-028 E-44).
+    mode: 'embedded',
+  })
+  // One effect, one owner: the snapshot service settles first, then the
+  // application takes the subsystems, the stores, and the registrations down.
+  // Two separate effects would let one half of the row outlive the other.
+  ctx.effect(
+    () => () => {
+      service.stop()
+      return app.stop().then(() => {
+        adapters.close()
+      })
+    },
+    'mywork controller shutdown',
+  )
+  await app.start()
   // §29/§36: the DSH LLM registry becomes a port the policy can negotiate. A
   // profile without it still mounts the controller — the binding reports the
   // absence instead of failing the row.

@@ -46,6 +46,11 @@ export interface BudgetCharge {
   readonly reviewLoops?: number
   /** Planner calls to add. */
   readonly plannerCalls?: number
+  /**
+   * Steps of the agent cycle to add (D05, F-52/F-53). A count, so omitting it
+   * adds none and never makes the dimension unknown.
+   */
+  readonly steps?: number
 }
 
 /** One settled charge and the consumption it produced. */
@@ -102,7 +107,8 @@ export function addAmounts(left: BudgetAmount, right: BudgetAmount): BudgetAmoun
 /**
  * Record one settled charge in a scope's consumption.
  *
- * Counters add up exactly. Token and cost totals add through {@link addAmounts}.
+ * Counters add up exactly, including the agent cycle's `steps` (F-53); token and
+ * cost totals add through {@link addAmounts}.
  *
  * A dimension the charge omits is recorded as **unknown**, not as zero: omitting
  * a measurement is not a claim that the spend was nothing, and a ledger that
@@ -125,6 +131,7 @@ export function chargeConsumption(consumption: BudgetConsumption, charge: Budget
   const attempts = requireCounter(charge.attempts ?? 0, 'attempts')
   const reviewLoops = requireCounter(charge.reviewLoops ?? 0, 'reviewLoops')
   const plannerCalls = requireCounter(charge.plannerCalls ?? 0, 'plannerCalls')
+  const steps = requireCounter(charge.steps ?? 0, 'steps')
   const tokens = charge.tokens ?? unmeasured('tokens', 'charge')
   const cost = charge.cost ?? unmeasured('cost', 'charge')
   return Object.freeze({
@@ -134,8 +141,9 @@ export function chargeConsumption(consumption: BudgetConsumption, charge: Budget
       attempts: consumption.attempts + attempts,
       reviewLoops: consumption.reviewLoops + reviewLoops,
       plannerCalls: consumption.plannerCalls + plannerCalls,
+      steps: consumption.steps + steps,
     }),
-    charged: Object.freeze({ tokens, cost, attempts, reviewLoops, plannerCalls }),
+    charged: Object.freeze({ tokens, cost, attempts, reviewLoops, plannerCalls, steps }),
   })
 }
 
@@ -267,6 +275,10 @@ function chargeOf(limit: BudgetLimitName, request: BudgetRequest): BudgetAmount 
       return request.kind === 'planner-call' ? knownAmount(1) : undefined
     case 'maxOptimizerCostPerDay':
       return request.kind === 'optimizer-call' ? request.cost ?? unmeasured('cost', 'request') : undefined
+    case 'maxSteps':
+      // One step charges exactly one step: the counter §30 needs for "no more
+      // than N rounds of the cycle" already exists, so nothing is estimated here.
+      return request.kind === 'step' ? knownAmount(1) : undefined
     case 'maxTokensPerTask':
       return request.tokens ?? unmeasured('tokens', 'request')
     case 'maxCostPerTask':
@@ -300,6 +312,8 @@ function usedOf(limit: BudgetLimitName, consumption: BudgetConsumption): BudgetA
       return knownAmount(consumption.reviewLoops)
     case 'maxPlannerCalls':
       return knownAmount(consumption.plannerCalls)
+    case 'maxSteps':
+      return knownAmount(consumption.steps)
     default:
       return unknownAmount(`limit "${limit}" is not known to this build`)
   }
@@ -396,6 +410,7 @@ function requireConsumption(consumption: BudgetConsumption, scope: string): Budg
   requireCounter(consumption.attempts, `scope "${scope}" attempts`)
   requireCounter(consumption.reviewLoops, `scope "${scope}" reviewLoops`)
   requireCounter(consumption.plannerCalls, `scope "${scope}" plannerCalls`)
+  requireCounter(consumption.steps, `scope "${scope}" steps`)
   return consumption
 }
 

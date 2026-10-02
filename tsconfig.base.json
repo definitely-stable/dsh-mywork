@@ -33,9 +33,12 @@
       "@dsh-mywork/evidence": ["./packages/evidence/src/index.ts"],
       "@dsh-mywork/lease": ["./packages/lease/src/index.ts"],
       "@dsh-mywork/execution": ["./packages/execution/src/index.ts"],
+      "@dsh-mywork/planner": ["./packages/planner/src/index.ts"],
       "@dsh-mywork/scheduler": ["./packages/scheduler/src/index.ts"],
       "@dsh-mywork/adapter-sdk": ["./packages/adapter-sdk/src/index.ts"],
-      "@dsh-mywork/adapter-sdk/testing": ["./packages/adapter-sdk/src/testing.ts"]
+      "@dsh-mywork/adapter-sdk/testing": ["./packages/adapter-sdk/src/testing.ts"],
+      "@dsh-mywork/worktree-adapter": ["./packages/worktree-adapter/src/index.ts"],
+      "@dsh-mywork/gate-runner": ["./packages/gate-runner/src/index.ts"]
     }
   }
 }

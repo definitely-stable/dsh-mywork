@@ -15,7 +15,7 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import test, { after } from 'node:test'
 
 import { contracts, evidence, storage } from './lib/fixtures.mjs'
@@ -33,9 +33,24 @@ function tempDir() {
   return dir
 }
 
-/** A path inside a fresh temporary directory. */
+/** The live harness root this suite must never target. */
+const liveRoot = resolve(
+  process.env[storage.DSH_HOME_ENV] ?? join(homedir(), '.dsh'),
+  storage.MYWORK_DIR_NAME,
+)
+
+/** A database path owned by this suite and provably outside the live DSH home. */
 function databasePath(dir) {
-  return join(dir, 'registry.sqlite')
+  assert.ok(dir.startsWith(join(tmpdir(), TEMP_PREFIX)), `database directory is not an evidence fixture: ${dir}`)
+  const path = resolve(dir, 'registry.sqlite')
+  const target = process.platform === 'win32' ? path.toLowerCase() : path
+  const forbidden = process.platform === 'win32' ? liveRoot.toLowerCase() : liveRoot
+  assert.equal(
+    target === forbidden || target.startsWith(`${forbidden}${sep}`),
+    false,
+    `refusing to open an evidence fixture inside the live DSH home: ${path}`,
+  )
+  return path
 }
 
 /** Open a temporary MyWork database carrying the evidence schema. */
@@ -47,19 +62,7 @@ async function openEvidenceDatabase(dir, clock = { now: () => 1_000 }) {
   })
 }
 
-/** The live harness home, used only to prove this suite never touches it. */
-const liveHome = process.env[storage.DSH_HOME_ENV] ?? join(homedir(), '.dsh')
-
-/** What the live harness home looks like, without reading any of its files. */
-function liveHomeFingerprint() {
-  const root = join(liveHome, storage.MYWORK_DIR_NAME)
-  return { exists: existsSync(root), entries: existsSync(root) ? readdirSync(root).sort() : [] }
-}
-
-const liveHomeBefore = liveHomeFingerprint()
-
 after(() => {
-  const liveHomeAfter = liveHomeFingerprint()
   const leftover = []
   for (const dir of tempDirs) {
     // Delete by handle: only a directory this suite created, under the temp
@@ -72,7 +75,6 @@ after(() => {
       leftover.push(dir)
     }
   }
-  assert.deepEqual(liveHomeAfter, liveHomeBefore, 'the evidence suite touched the live DSH home')
   assert.deepEqual(leftover, [], `temporary databases were left behind: ${leftover.join(', ')}`)
 })
 
@@ -566,6 +568,41 @@ test('the evidence tables reject a value of the wrong type instead of coercing i
         ),
       ),
     'cannot store TEXT value in INTEGER column',
+  )
+  assert.equal(store.transaction(tx => Number(tx.get('SELECT COUNT(*) AS n FROM artifacts').n)), 1)
+  store.close()
+})
+
+test('the artifact vocabulary carries gate-result, and the store refuses a kind it does not know', async () => {
+  // `gate-result` is the kind MW-023 stores a verification verdict under. The
+  // vocabulary stays closed: this pins the additive change and proves the store
+  // reads the very same list, so a kind that only looks similar is refused.
+  const kinds = [...contracts.ARTIFACT_KINDS]
+  assert.ok(Object.isFrozen(contracts.ARTIFACT_KINDS), 'the artifact vocabulary is closed')
+  assert.equal(kinds.at(-1), 'gate-result', 'the new kind is appended last')
+  assert.equal(kinds.at(-2), 'gate-decision', 'appended after gate-decision, never reinterpreting it')
+  assert.equal(new Set(kinds).size, kinds.length, 'no kind may appear twice')
+
+  const dir = tempDir()
+  const store = await openEvidenceDatabase(dir)
+  const artifacts = evidence.createArtifactStore(store, { now: () => 4_200 })
+  const request = artifactRequest({
+    artifactId: 'ev-gate',
+    kind: 'gate-result',
+    bytes: new TextEncoder().encode('verdict pass exit 0'),
+  })
+  const { ref, created } = artifacts.put(request)
+
+  assert.equal(created, true)
+  const stored = artifacts.get(ref)
+  assert.equal(stored.metadata.kind, 'gate-result')
+  assert.deepEqual(stored.bytes, request.bytes)
+
+  // Positive control for the closure: the same write path refuses a kind the
+  // vocabulary does not carry, so accepting `gate-result` was not a blanket.
+  refusal(
+    () => artifacts.put(artifactRequest({ artifactId: 'ev-typo', kind: 'gate-result-typo' })),
+    'invalid-input',
   )
   assert.equal(store.transaction(tx => Number(tx.get('SELECT COUNT(*) AS n FROM artifacts').n)), 1)
   store.close()

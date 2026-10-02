@@ -3,7 +3,10 @@
  *
  * ```ts
  * const layout = resolveMyWorkLayout()
- * const store = await openStore({ path: stateDatabasePath(layout, 'registry') })
+ * const store = await openStore({
+ *   path: stateDatabasePath(layout, 'registry'),
+ *   migrations: MYWORK_DATABASE_MIGRATIONS,
+ * })
  * store.transaction(tx => {
  *   tx.run('UPDATE attempts SET state = ? WHERE id = ?', 'running', attemptId)
  *   tx.outbox.append({ event, workspaceId, correlationId })
@@ -20,8 +23,34 @@
  * @module @dsh-mywork/storage
  */
 
+export {
+  BACKGROUND_JOB_DDL,
+  BACKGROUND_JOB_INDEX_DDL,
+  claimDueBackgroundJob,
+  createBackgroundJobMigration,
+  enqueueBackgroundJob,
+  listBackgroundJobs,
+  settleBackgroundJob,
+  type BackgroundJobRecord,
+  type ClaimBackgroundJobInput,
+  type EnqueueBackgroundJobInput,
+  type ListBackgroundJobsFilter,
+  type SettleBackgroundJobInput,
+} from './background-jobs.ts'
 export { wallClock, type StorageClock } from './clock.ts'
 export {
+  DEFAULT_LOCK_STALE_MS,
+  DEFAULT_LOCK_TIMEOUT_MS,
+  withFileLock,
+  writeFileAtomic,
+  type FileLockOptions,
+  type WriteFileAtomicOptions,
+} from './atomic.ts'
+export {
+  LOCK_TIMEOUT,
+  MIGRATION_JOURNAL_INCONSISTENT,
+  MIGRATIONS_REQUIRED,
+  STATE_UNREADABLE,
   STORAGE_ERROR_CODES,
   StorageError,
   isStorageError,
@@ -42,13 +71,18 @@ export {
   type ResolveMyWorkLayoutOptions,
 } from './layout.ts'
 export {
+  MIGRATION_ALLOCATIONS_DDL,
   MYWORK_MIGRATIONS,
   MYWORK_SCHEMA_VERSION,
+  assertCanonicalMigrations,
+  canonicalMigrations,
   listAppliedMigrations,
   runMigrations,
+  validateMigrations,
   type AppliedMigration,
   type Migration,
   type MigrationContext,
+  type MigrationSource,
 } from './migrations.ts'
 export type {
   OutboxAppendInput,
@@ -59,7 +93,25 @@ export type {
   OutboxStatus,
   OutboxWriter,
 } from './outbox.ts'
-export type { SqlExecutor, SqliteConnection, SqlRow, SqlValue } from './sql.ts'
+export {
+  openSqlite,
+  type OpenSqliteOptions,
+  type SqlExecutor,
+  type SqliteConnection,
+  type SqlRow,
+  type SqlValue,
+} from './sql.ts'
+export { JOURNAL_TABLE, readMigrationJournal } from './journal-file.ts'
+export {
+  compact,
+  pruneAuditEvents,
+  pruneInboxDedup,
+  pruneOutbox,
+  type CompactOptions,
+  type CompactResult,
+  type PruneResult,
+  type RetentionWindow,
+} from './retention.ts'
 export {
   DEFAULT_BUSY_TIMEOUT_MS,
   openStore,

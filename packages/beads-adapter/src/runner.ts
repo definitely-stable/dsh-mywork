@@ -18,6 +18,8 @@
 
 import { spawn } from 'node:child_process'
 
+import { resolveBeadsLaunch, type BeadsLaunch } from './launch.ts'
+
 /** Exit code `bd update` returns when every failure was a stale guard (ADR023). */
 export const BD_EXIT_GUARD_FAILED = 13
 
@@ -70,8 +72,16 @@ export interface BeadsRunner {
 
 /** Options accepted by {@link createProcessRunner}. */
 export interface ProcessRunnerOptions {
-  /** Path or name of the `bd` binary. Defaults to `bd` from `PATH`. */
+  /**
+   * Path or name of the `bd` binary. Highest priority: an explicit binary is the
+   * caller's answer, and {@link launch} and the resolver are only defaults.
+   */
   readonly binary?: string
+  /**
+   * How to start `bd`. Defaults to {@link resolveBeadsLaunch}, which finds the
+   * JavaScript entry on Windows and keeps the direct spawn on POSIX.
+   */
+  readonly launch?: BeadsLaunch
   /**
    * Milliseconds before the process is killed.
    *
@@ -90,19 +100,44 @@ export const DEFAULT_COMMAND_TIMEOUT_MS = 30_000
  * Output is collected through the child's own pipes. The adapter never runs a
  * shell, so no argument is word-split or glob-expanded, and a task title can
  * never turn into a command.
- * @param options - binary path and timeout.
+ * @param options - binary path, launch specification, and timeout.
+ * @returns a runner whose construction never fails: the launch is resolved at the
+ * first command, so composing a profile on a machine without `bd` is not an error
+ * by itself. The refusal surfaces as a rejected `run`.
  */
 export function createProcessRunner(options: ProcessRunnerOptions = {}): BeadsRunner {
-  const binary = options.binary ?? 'bd'
   const timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS
+  let resolved: BeadsLaunch | undefined
+
+  /**
+   * The launch specification, resolved once and only when it is needed.
+   * @returns the shell-free launch this runner spawns.
+   * @throws {BeadsLaunchRefusal} when no `bd` can be located on Windows.
+   */
+  function launchOf(): BeadsLaunch {
+    if (options.binary !== undefined) {
+      return { command: options.binary, args: [], shell: false }
+    }
+    if (options.launch !== undefined) return options.launch
+    resolved ??= resolveBeadsLaunch()
+    return resolved
+  }
 
   return {
     run(command: BeadsCommand): Promise<BeadsCommandResult> {
       return new Promise<BeadsCommandResult>((resolve, reject) => {
-        const child = spawn(binary, [...command.args], {
+        let launch: BeadsLaunch
+        try {
+          launch = launchOf()
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)))
+          return
+        }
+        const child = spawn(launch.command, [...launch.args, ...command.args], {
           cwd: command.cwd,
-          // No shell: arguments are passed as an argument vector verbatim.
-          shell: false,
+          // No shell: arguments are passed as an argument vector verbatim, and a
+          // launch record can only ever be shell-free.
+          shell: launch.shell,
           windowsHide: true,
           env: command.env === undefined ? process.env : { ...process.env, ...command.env },
         })

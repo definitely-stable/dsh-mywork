@@ -24,6 +24,25 @@ export type StorageErrorCode =
   | 'transaction-conflict'
   /** The store was closed; no further statement may run. */
   | 'store-closed'
+  /**
+   * The caller opened a store without an explicit migration list. A store that
+   * picks its own list silently declares a partial database complete (D08).
+   */
+  | 'migrations-required'
+  /** The journal disagrees with the version stamp: rows are missing or ahead. */
+  | 'migration-journal-inconsistent'
+  /**
+   * Another process holds the lock of a state file and did not release it
+   * inside the wait budget (F-34); single-writer discipline, made explicit.
+   */
+  | 'lock-timeout'
+  /**
+   * A state file exists but its journal cannot be read (F-63b). Separate from
+   * `invalid-input`, which blames the caller: here the caller's path is fine and
+   * the file itself refused to answer, and a reader that treats that as "no
+   * journal yet" would renumber versions onto migrations that already own them.
+   */
+  | 'state-unreadable'
 
 /** Every storage error code, so a test or a doctor can pin the vocabulary. */
 export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
@@ -34,7 +53,37 @@ export const STORAGE_ERROR_CODES: readonly StorageErrorCode[] = Object.freeze([
   'migration-failed',
   'transaction-conflict',
   'store-closed',
+  'migrations-required',
+  'migration-journal-inconsistent',
+  'lock-timeout',
+  'state-unreadable',
 ])
+
+/**
+ * Opening a store without an explicit migration list (D08). Spelled as a named
+ * constant because the plan and its verifier look for this identifier; the
+ * value follows the repository's kebab-case error vocabulary.
+ */
+export const MIGRATIONS_REQUIRED: StorageErrorCode = 'migrations-required'
+
+/**
+ * The `schema_migrations` journal does not describe the database stamped by
+ * `PRAGMA user_version`: rows are missing, or they run ahead of the stamp.
+ */
+export const MIGRATION_JOURNAL_INCONSISTENT: StorageErrorCode = 'migration-journal-inconsistent'
+
+/**
+ * A state file is written by one writer at a time, and the lock was still held
+ * when the wait budget ran out (F-34).
+ */
+export const LOCK_TIMEOUT: StorageErrorCode = 'lock-timeout'
+
+/**
+ * A state file exists but its migration journal could not be read (F-63b): the
+ * allocator must adopt the versions that file already records, and it cannot do
+ * that from a file that refuses to answer.
+ */
+export const STATE_UNREADABLE: StorageErrorCode = 'state-unreadable'
 
 /** Options accepted by the {@link StorageError} constructor. */
 export interface StorageErrorOptions {

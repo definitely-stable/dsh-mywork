@@ -1,0 +1,45 @@
+{
+  "name": "@dsh-mywork/web",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MyWork web UI for DSH: the board's browser half, installed as its own bundle whose patch declares its row",
+  "license": "MIT",
+  "icon": "./icon.svg",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "icon.svg"
+  ],
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.1.7-rc.2 <0.2.0"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "build": "node --max-old-space-size=8192 ../../node_modules/tsdown/dist/run.mjs && node scripts/build-client.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.1.7-rc.2 <0.2.0",
+    "react": "^18.2.0"
+  }
+}

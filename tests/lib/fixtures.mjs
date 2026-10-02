@@ -26,6 +26,8 @@ const entries = {
   execution: 'packages/execution/lib/index.js',
   scheduler: 'packages/scheduler/lib/index.js',
   memoryNative: 'packages/memory-native/lib/index.js',
+  gateRunner: 'packages/gate-runner/lib/index.js',
+  worktreeAdapter: 'packages/worktree-adapter/lib/index.js',
 }
 
 const missing = Object.values(entries).filter(relative => !existsSync(join(repoRoot, relative)))
@@ -70,6 +72,12 @@ export const scheduler = await import(pathToFileURL(join(repoRoot, entries.sched
 
 /** `@dsh-mywork/memory-native` as built: the native and disabled memory providers (§23.8). */
 export const memoryNative = await import(pathToFileURL(join(repoRoot, entries.memoryNative)).href)
+
+/** `@dsh-mywork/gate-runner` as built: the deterministic verification gates (§19, E-14). */
+export const gateRunner = await import(pathToFileURL(join(repoRoot, entries.gateRunner)).href)
+
+/** `@dsh-mywork/worktree-adapter` as built: the git worktree and GitPort implementation (§19, E-03). */
+export const worktreeAdapter = await import(pathToFileURL(join(repoRoot, entries.worktreeAdapter)).href)
 
 /**
  * Operation identity for fixture calls.

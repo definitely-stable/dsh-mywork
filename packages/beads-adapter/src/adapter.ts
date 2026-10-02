@@ -54,6 +54,7 @@ import {
   type TaskRef,
   type TaskTransitionCommand,
 } from '@dsh-mywork/contracts'
+import { BEADS_INSTALL_HINT, BeadsLaunchRefusal } from './launch.ts'
 import {
   canApplyAtomically,
   detectCycle,
@@ -63,6 +64,7 @@ import {
   type GraphApplyPlan,
   type MetadataUpdate,
 } from './plan.ts'
+import { describeBeadsProbe, probeBeads } from './probe.ts'
 import {
   BD_EXIT_GUARD_FAILED,
   type BeadsCommand,
@@ -155,6 +157,31 @@ interface BeadsDependencyRow {
 }
 
 /**
+ * The envelope `bd reclaim --json` answers.
+ *
+ * It is an object, not a list: `reclaimed` carries the leases **this** replica
+ * actually reverted and is `null` when there were none. Reading the envelope as
+ * if it were the list is what made a healthy "nothing to reclaim" crash.
+ */
+interface BeadsReclaimPayload {
+  readonly count?: number
+  readonly reclaimed?: readonly BeadsReclaimRow[] | null
+  readonly schema_version?: number
+  readonly scoped?: boolean
+}
+
+/**
+ * One reverted lease.
+ *
+ * A lease row names its issue as `issue_id`; `id` is accepted as well so a shape
+ * the adapter has not seen is still read rather than guessed at.
+ */
+interface BeadsReclaimRow {
+  readonly issue_id?: string
+  readonly id?: string
+}
+
+/**
  * The Beads-backed task graph.
  *
  * Every method is fail-closed. A missing workspace, an unavailable Dolt root, or
@@ -177,6 +204,11 @@ export class BeadsTaskGraphAdapter implements TaskGraphPort {
 
   /**
    * Run one `bd` command in the adapter's directory.
+   *
+   * The single funnel every backend call passes through, which is why the launch
+   * refusal is translated here: "there is no `bd` to start" is an unavailable
+   * adapter (§42 `ADAPTER_UNAVAILABLE`) with the install command attached, not a
+   * bare `ENOENT` leaking out of the process seam.
    * @param args - arguments after the binary.
    * @param stdin - standard input, for `bd batch`.
    * @param env - extra environment entries, e.g. `BEADS_ACTOR`.
@@ -192,7 +224,18 @@ export class BeadsTaskGraphAdapter implements TaskGraphPort {
       ...(stdin === undefined ? {} : { stdin }),
       ...(env === undefined ? {} : { env }),
     }
-    return this.runner.run(command)
+    try {
+      return await this.runner.run(command)
+    } catch (error) {
+      if (error instanceof BeadsLaunchRefusal) {
+        throw new MyWorkError(
+          'ADAPTER_UNAVAILABLE',
+          `dsh-mywork: ${error.message}; install Beads 1.3.0 with "${error.hint}"`,
+          { details: { code: error.code, hint: error.hint } },
+        )
+      }
+      throw error
+    }
   }
 
   /**
@@ -578,12 +621,26 @@ export class BeadsTaskGraphAdapter implements TaskGraphPort {
 
   /**
    * Keep a held claim's lease alive (ADR023: `bd heartbeat`).
+   *
+   * The actor rides `BEADS_ACTOR`, exactly as it does on `claim`, and it is not
+   * optional in practice: `bd heartbeat <id>` without it answers
+   * `issue already claimed by <holder>` and exits `1`, so an anonymous heartbeat
+   * cannot refresh a lease at all. The caller's claimant is used when given;
+   * otherwise the holder the backend already records is used, which is the worker
+   * whose lease this call refreshes. Only a task nobody holds falls back to the
+   * anonymous call.
    * @param id - task whose claim this worker holds.
+   * @param claimant - the acting identity, as passed to `claim`.
    */
-  async heartbeat(id: TaskId): Promise<void> {
+  async heartbeat(id: TaskId, claimant?: string): Promise<void> {
     await this.requireWorkspace()
     this.requireCapability('heartbeat', 'heartbeat')
-    const result = await this.run(['heartbeat', id])
+    const actor = claimant ?? (await this.currentAssignee(id))
+    const result = await this.run(
+      ['heartbeat', id],
+      undefined,
+      actor === undefined ? undefined : { BEADS_ACTOR: actor },
+    )
     if (result.code !== 0) {
       throw this.failedCommand(`heartbeat ${id}`, result.code, result.stderr)
     }
@@ -607,8 +664,12 @@ export class BeadsTaskGraphAdapter implements TaskGraphPort {
     if (result.code !== 0) {
       throw this.failedCommand('reclaim', result.code, result.stderr)
     }
-    const rows = this.parseJson<BeadsIssueRow[]>('reclaim', result.stdout)
-    return Object.freeze(rows.map(row => row.id))
+    // The payload is an envelope — `{ count, reclaimed, schema_version, scoped }` —
+    // and `reclaimed` is `null` when this replica had nothing to revert. Mapping
+    // the envelope itself was the defect: a healthy empty result has no `.map`.
+    const payload = this.parseJson<unknown>('reclaim', result.stdout)
+    const rows = reclaimRowsOf(payload)
+    return Object.freeze(rows.map(row => reclaimedIssueId(row)))
   }
 
   /**
@@ -697,6 +758,29 @@ export class BeadsTaskGraphAdapter implements TaskGraphPort {
    */
   async doctor(): Promise<readonly DiagnosticReport[]> {
     const reports: DiagnosticReport[] = []
+    // The seam first, through the same probe the acceptance suite asks. Every
+    // other finding needs a `bd` that can actually be started, and a shared probe
+    // is what stops the suite and the Doctor from disagreeing about whether the
+    // backend is there at all.
+    const probe = await probeBeads({ runner: this.runner, cwd: this.cwd })
+    if (!probe.available) {
+      reports.push(
+        Object.freeze({
+          check: 'beads.binary',
+          severity: 'error' as const,
+          detail: describeBeadsProbe(probe),
+          fixCommand: probe.hint ?? BEADS_INSTALL_HINT,
+        }),
+      )
+      return Object.freeze(reports)
+    }
+    reports.push(
+      Object.freeze({
+        check: 'beads.binary',
+        severity: 'ok' as const,
+        detail: `bd ${probe.version} answers through the launch seam`,
+      }),
+    )
     const workspace = await discoverWorkspace(this.runner, this.cwd)
     if (workspace === undefined) {
       reports.push(
@@ -1082,4 +1166,58 @@ export function toRevision(value: string | number | null | undefined): number {
   // rejected: refusing here would make a valid task unreadable.
   if (!Number.isFinite(parsed)) return 0
   return parsed
+}
+
+/**
+ * The reverted-lease list out of a `bd reclaim --json` payload.
+ *
+ * `reclaimed: null` means "nothing was reverted" and is not an error; a payload
+ * that carries no list at all is refused, because answering `[]` there would
+ * report a clean sweep that never happened.
+ * @param payload - the parsed payload.
+ * @throws {MyWorkError} `ADAPTER_UNAVAILABLE` when the list is absent entirely.
+ */
+function reclaimRowsOf(payload: unknown): readonly BeadsReclaimRow[] {
+  // A bare list is what the other `bd … --json` commands answer; accepted so the
+  // parser does not depend on the envelope alone.
+  if (Array.isArray(payload)) return payload as readonly BeadsReclaimRow[]
+  const listed =
+    payload !== null && typeof payload === 'object'
+      ? (payload as BeadsReclaimPayload).reclaimed
+      : undefined
+  if (listed === null) return []
+  if (Array.isArray(listed)) return listed as readonly BeadsReclaimRow[]
+  throw new MyWorkError(
+    'ADAPTER_UNAVAILABLE',
+    'dsh-mywork: bd reclaim answered without a reclaimed list',
+    {
+      details: {
+        keys:
+          payload !== null && typeof payload === 'object'
+            ? Object.keys(payload).join(',')
+            : typeof payload,
+      },
+    },
+  )
+}
+
+/**
+ * The task id of one lease `bd reclaim` reverted.
+ *
+ * A row the adapter cannot read is refused rather than dropped: an empty list
+ * would hide work that really was reverted, and `undefined` would corrupt the
+ * caller's view of it.
+ * @param row - one entry of the `reclaimed` list.
+ * @throws {MyWorkError} `ADAPTER_UNAVAILABLE` when the row carries no issue id.
+ */
+function reclaimedIssueId(row: BeadsReclaimRow): TaskId {
+  const id = row.issue_id ?? row.id
+  if (typeof id !== 'string' || id === '') {
+    throw new MyWorkError(
+      'ADAPTER_UNAVAILABLE',
+      'dsh-mywork: bd reclaim reported a reverted lease without an issue id',
+      { details: { keys: Object.keys(row).join(',') } },
+    )
+  }
+  return id
 }

@@ -65,7 +65,7 @@ test('a process that dies between the mutation and the commit leaves no half cha
   // Both writes were there inside the dying transaction.
   assert.deepEqual(lastLine(crashed.stdout), { phase: 'inside-transaction', outbox: 1, dedup: 1 })
 
-  const store = await storage.openStore({ path })
+  const store = await storage.openStore({ path, migrations: storage.MYWORK_MIGRATIONS })
   try {
     assert.equal(store.schemaVersion, storage.MYWORK_SCHEMA_VERSION, 'the schema survives the crash')
     assert.deepEqual(store.migrations.map(row => row.version), [1])
@@ -83,7 +83,7 @@ test('a process that dies between the mutation and the commit leaves no half cha
   }
 
   // Reopening once more still shows the retried state: the recovery is durable.
-  const reopened = await storage.openStore({ path })
+  const reopened = await storage.openStore({ path, migrations: storage.MYWORK_MIGRATIONS })
   try {
     assert.equal(reopened.inbox.isProcessed('crash-consumer', 'e-crash'), true)
     assert.deepEqual(reopened.outbox.pending(), [])
@@ -99,7 +99,7 @@ test('a process that commits before exiting leaves the whole change', async () =
   assert.equal(committed.status, 0, `child stderr: ${committed.stderr}`)
   assert.deepEqual(lastLine(committed.stdout), { phase: 'committed' })
 
-  const store = await storage.openStore({ path })
+  const store = await storage.openStore({ path, migrations: storage.MYWORK_MIGRATIONS })
   try {
     const pending = store.outbox.pending()
     assert.deepEqual(pending.map(record => record.envelope.eventId), ['e-crash'])

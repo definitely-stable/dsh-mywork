@@ -15,7 +15,21 @@ import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { assertScratchHome, scratchDshHome } from './lib/tmp-home.mjs'
 import { adapterTesting, contracts, core, repoRoot } from './lib/fixtures.mjs'
+
+/**
+ * This suite MOUNTS the controller, and mounting it opens the SQLite state under
+ * `DSH_HOME`. Pin that variable to a scratch directory before the bundle is
+ * imported, or a plain `node --test tests/routing.test.mjs` writes
+ * `dsh-mywork/state/*.sqlite` into the user's real home — which this campaign
+ * forbids. The pin must happen before the import below, because the storage
+ * layer resolves its home when it is first loaded, and `assertScratchHome`
+ * states the property positively: a pin that merely sets the variable would
+ * pass at any value, including the wrong one.
+ */
+scratchDshHome('routing')
+assertScratchHome()
 
 // The controller is the published bundle and is not part of the domain fixture
 // set, so this suite loads it the way a consumer would.
@@ -199,19 +213,22 @@ test('an unregistered provider is refused as an absent route, never as an outage
   assert.deepEqual(catalog.askedRoutes, [], 'an absent route is not asked: absence is not an outage')
 })
 
-test('a registered provider that serves no such model is an absent route, not an outage', async () => {
+test('a registered provider that serves no such model is model-not-routable, not an outage', async () => {
   const catalog = developmentCatalog()
   const decision = await core.routeModel({ port: catalog,
     request: { policy: developmentPolicy({ preferred: 'glm/sonnet', fallback: [] }) },
   })
 
   assert.equal(decision.kind, 'refused')
-  assert.equal(decision.reason, 'route-absent', 'the provider answered; the route simply does not exist')
+  // The provider IS registered, so this is not `route-absent` (that reason is
+  // reserved for a provider the catalog does not register at all) and not
+  // `provider-outage` (the provider answered).
+  assert.equal(decision.reason, 'model-not-routable', 'the provider answered; the model simply does not exist')
   assert.match(decision.evaluations[0].detail, /serves no model "sonnet"/)
   assert.deepEqual(
     catalog.askedRoutes,
     ['glm/sonnet'],
-    'this route WAS asked and refused: that is what makes it an absent route rather than an outage',
+    'this route WAS asked and refused: that is what makes it a missing model rather than an outage',
   )
 })
 
@@ -279,7 +296,9 @@ test('escalation is opt-in: the escalation route is withheld and never asked', a
   assert.equal(withheld.kind, 'refused')
   assert.deepEqual(
     withheld.evaluations.map(entry => [entry.role, entry.outcome, entry.reason]),
-    [['preferred', 'refused', 'route-absent'], ['escalation', 'withheld', 'escalation-not-permitted']],
+    // `ghost` IS registered — it simply advertises no models — so the preferred
+    // candidate is `model-not-routable`, not `route-absent`.
+    [['preferred', 'refused', 'model-not-routable'], ['escalation', 'withheld', 'escalation-not-permitted']],
   )
   assert.deepEqual(
     catalog.askedRoutes,
