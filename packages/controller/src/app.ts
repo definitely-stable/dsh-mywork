@@ -65,7 +65,6 @@ import {
   createScheduler,
   type Scheduler,
   type SchedulerAdmitPort,
-  type SchedulerStatePort,
 } from '@dsh-mywork/scheduler'
 import {
   MYWORK_MIGRATIONS,
@@ -90,6 +89,10 @@ import {
   type MyWorkShutdownEntry,
 } from './deployment.ts'
 import { ControllerRuntimeError } from './errors.ts'
+import {
+  createSchedulerStateProjection,
+  type SchedulerStateProjectionSources,
+} from './scheduler-state.ts'
 import type { ControllerHeartbeat } from './heartbeat.ts'
 import { createMigrationAllocator, type AllocationAdoption, type MigrationAllocator } from './migration-allocator.ts'
 import {
@@ -239,6 +242,14 @@ export interface MyWorkApplicationOptions {
    * counter of its own.
    */
   readonly tokenMeter?: TokenMeterPort
+  /**
+   * Authoritative runtime sources for the scheduler projection.
+   *
+   * Omitted sources are not treated as empty: the projection refuses read()
+   * until their owning runtime slices are composed. This keeps an unarmed
+   * controller constructible without turning missing state into false zeroes.
+   */
+  readonly schedulerStateSources?: Partial<SchedulerStateProjectionSources>
 }
 
 /**
@@ -390,24 +401,17 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
   /**
    * The state a tick decides against.
    *
-   * Empty until the projections that read the queue and the attempts land: a tick
-   * over an empty observation admits nothing, which is the honest answer while
-   * there is no queue to read. The catalog is empty for the same reason.
+   * This is a real projection boundary rather than a literal empty observation.
+   * Task readiness and the model catalog are read from their owning ports; the
+   * remaining runtime sources fail closed until their slices compose them. The
+   * scheduler stays unarmed here, so an incomplete deployment is observable
+   * without producing a background failure loop.
    */
-  const state: SchedulerStatePort = {
-    read: () => ({
-      workers: Object.freeze([]),
-      reviews: Object.freeze([]),
-      instances: Object.freeze([]),
-      agents: Object.freeze([]),
-      workspaces: Object.freeze([]),
-      catalog: Object.freeze({
-        providers: Object.freeze([]),
-        models: Object.freeze([]),
-        outages: Object.freeze([]),
-      }),
-    }),
-  }
+  const state = createSchedulerStateProjection({
+    graph,
+    adapters,
+    ...(options.schedulerStateSources === undefined ? {} : { sources: options.schedulerStateSources }),
+  })
 
   /**
    * The sink for admissions.
