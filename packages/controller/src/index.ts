@@ -79,6 +79,12 @@ export {
   type CatalogObservation,
 } from './catalog-observation.ts'
 
+/** Read-only mapping from the durable review queue into scheduler candidates. */
+export {
+  createReviewSchedulerSource,
+  type ReviewSchedulerSource,
+} from './review-scheduler-source.ts'
+
 /** The deployment modes, the client layer, and the one graceful shutdown (E-44). */
 export {
   MYWORK_DEPLOYMENT_MODES,

@@ -45,7 +45,16 @@ import {
   type ArtifactStore,
   type AuditLog,
 } from '@dsh-mywork/evidence'
-import { CLAIM_SAGA_MIGRATIONS, createClaimSaga, type ClaimSaga } from '@dsh-mywork/execution'
+import {
+  CLAIM_SAGA_MIGRATIONS,
+  REVIEW_CLAIM_ALLOCATION_KEY,
+  REVIEW_CLAIM_SCHEMA_NAME,
+  createClaimSaga,
+  createReviewClaimMigration,
+  createReviewQueue,
+  type ClaimSaga,
+  type ReviewQueue,
+} from '@dsh-mywork/execution'
 import {
   LEASE_MIGRATIONS,
   createLeaseStore,
@@ -94,6 +103,7 @@ import {
   createSchedulerStateProjection,
   type SchedulerStateProjectionSources,
 } from './scheduler-state.ts'
+import { createReviewSchedulerSource } from './review-scheduler-source.ts'
 import type { ControllerHeartbeat } from './heartbeat.ts'
 import { createMigrationAllocator, type AllocationAdoption, type MigrationAllocator } from './migration-allocator.ts'
 import {
@@ -136,6 +146,11 @@ const ALLOCATED_MIGRATIONS: readonly {
 }[] = Object.freeze([
   Object.freeze({ key: 'background_job', journalName: 'background-job', create: createBackgroundJobMigration }),
   Object.freeze({ key: 'artifact-retention', journalName: 'artifact-retention', create: createArtifactRetentionMigration }),
+  Object.freeze({
+    key: REVIEW_CLAIM_ALLOCATION_KEY,
+    journalName: REVIEW_CLAIM_SCHEMA_NAME,
+    create: version => createReviewClaimMigration({ version }),
+  }),
 ])
 
 /**
@@ -282,6 +297,8 @@ export interface MyWorkApplication {
   readonly planner: Planner | undefined
   /** The §9 claim saga. */
   readonly saga: ClaimSaga | undefined
+  /** Durable review queue over controller.sqlite. */
+  readonly reviewQueue: ReviewQueue | undefined
   /** The §16 scheduler runtime; constructed here, armed by its owner. */
   readonly scheduler: Scheduler | undefined
   /** Last-observed model catalog; refresh performs I/O, read is snapshot-only. */
@@ -357,6 +374,7 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
   let audit: AuditLog | undefined
   let planner: Planner | undefined
   let saga: ClaimSaga | undefined
+  let reviewQueue: ReviewQueue | undefined
   let scheduler: Scheduler | undefined
   let planStore: PlanStore | undefined
   let handles: readonly AdapterRegistrationHandle<unknown>[] = []
@@ -412,10 +430,15 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
    * scheduler stays unarmed here, so an incomplete deployment is observable
    * without producing a background failure loop.
    */
+  const reviewSource = createReviewSchedulerSource(() => reviewQueue)
+  const schedulerSources: Partial<SchedulerStateProjectionSources> = Object.freeze({
+    ...options.schedulerStateSources,
+    reviews: options.schedulerStateSources?.reviews ?? reviewSource,
+  })
   const state = createSchedulerStateProjection({
     graph,
     catalog,
-    ...(options.schedulerStateSources === undefined ? {} : { sources: options.schedulerStateSources }),
+    sources: schedulerSources,
   })
 
   /**
@@ -512,6 +535,7 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
     audit = undefined
     planner = undefined
     saga = undefined
+    reviewQueue = undefined
     scheduler = undefined
     planStore = undefined
     storesHandedOver = false
@@ -584,6 +608,9 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
     },
     get saga() {
       return saga
+    },
+    get reviewQueue() {
+      return reviewQueue
     },
     get scheduler() {
       return scheduler
@@ -673,6 +700,15 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
               audit = createAuditLog(controller)
               planner = createPlanner({ store: controller, graph, clock })
               saga = createClaimSaga({ store: controller, graph, clock })
+              const reviewMigration = createReviewClaimMigration({
+                version: book.allocate({ key: REVIEW_CLAIM_ALLOCATION_KEY }),
+              })
+              reviewQueue = createReviewQueue({
+                store: controller,
+                graph,
+                clock,
+                migration: reviewMigration,
+              })
               up.set('evidence', subsystem('evidence', () => undefined))
               return controller
             },
