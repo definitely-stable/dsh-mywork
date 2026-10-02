@@ -83,10 +83,9 @@ function launchOrUndefined() {
 /**
  * The launch seam this suite uses, resolved once.
  *
- * `spawn('bd', …, { shell: false })` cannot work on Windows: npm installs an
- * extensionless POSIX script plus a `bd.cmd` shim, and neither is an executable
- * (`ENOENT` -4058 and `EINVAL` respectively). The entry is therefore run by
- * `process.execPath`, exactly as the adapter's own runner does it.
+ * npm's `bd.cmd` shim is not an executable, so the adapter never invokes it.
+ * A native `bd.exe` is spawned directly when present; otherwise the resolver
+ * falls back to npm's JavaScript entry through `process.execPath`.
  */
 const LAUNCH = launchOrUndefined()
 

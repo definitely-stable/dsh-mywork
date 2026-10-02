@@ -4,8 +4,8 @@
  * Two things have to hold at this boundary: an injected launch is spawned exactly
  * as given — the interpreter, then the entry, then the command's own arguments as
  * separate `argv` entries and never a command line — and the default runner
- * resolves the seam itself, so `bd` from `PATH` (unspawnable on Windows) is not
- * what a real adapter ends up calling.
+ * resolves the seam itself, so Windows uses either a real native `bd.exe` or
+ * the npm JavaScript entry — never the unspawnable `.cmd` shim.
  */
 
 import assert from 'node:assert/strict'
@@ -53,11 +53,16 @@ test('the default runner resolves the seam itself and starts a real bd', { skip:
 
   assert.equal(result.code, 0, result.stderr)
   assert.match(result.stdout, /^bd version \d+\.\d+\.\d+/)
-  // On Windows the shim cannot be spawned at all, so reaching this assertion is
-  // only possible if the resolver supplied the JavaScript entry.
+  // Windows may resolve the official native release or npm's JavaScript entry;
+  // both are shell-free, and neither is the .cmd shim.
   if (process.platform === 'win32') {
     const launch = beads.resolveBeadsLaunch()
-    assert.equal(launch.command, process.execPath)
-    assert.match(launch.args[0], /@beads[\\/]bd[\\/].*\.(?:js|mjs|cjs)$/)
+    assert.equal(launch.shell, false)
+    if (launch.args.length === 0) {
+      assert.match(launch.command, /bd\.exe$/i)
+    } else {
+      assert.equal(launch.command, process.execPath)
+      assert.match(launch.args[0], /@beads[\\/]bd[\\/].*\.(?:js|mjs|cjs)$/)
+    }
   }
 })

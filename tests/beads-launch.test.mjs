@@ -1,12 +1,10 @@
 /**
  * The `bd` launch seam (F-13, MW-056, ADR023).
  *
- * `spawn('bd', …, { shell: false })` cannot work on Windows: npm installs `bd`
- * as an extensionless POSIX script plus a `bd.cmd` shim, and neither is an
- * executable. The resolver must therefore hand back `process.execPath` plus the
- * JavaScript entry, and it must **refuse** when it cannot find one — falling back
- * to the shim would turn a broken installation into an `ENOENT` at the first
- * command instead of a named, fixable refusal.
+ * npm's Windows `.cmd` shim cannot be spawned with `shell: false`, but the
+ * official native release is a real `bd.exe` and can. The resolver therefore
+ * prefers a native executable, falls back to the npm JavaScript entry, and
+ * refuses rather than ever invoking the shim through a shell.
  */
 
 import assert from 'node:assert/strict'
@@ -14,26 +12,39 @@ import test from 'node:test'
 
 import { beads } from './lib/fixtures.mjs'
 
-test('win32 resolves to the JavaScript entry run by process.execPath', () => {
+test('win32 prefers a native bd.exe and never asks for the npm entry', () => {
   const launch = beads.resolveBeadsLaunch({
     platform: 'win32',
+    findBinary: () => 'C:\\tools\\bd.exe',
+    findEntry: () => { throw new Error('native binary should win') },
+  })
+  assert.deepEqual(launch, { command: 'C:\\tools\\bd.exe', args: [], shell: false })
+})
+
+test('win32 falls back to the JavaScript entry run by process.execPath', () => {
+  const launch = beads.resolveBeadsLaunch({
+    platform: 'win32',
+    findBinary: () => undefined,
     findEntry: () => 'C:\\x\\bd.js',
   })
-  // The interpreter, the entry as its own argument, and no shell: the argument
-  // vector is exactly what the shim would have produced, minus cmd.exe.
   assert.deepEqual(launch, { command: process.execPath, args: ['C:\\x\\bd.js'], shell: false })
   assert.equal(launch.shell, false, 'a shell would re-split the argument vector')
 })
 
 test('win32 refuses with BEADS_BINARY_NOT_FOUND instead of falling back to the shim', () => {
   assert.throws(
-    () => beads.resolveBeadsLaunch({ platform: 'win32', findEntry: () => undefined }),
+    () => beads.resolveBeadsLaunch({
+      platform: 'win32',
+      findBinary: () => undefined,
+      findEntry: () => undefined,
+    }),
     error => {
       assert.equal(error.name, 'BeadsLaunchRefusal')
       assert.equal(error.code, beads.BEADS_BINARY_NOT_FOUND)
       // A refusal an operator can act on: the exact install command is attached,
       // not only described in prose.
       assert.match(error.hint, /^npm install -g @beads\/bd@/)
+      assert.match(error.message, /bd\.exe/)
       assert.match(error.message, /@beads\/bd/)
       return true
     },

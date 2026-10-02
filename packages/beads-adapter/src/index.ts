@@ -37,6 +37,7 @@ export {
   BEADS_BINARY_NOT_FOUND,
   BEADS_INSTALL_HINT,
   BeadsLaunchRefusal,
+  findBeadsBinary,
   findBeadsEntry,
   resolveBeadsLaunch,
   type BeadsLaunch,

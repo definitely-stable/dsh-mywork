@@ -8,11 +8,11 @@
  * fails with `ENOENT` (`errno` -4058) and `bd.cmd` fails with `EINVAL` — the
  * shim is a command *line*, not an executable.
  *
- * The seam is therefore the JavaScript entry `@beads/bd` publishes
- * (`bin/bd.js`), started with `process.execPath`. That is what the shim itself
- * would run, so the behaviour is identical, but no shell and no `PATH` lookup is
- * involved. On POSIX nothing changes: `bd` is an executable script and is spawned
- * directly.
+ * Native Windows releases also publish a real `bd.exe`, which is safe to spawn
+ * directly with `shell: false`. The seam therefore prefers that executable when
+ * it is on `PATH`, then falls back to the JavaScript entry `@beads/bd` publishes
+ * (`bin/bd.js`) started with `process.execPath`. The `.cmd` shim is never
+ * executed. On POSIX nothing changes: `bd` is spawned directly.
  * @module
  */
 
@@ -73,7 +73,9 @@ export interface ResolveBeadsLaunchOptions {
   readonly platform?: NodeJS.Platform
   /** Explicit JavaScript entry. Wins over every search. */
   readonly entry?: string
-  /** Search used on Windows when `entry` is absent. Defaults to {@link findBeadsEntry}. */
+  /** Search for a native Windows executable. Defaults to {@link findBeadsBinary}. */
+  readonly findBinary?: () => string | undefined
+  /** Search for the npm JavaScript entry after no native binary is found. Defaults to {@link findBeadsEntry}. */
   readonly findEntry?: () => string | undefined
   /** Interpreter that runs the entry. Defaults to `process.execPath`. */
   readonly execPath?: string
@@ -94,16 +96,13 @@ export interface ResolveBeadsLaunchOptions {
  */
 export function resolveBeadsLaunch(options: ResolveBeadsLaunchOptions = {}): BeadsLaunch {
   const platform = options.platform ?? process.platform
-  const entry =
-    options.entry ??
-    (platform === 'win32'
-      ? (options.findEntry ?? (() => findBeadsEntry(options.cwd)))()
-      : undefined)
 
-  if (entry !== undefined && entry !== '') {
+  // An explicit JavaScript entry remains the caller's strongest answer on every
+  // platform, preserving the existing injection seam used by tests and embedders.
+  if (options.entry !== undefined && options.entry !== '') {
     return Object.freeze({
       command: options.execPath ?? process.execPath,
-      args: Object.freeze([entry]),
+      args: Object.freeze([options.entry]),
       shell: false,
     })
   }
@@ -113,10 +112,44 @@ export function resolveBeadsLaunch(options: ResolveBeadsLaunchOptions = {}): Bea
     return Object.freeze({ command: 'bd', args: Object.freeze([]), shell: false })
   }
 
+  // A native release is a real PE executable, unlike npm's `.cmd` shim, so it
+  // can be spawned directly without weakening the no-shell invariant.
+  const binary = (options.findBinary ?? findBeadsBinary)()
+  if (binary !== undefined && binary !== '') {
+    return Object.freeze({ command: binary, args: Object.freeze([]), shell: false })
+  }
+
+  const entry = (options.findEntry ?? (() => findBeadsEntry(options.cwd)))()
+  if (entry !== undefined && entry !== '') {
+    return Object.freeze({
+      command: options.execPath ?? process.execPath,
+      args: Object.freeze([entry]),
+      shell: false,
+    })
+  }
+
   throw new BeadsLaunchRefusal(
-    'dsh-mywork: cannot locate the bd JavaScript entry (@beads/bd/bin/bd.js); the Windows '
-    + 'shim on PATH is a command line, not an executable, and cannot be spawned without a shell',
+    'dsh-mywork: cannot locate a native bd.exe or the bd JavaScript entry (@beads/bd/bin/bd.js); '
+    + 'the Windows .cmd shim is a command line, not an executable, and is never spawned without a shell',
   )
+}
+
+/**
+ * Locate a native Windows `bd.exe` on PATH.
+ *
+ * PATH entries are inspected directly instead of asking a shell or executing
+ * `where.exe`, so discovery itself cannot reinterpret input. Quoted PATH
+ * entries are normalized before the candidate is checked.
+ * @returns absolute path of the first native executable, or `undefined`.
+ */
+export function findBeadsBinary(): string | undefined {
+  for (const rawDirectory of (process.env.PATH ?? '').split(delimiter)) {
+    const directory = rawDirectory.trim().replace(/^"(.*)"$/, '$1')
+    if (directory === '') continue
+    const candidate = resolve(directory, 'bd.exe')
+    if (existsSync(candidate)) return candidate
+  }
+  return undefined
 }
 
 /**
