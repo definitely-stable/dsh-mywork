@@ -186,6 +186,22 @@ test('an error, a timeout, and a verdict about another head are all refusals', a
   assert.equal(malformed.error.details.reason, 'gate-result-malformed')
 })
 
+test('an explicitly empty required gate set admits nothing', async () => {
+  const { store, artifacts } = await gateFixture()
+  putGateResult(artifacts, { id: 'informational', verdict: 'pass', suffix: 'a' })
+
+  const refusal = refusalOf(
+    execution.assertGatesSatisfied(ATTEMPT, HEAD, readGates(store), { requiredGateIds: [] }),
+  )
+  assert.deepEqual(
+    refusal.details.blocks,
+    [],
+    'an empty required set is a strict refusal, not a missing-gate or informational-gate failure',
+  )
+  assert.equal(refusal.details.headSha, HEAD)
+  assert.equal(refusal.details.attemptId, ATTEMPT)
+})
+
 test('a complete green required set admits, and the last result of a gate wins', async () => {
   const { clock, store, artifacts } = await gateFixture()
   putGateResult(artifacts, { id: 'build', verdict: 'pass', suffix: 'a' })

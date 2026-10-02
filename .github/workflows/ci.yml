@@ -63,10 +63,38 @@ jobs:
       # Installing the backend and failing to reach it are different errors.
       # This step failing means "the backend was not installed"; the test step
       # failing means "the backend is installed and the contract is broken".
-      - name: Install Beads
-        run: npm install -g @beads/bd@1.3.0
-      - name: Beads version
-        run: bd --version
+      # The npm wrapper's postinstall is a network-dependent second-stage
+      # downloader. On windows-latest it installed the wrapper but left
+      # bin/bd.exe absent, so the job never reached the adapter contract. Install
+      # the pinned native release directly and pin its published SHA-256 instead.
+      - name: Install pinned Beads native binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '1.3.0'
+          $archive = Join-Path $env:RUNNER_TEMP "beads_$version_windows_amd64.zip"
+          $destination = Join-Path $env:RUNNER_TEMP "beads-$version"
+          $expectedSha256 = 'fa4c72c5d27f68f906e89a759656b5a051b330088c4acc38fa445cbb561e5cdf'
+          $uri = "https://github.com/gastownhall/beads/releases/download/v$version/beads_$version_windows_amd64.zip"
+
+          Invoke-WebRequest -Uri $uri -OutFile $archive
+          $actualSha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "Beads archive SHA-256 mismatch: expected $expectedSha256, got $actualSha256"
+          }
+
+          Remove-Item -LiteralPath $destination -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
+          $bd = Get-ChildItem -LiteralPath $destination -Filter 'bd.exe' -File -Recurse | Select-Object -First 1
+          if ($null -eq $bd) {
+            throw "Beads v$version archive contains no bd.exe"
+          }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $bd.DirectoryName
+          & $bd.FullName --version
+      - name: Beads version from PATH
+        run: |
+          where.exe bd
+          bd --version
       # F-17: in this job an absent `bd` is fatal, not a skip. Without the
       # variable the same file skips its real-backend layer loudly, which is
       # what a developer machine wants; in CI 23 silent skips would be a hole.

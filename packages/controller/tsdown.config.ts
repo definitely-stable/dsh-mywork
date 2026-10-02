@@ -7,7 +7,13 @@ export default defineConfig({
   platform: 'node',
   target: 'es2024',
   fixedExtension: false,
-  dts: true,
+  // This package is a DSH runtime bundle, not an SDK surface. No workspace
+  // package consumes @dsh-mywork/controller, and the delivered profile loads
+  // lib/index.js only. Bundling declarations here makes rolldown-plugin-dts walk
+  // the same nine-package graph a second time; on GitHub's Windows runner that
+  // drove V8 to the 8 GiB heap ceiling before Gate L could reach smoke/tests.
+  // Type safety remains a separate, mandatory `tsc --noEmit` gate.
+  dts: false,
   clean: true,
   // The published bundle is self-contained: workspace packages are inlined,
   // while `@deepseek-ai/cordis` is never bundled because the DSH installation

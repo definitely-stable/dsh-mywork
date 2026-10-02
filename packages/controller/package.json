@@ -6,10 +6,8 @@
   "description": "MyWork controller plugin for DSH: mounts the control-plane service into a profile",
   "license": "MIT",
   "main": "./lib/index.js",
-  "types": "./lib/index.d.ts",
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
     "./package.json": "./package.json"
