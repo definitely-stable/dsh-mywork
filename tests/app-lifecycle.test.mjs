@@ -55,14 +55,17 @@ test('the root exposes a lifecycle and stops idempotently', async () => {
   assert.equal(typeof app.start, 'function')
   assert.equal(typeof app.stop, 'function')
   assert.equal(app.store, undefined, 'nothing is open before start()')
+  assert.equal(app.reviewQueue, undefined, 'no SQLite-backed review queue exists before start()')
   assert.equal(app.services.length, 0)
 
   await app.start()
   assert.notEqual(app.store, undefined, 'start() opens the controller database')
+  assert.notEqual(app.reviewQueue, undefined, 'the leader composes the durable review queue')
   assert.equal(app.services.length, 5)
 
   await app.stop()
   assert.equal(app.store, undefined, 'stop() releases the database')
+  assert.equal(app.reviewQueue, undefined, 'stop() never exposes a queue over a closed store')
   await app.stop() // Idempotent: a second stop is not an error.
   assert.equal(app.services.length, 0)
 })
