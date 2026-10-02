@@ -5,7 +5,8 @@
  */
 
 import assert from 'node:assert/strict'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -191,5 +192,29 @@ test('composed collection sources are read into owned frozen arrays', async () =
   assert.equal(observed.reviews.length, 1, 'the observation must not retain the source array identity')
   for (const field of ['reviews', 'instances', 'agents', 'workspaces']) {
     assert.equal(Object.isFrozen(observed[field]), true, `${field} array must be frozen`)
+  }
+})
+
+
+test('the composition root exposes an unarmed scheduler that refuses an incomplete state', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'dsh-mywork-scheduler-state-'))
+  const app = controller.createMyWorkApplication({ dshHome: home })
+  try {
+    await app.start()
+    assert.notEqual(app.scheduler, undefined, 'an active controller still composes the scheduler service')
+    await assert.rejects(
+      app.scheduler.reconcile(),
+      error => {
+        assert.equal(controller.isControllerRuntimeError(error), true)
+        assert.equal(error.code, 'not-active')
+        assert.deepEqual(error.details.missingSources, ['reviews', 'instances', 'agents', 'workspaces'])
+        return true
+      },
+    )
+    assert.deepEqual(app.admissions, [], 'an incomplete observation cannot produce an admission')
+    assert.equal(app.scheduler.snapshot().running, false, 'reconcile alone must not arm the safety timer')
+  } finally {
+    await app.stop()
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   }
 })
