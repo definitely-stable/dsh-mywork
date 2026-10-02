@@ -844,6 +844,34 @@ test('a kick the architecture does not name is refused instead of silently ignor
   assert.deepEqual(plan.kick, { source: 'event', event: 'dependency.closed', taskId: 'T-1' })
 })
 
+test('the runtime maps a queued review reference into reviewer admission without a synthetic Review', async () => {
+  const admitted = []
+  const scheduler = runtime.createScheduler({
+    state: {
+      read: () => observation({
+        reviews: [queued('R-runtime', { taskId: 'T-runtime' })],
+        agents: [reviewer('Neo-2')],
+      }),
+    },
+    admit: { admit: admission => admitted.push(admission) },
+    clock: fakeClock(),
+  })
+
+  const plan = await scheduler.reconcile()
+  assert.equal(plan.admissions.length, 1)
+  assert.deepEqual(
+    {
+      kind: plan.admissions[0].kind,
+      reviewId: plan.admissions[0].reviewId,
+      taskId: plan.admissions[0].taskId,
+      agentId: plan.admissions[0].agentId,
+    },
+    { kind: 'review', reviewId: 'R-runtime', taskId: 'T-runtime', agentId: 'Neo-2' },
+  )
+  assert.equal(admitted.length, 1)
+  assert.equal(Object.hasOwn(plan.admissions[0], 'review'), false)
+})
+
 test('an event kick admits the work the event is about, and the reconcile recovers a missed one', async () => {
   const state = mutableState()
   const admitted = []
