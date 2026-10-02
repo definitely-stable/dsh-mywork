@@ -28,7 +28,6 @@ import type {
 } from './ids.ts'
 import type { BudgetAmount, BudgetConsumption, BudgetLedger, BudgetLimits, BudgetScope } from './budget.ts'
 import type { CatalogSnapshot } from './model-catalog.ts'
-import type { Review } from './review.ts'
 import type { HarnessPolicy } from './security.ts'
 import type { Task } from './task.ts'
 import type { AgentBlueprint, AgentIdentity, PoolLimits, Role, RoleLimits, WorkspaceLimits } from './team.ts'
@@ -316,10 +315,21 @@ export interface SchedulerTaskCandidate {
   readonly budget?: SchedulerWorkBudget
 }
 
-/** One queued review the scheduler may assign (§18.3, §27). */
+/**
+ * One queued review the scheduler may assign (§18.3, §27).
+ *
+ * This is deliberately a scheduler reference rather than the full domain Review
+ * aggregate. A queued review has no reviewer yet — choosing one is the decision
+ * this scheduler is about to make — while the domain Review aggregate requires
+ * the reviewer that owns an already-claimed review. Keeping only the identifiers
+ * policy reads prevents a projection from fabricating a reviewer just to satisfy
+ * the scheduler's input shape.
+ */
 export interface SchedulerReviewCandidate {
-  /** Review as MyWork DB reports it; only `queued` reviews are assigned. */
-  readonly review: Review
+  /** Durable review identity in the review queue. */
+  readonly reviewId: ReviewId
+  /** Task whose settled attempt is being reviewed. */
+  readonly taskId: TaskId
   /** Workspace of the task under review; the §31 boundary and the pool caps read it. */
   readonly workspaceId: WorkspaceId
   /** Identity that produced the attempt under review; a reviewer must differ (§31). */

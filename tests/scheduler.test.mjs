@@ -24,7 +24,6 @@ import {
   core,
   identityFixture,
   repoRoot,
-  reviewFixture,
   scheduler as runtime,
   taskFixture,
 } from './lib/fixtures.mjs'
@@ -207,7 +206,8 @@ function instance(overrides = {}) {
 /** One queued review. */
 function queued(reviewId = 'R-1', overrides = {}) {
   return {
-    review: reviewFixture({ id: reviewId, taskId: 'T-1' }),
+    reviewId,
+    taskId: 'T-1',
     workspaceId: 'W-1',
     producerAgentId: 'Neo-1',
     readySince: NOW,
@@ -721,6 +721,21 @@ test('model availability is read from the observed catalog, and a fallback route
   assert.equal(core.readRouteAvailability(policy({ preferred: 'not-a-route' }), catalog()).reason, 'invalid-route')
 })
 
+test('queued scheduler work carries no synthetic reviewer identity or Review aggregate', () => {
+  const candidate = queued('R-contract')
+  assert.equal(candidate.reviewId, 'R-contract')
+  assert.equal(candidate.taskId, 'T-1')
+  assert.equal(Object.hasOwn(candidate, 'reviewerId'), false)
+  assert.equal(Object.hasOwn(candidate, 'review'), false)
+
+  const plan = core.planSchedulerTick(tick({
+    agents: [reviewer('Neo-2')],
+    reviews: [candidate],
+  }))
+  assert.equal(plan.admissions[0].reviewId, 'R-contract')
+  assert.equal(plan.admissions[0].agentId, 'Neo-2', 'the reviewer is chosen by policy, not supplied by the queued record')
+})
+
 test('reviewers have their own pool, their own ceiling, and must not be the producer', () => {
   const plan = core.planSchedulerTick(tick({
     agents: [worker('Neo-1'), reviewer('Neo-2')],
@@ -755,7 +770,7 @@ test('reviewers have their own pool, their own ceiling, and must not be the prod
 
   const reviewCapped = core.planSchedulerTick(tick({
     agents: [reviewer('Neo-2'), reviewer('Neo-3')],
-    reviews: [queued('R-1'), queued('R-2', { review: reviewFixture({ id: 'R-2', taskId: 'T-2' }) })],
+    reviews: [queued('R-1'), queued('R-2', { taskId: 'T-2' })],
     workspaces: [workspace({ pools: { reviewers: { minActive: 0, maxActive: 1 } } })],
   }))
   assert.equal(reviewCapped.admissions.length, 1)
@@ -789,7 +804,7 @@ test('the worker and reviewer pools do not share a slot', () => {
   const plan = core.planSchedulerTick(tick({
     agents: [worker('Neo-1'), reviewer('Neo-2')],
     workers: [ready('T-1')],
-    reviews: [queued('R-1', { review: reviewFixture({ id: 'R-1', taskId: 'T-2' }) })],
+    reviews: [queued('R-1', { taskId: 'T-2' })],
     workspaces: [workspace({ pools: { workers: { minActive: 0, maxActive: 1 }, reviewers: { minActive: 0, maxActive: 1 } } })],
   }))
   assert.deepEqual(plan.admissions.map(admission => admission.kind), ['worker', 'review'])
@@ -827,6 +842,34 @@ test('a kick the architecture does not name is refused instead of silently ignor
   const plan = await scheduler.kick({ source: 'event', event: 'dependency.closed', taskId: 'T-1' })
   assert.equal(plan.admissions.length, 1)
   assert.deepEqual(plan.kick, { source: 'event', event: 'dependency.closed', taskId: 'T-1' })
+})
+
+test('the runtime maps a queued review reference into reviewer admission without a synthetic Review', async () => {
+  const admitted = []
+  const scheduler = runtime.createScheduler({
+    state: {
+      read: () => observation({
+        reviews: [queued('R-runtime', { taskId: 'T-runtime' })],
+        agents: [reviewer('Neo-2')],
+      }),
+    },
+    admit: { admit: admission => admitted.push(admission) },
+    clock: fakeClock(),
+  })
+
+  const plan = await scheduler.reconcile()
+  assert.equal(plan.admissions.length, 1)
+  assert.deepEqual(
+    {
+      kind: plan.admissions[0].kind,
+      reviewId: plan.admissions[0].reviewId,
+      taskId: plan.admissions[0].taskId,
+      agentId: plan.admissions[0].agentId,
+    },
+    { kind: 'review', reviewId: 'R-runtime', taskId: 'T-runtime', agentId: 'Neo-2' },
+  )
+  assert.equal(admitted.length, 1)
+  assert.equal(Object.hasOwn(plan.admissions[0], 'review'), false)
 })
 
 test('an event kick admits the work the event is about, and the reconcile recovers a missed one', async () => {

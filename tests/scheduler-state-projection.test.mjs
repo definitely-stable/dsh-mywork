@@ -1,7 +1,7 @@
 /**
  * Controller scheduler-state projection: authoritative sources are distinguished
- * from missing sources, graph readiness is re-read as full tasks, and catalog
- * outages stay different from absent providers.
+ * from missing sources, graph readiness is re-read as full tasks, and the
+ * scheduler consumes an already-observed model catalog without refreshing it.
  */
 
 import assert from 'node:assert/strict'
@@ -62,9 +62,13 @@ function sources(overrides = {}) {
   }
 }
 
+function catalogSource(snapshot = { providers: [], models: [], outages: [] }) {
+  return { read: () => snapshot }
+}
+
 test('missing runtime sources fail closed before the task graph is touched', async () => {
   const tasks = graph({ 'T-1': task('T-1') })
-  const projection = controller.createSchedulerStateProjection({ graph: tasks })
+  const projection = controller.createSchedulerStateProjection({ graph: tasks, catalog: catalogSource() })
 
   assert.deepEqual(
     projection.missingSources(),
@@ -84,6 +88,27 @@ test('missing runtime sources fail closed before the task graph is touched', asy
   assert.equal(tasks.readyCalls, 0, 'an incomplete projection must not perform a partial graph read')
 })
 
+test('an unavailable cached catalog fails before any TaskGraph or runtime source read starts', async () => {
+  const tasks = graph({ 'T-1': task('T-1') })
+  let sourceReads = 0
+  const countedSources = sources({
+    reviews: { read: () => { sourceReads += 1; return [] } },
+    instances: { read: () => { sourceReads += 1; return [] } },
+    agents: { read: () => { sourceReads += 1; return [] } },
+    workspaces: { read: () => { sourceReads += 1; return [] } },
+  })
+  const unavailable = Object.assign(new Error('catalog not observed'), { code: 'state-unavailable' })
+  const projection = controller.createSchedulerStateProjection({
+    graph: tasks,
+    catalog: { read: () => { throw unavailable } },
+    sources: countedSources,
+  })
+
+  await assert.rejects(projection.read(), error => error === unavailable)
+  assert.equal(tasks.readyCalls, 0)
+  assert.equal(sourceReads, 0, 'a catalog prerequisite failure must not launch a partial state observation')
+})
+
 test('ready references are expanded once and a task that moved meanwhile is dropped', async () => {
   const tasks = graph(
     {
@@ -92,7 +117,7 @@ test('ready references are expanded once and a task that moved meanwhile is drop
     },
     ['T-1', 'T-1', 'T-2'],
   )
-  const projection = controller.createSchedulerStateProjection({ graph: tasks, sources: sources() })
+  const projection = controller.createSchedulerStateProjection({ graph: tasks, catalog: catalogSource(), sources: sources() })
 
   const observed = await projection.read()
   assert.deepEqual(observed.workers.map(entry => entry.task.id), ['T-1'])
@@ -105,86 +130,49 @@ test('ready references are expanded once and a task that moved meanwhile is drop
   assert.deepEqual(observed.catalog, { providers: [], models: [], outages: [] })
 })
 
-test('catalog snapshot preserves registered providers and records one provider outage', async () => {
-  const tasks = graph({})
+test('the projection reads a cached catalog snapshot and never asks it to refresh', async () => {
+  let reads = 0
+  let refreshes = 0
+  const snapshot = {
+    providers: [{ id: 'observed', name: 'Observed' }],
+    models: [{ provider: 'observed', id: 'm-1', name: 'Model 1' }],
+    outages: [],
+  }
   const catalog = {
-    listProviders: () => [
-      { id: 'healthy', name: 'Healthy' },
-      { id: 'down', name: 'Down' },
-    ],
-    async listModels(provider) {
-      if (provider === 'down') throw new Error('provider timed out')
-      return [{ provider, id: 'm-1', name: 'Model 1' }]
+    read() {
+      reads += 1
+      return snapshot
     },
-    async resolveModelInfo() {
-      throw new Error('the scheduler projection must not resolve a model route')
-    },
-  }
-  const adapters = {
-    list: kind => kind === 'model-catalog' ? [{ kind }] : [],
-    resolve(kind) {
-      assert.equal(kind, 'model-catalog')
-      return { ok: true, manifest: {}, adapter: catalog }
+    refresh() {
+      refreshes += 1
+      throw new Error('scheduler-state projection must never refresh the catalog')
     },
   }
   const projection = controller.createSchedulerStateProjection({
-    graph: tasks,
-    adapters,
-    sources: sources(),
-  })
-
-  const observed = await projection.read()
-  assert.deepEqual(observed.catalog.providers, [
-    { id: 'healthy', name: 'Healthy' },
-    { id: 'down', name: 'Down' },
-  ])
-  assert.deepEqual(observed.catalog.models, [
-    { provider: 'healthy', id: 'm-1', name: 'Model 1' },
-  ])
-  assert.deepEqual(observed.catalog.outages, [
-    { provider: 'down', detail: 'provider timed out' },
-  ])
-  assert.equal(Object.isFrozen(observed.catalog), true)
-  assert.equal(Object.isFrozen(observed.catalog.providers), true)
-  assert.equal(Object.isFrozen(observed.catalog.models), true)
-  assert.equal(Object.isFrozen(observed.catalog.outages), true)
-})
-
-test('an absent model-catalog adapter is an empty route set, not a fabricated outage', async () => {
-  const projection = controller.createSchedulerStateProjection({
     graph: graph({}),
-    adapters: {
-      list: () => [],
-      resolve: () => { throw new Error('resolve must not run when no catalog is registered') },
-    },
+    catalog,
     sources: sources(),
   })
 
-  const observed = await projection.read()
-  assert.deepEqual(observed.catalog, { providers: [], models: [], outages: [] })
-})
-
-test('a non-availability catalog refusal is not collapsed into an empty catalog', async () => {
-  const mismatch = Object.assign(new Error('catalog contract mismatch'), { code: 'CONTRACT_MISMATCH' })
-  const projection = controller.createSchedulerStateProjection({
-    graph: graph({}),
-    adapters: {
-      list: () => [{ kind: 'model-catalog' }],
-      resolve: () => ({ ok: false, refusal: mismatch }),
-    },
-    sources: sources(),
-  })
-
-  await assert.rejects(projection.read(), error => error === mismatch)
+  const first = await projection.read()
+  const second = await projection.read()
+  assert.equal(reads, 2, 'each state read takes exactly one already-observed snapshot')
+  assert.equal(refreshes, 0, 'a scheduler state read performs no catalog/provider I/O')
+  assert.deepEqual(first.catalog, snapshot)
+  assert.deepEqual(second.catalog, snapshot)
+  assert.notEqual(first.catalog, snapshot, 'the projection owns the snapshot it hands to policy')
+  assert.equal(Object.isFrozen(first.catalog), true)
+  assert.equal(Object.isFrozen(first.catalog.providers), true)
 })
 
 test('composed collection sources are read into owned frozen arrays', async () => {
-  const reviewRows = [{ review: { id: 'R-1' }, workspaceId: 'W-1' }]
+  const reviewRows = [{ reviewId: 'R-1', taskId: 'T-1', workspaceId: 'W-1' }]
   const instanceRows = [{ instanceId: 'I-1' }]
   const agentRows = [{ identity: { id: 'Neo-1' } }]
   const workspaceRows = [{ workspaceId: 'W-1' }]
   const projection = controller.createSchedulerStateProjection({
     graph: graph({}),
+    catalog: catalogSource(),
     sources: sources({
       reviews: { read: () => reviewRows },
       instances: { read: () => instanceRows },
@@ -194,7 +182,7 @@ test('composed collection sources are read into owned frozen arrays', async () =
   })
 
   const observed = await projection.read()
-  reviewRows.push({ review: { id: 'R-2' }, workspaceId: 'W-1' })
+  reviewRows.push({ reviewId: 'R-2', taskId: 'T-2', workspaceId: 'W-1' })
   reviewRows[0].workspaceId = 'W-mutated'
   instanceRows[0].instanceId = 'I-mutated'
   agentRows[0].identity.id = 'mutated-agent'

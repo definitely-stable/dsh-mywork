@@ -64,12 +64,20 @@ export {
 export {
   SCHEDULER_STATE_REQUIRED_SOURCES,
   createSchedulerStateProjection,
+  type SchedulerCatalogObservationSource,
   type SchedulerProjectionSource,
   type SchedulerStateProjection,
   type SchedulerStateProjectionDeps,
   type SchedulerStateProjectionSources,
   type SchedulerStateSourceName,
 } from './scheduler-state.ts'
+
+/** Explicit I/O boundary that refreshes and caches the model catalog. */
+export {
+  EMPTY_CATALOG_SNAPSHOT,
+  createCatalogObservation,
+  type CatalogObservation,
+} from './catalog-observation.ts'
 
 /** The deployment modes, the client layer, and the one graceful shutdown (E-44). */
 export {
@@ -287,6 +295,10 @@ export async function apply(ctx: Context, config?: Config): Promise<void> {
   // ports, so one attempt runs in one real, scoped DSH session. Same rule as
   // above: an absent platform surface is reported, not repaired.
   mountDshRuntime(ctx, adapters)
+  // No catalog refresh happens on the plugin mount path: listModels() may touch
+  // a provider, and controller availability must not depend on provider latency.
+  // The scheduler is still unarmed; its future owner must complete catalog.refresh()
+  // before start(), then refresh again on catalog/config change events.
 }
 
 /**

@@ -80,6 +80,7 @@ import {
   type MyWorkStore,
 } from '@dsh-mywork/storage'
 import { createBudgetMeter, type BudgetMeter, type TokenMeterPort } from './budget-meter.ts'
+import { createCatalogObservation, type CatalogObservation } from './catalog-observation.ts'
 import {
   createClientSessions,
   resolveMyWorkDeployment,
@@ -283,6 +284,8 @@ export interface MyWorkApplication {
   readonly saga: ClaimSaga | undefined
   /** The §16 scheduler runtime; constructed here, armed by its owner. */
   readonly scheduler: Scheduler | undefined
+  /** Last-observed model catalog; refresh performs I/O, read is snapshot-only. */
+  readonly catalog: CatalogObservation
   /**
    * The §53 charge bridge over the injected token meter (F-51, D05).
    *
@@ -343,6 +346,7 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
   // costs nothing and lets a caller tell "no meter was mounted" from "a meter is
   // mounted and the reading is zero".
   const budgetMeter = options.tokenMeter === undefined ? undefined : createBudgetMeter(options.tokenMeter)
+  const catalog = createCatalogObservation(adapters)
 
   let started = false
   let controller: MyWorkStore | undefined
@@ -402,14 +406,15 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
    * The state a tick decides against.
    *
    * This is a real projection boundary rather than a literal empty observation.
-   * Task readiness and the model catalog are read from their owning ports; the
+   * Task readiness is re-read from its owning TaskGraph port, while model
+   * availability comes only from the last completed CatalogObservation. The
    * remaining runtime sources fail closed until their slices compose them. The
    * scheduler stays unarmed here, so an incomplete deployment is observable
    * without producing a background failure loop.
    */
   const state = createSchedulerStateProjection({
     graph,
-    ...(adapters === undefined ? {} : { adapters }),
+    catalog,
     ...(options.schedulerStateSources === undefined ? {} : { sources: options.schedulerStateSources }),
   })
 
@@ -583,6 +588,7 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
     get scheduler() {
       return scheduler
     },
+    catalog,
     get budgetMeter() {
       return budgetMeter
     },
