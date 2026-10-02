@@ -24,7 +24,7 @@
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test, { after } from 'node:test'
@@ -1103,7 +1103,11 @@ test('a real workspace outside the repository resolves to itself', { skip: !HAS_
   const context = bd(dir, ['context'])
   assert.equal(context.code, 0)
   const workspace = beads.parseBeadsContext(context.stdout)
-  assert.equal(workspace.repoRoot.toLowerCase(), resolve(dir).toLowerCase())
+  const canonical = path => {
+    const real = realpathSync.native(path)
+    return process.platform === 'win32' ? real.replace(/\\/g, '/').toLowerCase() : real
+  }
+  assert.equal(canonical(workspace.repoRoot), canonical(dir))
 })
 
 test('a frozen blocker leaves its dependent blocked (real bd)', { skip: !HAS_BD }, async () => {

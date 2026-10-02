@@ -20,7 +20,7 @@
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import test, { after } from 'node:test'
@@ -87,6 +87,29 @@ function git(args, cwd) {
   return result.stdout.trim()
 }
 
+function canonicalExistingPath(path) {
+  const real = realpathSync.native(path)
+  return process.platform === 'win32' ? real.replace(/\\/g, '/').toLowerCase() : real
+}
+
+function gitWorktreePaths(repository) {
+  return git(['worktree', 'list', '--porcelain', '-z'], repository)
+    .split('\u0000')
+    .filter(field => field.startsWith('worktree '))
+    .map(field => field.slice('worktree '.length))
+}
+
+function ownsWorktree(repository, path) {
+  const expected = canonicalExistingPath(path)
+  return gitWorktreePaths(repository).some(candidate => {
+    try {
+      return canonicalExistingPath(candidate) === expected
+    } catch {
+      return false
+    }
+  })
+}
+
 /** One repository with an identity and one commit on `main`. */
 function repository() {
   const dir = tempDir()
@@ -140,7 +163,7 @@ test('prepare cuts a branch from the pinned base inside the policy root', async 
   assert.equal(git(['rev-parse', '--abbrev-ref', 'HEAD'], registration.path), registration.branch)
   assert.match(git(['worktree', 'list', '--porcelain'], repo), /worktree /, 'git must list the new worktree')
   assert.ok(
-    git(['worktree', 'list', '--porcelain'], repo).includes(registration.path.replace(/\\/g, '/')),
+    ownsWorktree(repo, registration.path),
     'the shared repository must own the new worktree entry',
   )
 })
@@ -247,7 +270,7 @@ test('cleanup refuses a dirty worktree and leaves the directory in place', async
   assert.equal(existsSync(path), true, 'uncommitted work must survive a cleanup')
   assert.equal(existsSync(join(path, 'work-in-progress.txt')), true, 'the dirty file must survive too')
   assert.ok(
-    git(['worktree', 'list', '--porcelain'], repo).includes(path.replace(/\\/g, '/')),
+    ownsWorktree(repo, path),
     'the worktree must stay registered in the shared repository',
   )
 })
@@ -275,9 +298,9 @@ test('a GIT_DIR exported by the caller cannot redirect the port', async () => {
   assert.equal(prepared.value.baseSha, head, 'the base must come from the repository the port was given')
   // The worktree landed in the primary repository and nowhere else: without the
   // cleaned environment git would have answered about the decoy.
-  assert.ok(git(['worktree', 'list', '--porcelain'], primary).includes(prepared.value.path.replace(/\\/g, '/')))
+  assert.ok(ownsWorktree(primary, prepared.value.path))
   const decoyList = git(['worktree', 'list', '--porcelain'], decoy)
-  assert.equal(decoyList.includes(prepared.value.path.replace(/\\/g, '/')), false, 'the decoy must not own the worktree')
+  assert.equal(ownsWorktree(decoy, prepared.value.path), false, 'the decoy must not own the worktree')
   assert.equal(decoyList.split('worktree ').length - 1, 1, `the decoy must keep only its own checkout:\n${decoyList}`)
   assert.equal(git(['branch', '--list', '--format=%(refname:short)'], decoy), 'main')
 })
@@ -364,7 +387,7 @@ test('cleanup removes a clean worktree once, and a repeated cleanup is not an er
   assert.equal(removed.value, 'removed')
   assert.equal(existsSync(path), false, 'a clean worktree is removed')
   assert.equal(
-    git(['worktree', 'list', '--porcelain'], repo).includes(path.replace(/\\/g, '/')),
+    ownsWorktree(repo, path),
     false,
     'the registration must disappear from the shared repository',
   )
