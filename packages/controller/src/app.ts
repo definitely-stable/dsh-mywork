@@ -149,7 +149,7 @@ const ALLOCATED_MIGRATIONS: readonly {
   Object.freeze({
     key: REVIEW_CLAIM_ALLOCATION_KEY,
     journalName: REVIEW_CLAIM_SCHEMA_NAME,
-    create: version => createReviewClaimMigration({ version }),
+    create: (version: number) => createReviewClaimMigration({ version }),
   }),
 ])
 
