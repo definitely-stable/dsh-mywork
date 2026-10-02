@@ -28,7 +28,7 @@ import {
   type CatalogSnapshot,
   type ClockPort,
   type EpochMs,
-  type Review,
+  type ReviewId,
   type SchedulerAdmission,
   type SchedulerAgent,
   type SchedulerInstanceObservation,
@@ -42,6 +42,7 @@ import {
   type SchedulerWorkBudget,
   type SchedulerWorkspaceState,
   type Task,
+  type TaskId,
   type WorkspaceId,
 } from '@dsh-mywork/contracts'
 import { planSchedulerTick, resolveSchedulerLimits, resolveSchedulerPolicy } from '@dsh-mywork/core'
@@ -59,10 +60,18 @@ export interface SchedulerObservedTask {
   readonly budget?: SchedulerWorkBudget
 }
 
-/** One queued review as the state port reports it. */
+/**
+ * One queued review as the state port reports it.
+ *
+ * The observation intentionally stops at durable identifiers. A queued review
+ * does not have a reviewer yet, so carrying the full Review aggregate here would
+ * force the state port to invent the very identity the scheduler is choosing.
+ */
 export interface SchedulerObservedReview {
-  /** Review as MyWork DB reports it. */
-  readonly review: Review
+  /** Durable review identity in the review queue. */
+  readonly reviewId: ReviewId
+  /** Task whose settled attempt is being reviewed. */
+  readonly taskId: TaskId
   /** Workspace of the task under review. */
   readonly workspaceId: WorkspaceId
   /** Identity that produced the attempt under review (§31). */
@@ -337,10 +346,11 @@ class SchedulerService implements Scheduler {
       }
     })
     const reviews: SchedulerReviewCandidate[] = observation.reviews.map(observed => {
-      const key = `review:${observed.review.id}`
+      const key = `review:${observed.reviewId}`
       seen.add(key)
       return {
-        review: observed.review,
+        reviewId: observed.reviewId,
+        taskId: observed.taskId,
         workspaceId: observed.workspaceId,
         readySince: this.queueReading(key, observed.readySince, nowMs),
         ...(observed.producerAgentId === undefined ? {} : { producerAgentId: observed.producerAgentId }),

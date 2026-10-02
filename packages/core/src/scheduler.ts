@@ -428,8 +428,8 @@ function reviewWork(tick: SchedulerTickInput, nowMs: EpochMs): readonly PendingW
     work.push({
       kind: 'review',
       workspaceId: candidate.workspaceId,
-      taskId: candidate.review.taskId,
-      reviewId: candidate.review.id,
+      taskId: candidate.taskId,
+      reviewId: candidate.reviewId,
       readySince: candidate.readySince,
       rank: schedulerRank({ readySince: candidate.readySince, nowMs, agingStepMs: tick.policy.agingStepMs }),
       ...(candidate.producerAgentId === undefined ? {} : { producerAgentId: candidate.producerAgentId }),
