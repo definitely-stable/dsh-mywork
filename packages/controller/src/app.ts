@@ -406,7 +406,8 @@ export function createMyWorkApplication(options: MyWorkApplicationOptions = {}):
    * The state a tick decides against.
    *
    * This is a real projection boundary rather than a literal empty observation.
-   * Task readiness and the model catalog are read from their owning ports; the
+   * Task readiness is re-read from its owning TaskGraph port, while model
+   * availability comes only from the last completed CatalogObservation. The
    * remaining runtime sources fail closed until their slices compose them. The
    * scheduler stays unarmed here, so an incomplete deployment is observable
    * without producing a background failure loop.
