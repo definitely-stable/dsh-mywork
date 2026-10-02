@@ -23,10 +23,20 @@ const isolationFlag = major > 23 || (major === 23 && minor >= 6)
   ? '--test-isolation=none'
   : '--experimental-test-isolation=none'
 
+// Capture the caller's harness home before any test module can repoint DSH_HOME.
+// With isolation=none every suite shares one process and therefore one process.env;
+// controller suites deliberately point DSH_HOME at a scratch directory. Guards
+// that prove the real profile stayed untouched need the value from *before* that
+// mutation, not whichever scratch value happens to be visible when their module
+// is evaluated. Preserve an existing capture so nested invocations cannot move it.
+const ORIGINAL_DSH_HOME_ENV = 'MYWORK_TEST_ORIGINAL_DSH_HOME'
+const originalDshHome = process.env[ORIGINAL_DSH_HOME_ENV] ?? process.env.DSH_HOME ?? ''
+const env = { ...process.env, [ORIGINAL_DSH_HOME_ENV]: originalDshHome }
+
 const result = spawnSync(
   process.execPath,
   ['--test', isolationFlag, ...process.argv.slice(2)],
-  { stdio: 'inherit', shell: false },
+  { stdio: 'inherit', shell: false, env },
 )
 
 if (result.error !== undefined) {

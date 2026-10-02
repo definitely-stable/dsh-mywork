@@ -20,7 +20,7 @@
 
 import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
-import { homedir, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test, { after } from 'node:test'
 
@@ -65,7 +65,13 @@ function acquireFor(store, instanceId, clock, leaseMs = 5_000, scopeId = 'local'
 }
 
 /** The live harness home, used only to prove this suite never writes it. */
-const liveHome = process.env[storage.DSH_HOME_ENV] ?? join(homedir(), '.dsh')
+const ORIGINAL_DSH_HOME_ENV = 'MYWORK_TEST_ORIGINAL_DSH_HOME'
+const capturedDshHome = process.env[ORIGINAL_DSH_HOME_ENV]
+const liveHome = storage.resolveMyWorkLayout({
+  // run-tests.mjs captures this before any suite can repoint DSH_HOME. A direct
+  // invocation has no capture, so its current environment is the original one.
+  env: capturedDshHome === undefined ? process.env : { [storage.DSH_HOME_ENV]: capturedDshHome },
+}).dshHome
 
 /** What the live harness home looks like, without reading any of its files. */
 function liveHomeFingerprint() {

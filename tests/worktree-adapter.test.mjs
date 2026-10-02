@@ -386,12 +386,17 @@ test('cleanup removes a clean worktree once, and a repeated cleanup is not an er
   assert.equal(removed.ok, true, `cleanup failed: ${JSON.stringify(removed.error)}`)
   assert.equal(removed.value, 'removed')
   assert.equal(existsSync(path), false, 'a clean worktree is removed')
+  // Do not realpath the removed worktree path here: successful cleanup has just
+  // proved that path no longer exists, so realpath would turn success into
+  // ENOENT on Windows. The registry invariant is stronger and directly
+  // observable: exactly one entry remains, and it is the shared checkout.
+  const remaining = gitWorktreePaths(repo)
+  assert.equal(remaining.length, 1, `expected only the shared checkout, found ${JSON.stringify(remaining)}`)
   assert.equal(
-    ownsWorktree(repo, path),
-    false,
-    'the registration must disappear from the shared repository',
+    canonicalExistingPath(remaining[0]),
+    canonicalExistingPath(repo),
+    'the removed attempt must leave no git worktree registration behind',
   )
-  assert.equal(git(['worktree', 'list', '--porcelain'], repo).split('worktree ').length - 1, 1)
 
   // §19 (д) of E-06: the second call has nothing left to remove and says so
   // instead of failing with WORKTREE_MISSING.
