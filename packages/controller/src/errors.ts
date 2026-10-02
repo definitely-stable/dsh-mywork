@@ -16,6 +16,8 @@ export type ControllerRuntimeErrorCode =
   | 'invalid-input'
   /** The operation needs an active controller and this one is passive, disposed, or idle. */
   | 'not-active'
+  /** One authoritative runtime state source is not composed, so a truthful snapshot cannot be read. */
+  | 'state-unavailable'
   /** A durable admission hold still stands, so admission may not be resumed yet. */
   | 'hold-still-open'
   /** Shutdown already began; new work may no longer be registered or admitted. */
@@ -25,6 +27,7 @@ export type ControllerRuntimeErrorCode =
 export const CONTROLLER_RUNTIME_ERROR_CODES: readonly ControllerRuntimeErrorCode[] = Object.freeze([
   'invalid-input',
   'not-active',
+  'state-unavailable',
   'hold-still-open',
   'shutting-down',
 ])

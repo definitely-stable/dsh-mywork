@@ -60,6 +60,17 @@ export {
   type MyWorkSubsystemName,
 } from './app.ts'
 
+/** Controller-owned projection that feeds one deterministic scheduler tick. */
+export {
+  SCHEDULER_STATE_REQUIRED_SOURCES,
+  createSchedulerStateProjection,
+  type SchedulerProjectionSource,
+  type SchedulerStateProjection,
+  type SchedulerStateProjectionDeps,
+  type SchedulerStateProjectionSources,
+  type SchedulerStateSourceName,
+} from './scheduler-state.ts'
+
 /** The deployment modes, the client layer, and the one graceful shutdown (E-44). */
 export {
   MYWORK_DEPLOYMENT_MODES,
