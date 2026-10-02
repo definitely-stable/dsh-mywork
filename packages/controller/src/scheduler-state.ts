@@ -122,7 +122,7 @@ export function createSchedulerStateProjection(
       const missing = missingSources()
       if (missing.length > 0) {
         throw new ControllerRuntimeError(
-          'not-active',
+          'state-unavailable',
           `dsh-mywork: scheduler state projection is incomplete; missing sources: ${missing.join(', ')}`,
           { details: { missingSources: [...missing] } },
         )
@@ -210,12 +210,14 @@ function snapshotTask(task: Task): Task {
  * remains present in providers; it is never collapsed into "no such provider".
  */
 async function readCatalog(adapters: MyWorkAdapters<undefined> | undefined): Promise<CatalogSnapshot> {
-  if (adapters === undefined) return EMPTY_CATALOG
+  if (adapters === undefined || adapters.list('model-catalog').length === 0) return EMPTY_CATALOG
+
+  // list() is the side-effect-free absence check. resolve() reports refusals to
+  // the registry observer, so using it to discover an optional missing catalog
+  // would manufacture one refusal event per scheduler tick in a healthy
+  // deployment that intentionally has no model provider.
   const resolution = adapters.resolve<ModelCatalogPort>('model-catalog')
-  if (!resolution.ok) {
-    if (resolution.refusal.code === 'ADAPTER_UNAVAILABLE') return EMPTY_CATALOG
-    throw resolution.refusal
-  }
+  if (!resolution.ok) throw resolution.refusal
 
   const listedProviders = resolution.adapter.listProviders()
   if (!Array.isArray(listedProviders)) {

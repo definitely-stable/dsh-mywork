@@ -76,7 +76,7 @@ test('missing runtime sources fail closed before the task graph is touched', asy
     projection.read(),
     error => {
       assert.equal(controller.isControllerRuntimeError(error), true)
-      assert.equal(error.code, 'not-active')
+      assert.equal(error.code, 'state-unavailable')
       assert.deepEqual(error.details.missingSources, ['reviews', 'instances', 'agents', 'workspaces'])
       return true
     },
@@ -121,6 +121,7 @@ test('catalog snapshot preserves registered providers and records one provider o
     },
   }
   const adapters = {
+    list: kind => kind === 'model-catalog' ? [{ kind }] : [],
     resolve(kind) {
       assert.equal(kind, 'model-catalog')
       return { ok: true, manifest: {}, adapter: catalog }
@@ -150,10 +151,12 @@ test('catalog snapshot preserves registered providers and records one provider o
 })
 
 test('an absent model-catalog adapter is an empty route set, not a fabricated outage', async () => {
-  const unavailable = Object.assign(new Error('no model catalog'), { code: 'ADAPTER_UNAVAILABLE' })
   const projection = controller.createSchedulerStateProjection({
     graph: graph({}),
-    adapters: { resolve: () => ({ ok: false, refusal: unavailable }) },
+    adapters: {
+      list: () => [],
+      resolve: () => { throw new Error('resolve must not run when no catalog is registered') },
+    },
     sources: sources(),
   })
 
@@ -165,7 +168,10 @@ test('a non-availability catalog refusal is not collapsed into an empty catalog'
   const mismatch = Object.assign(new Error('catalog contract mismatch'), { code: 'CONTRACT_MISMATCH' })
   const projection = controller.createSchedulerStateProjection({
     graph: graph({}),
-    adapters: { resolve: () => ({ ok: false, refusal: mismatch }) },
+    adapters: {
+      list: () => [{ kind: 'model-catalog' }],
+      resolve: () => ({ ok: false, refusal: mismatch }),
+    },
     sources: sources(),
   })
 
@@ -206,7 +212,7 @@ test('the composition root exposes an unarmed scheduler that refuses an incomple
       app.scheduler.reconcile(),
       error => {
         assert.equal(controller.isControllerRuntimeError(error), true)
-        assert.equal(error.code, 'not-active')
+        assert.equal(error.code, 'state-unavailable')
         assert.deepEqual(error.details.missingSources, ['reviews', 'instances', 'agents', 'workspaces'])
         return true
       },
