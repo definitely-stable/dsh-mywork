@@ -30,6 +30,14 @@ export const EMPTY_CATALOG_SNAPSHOT: CatalogSnapshot = Object.freeze({
   outages: Object.freeze([]),
 })
 
+/** Result of observing one registered provider. */
+interface CatalogProviderRead {
+  /** Models the provider advertised during this refresh. */
+  readonly models: readonly CatalogModel[]
+  /** Provider-local outage; absent when listModels completed. */
+  readonly outage?: CatalogOutage
+}
+
 /** Cached model catalog used by the scheduler state projection. */
 export interface CatalogObservation {
   /** Whether read() can return a truthful completed observation right now. */
@@ -82,7 +90,7 @@ export function createCatalogObservation(
       Object.freeze({ id: provider.id, name: provider.name }),
     )
 
-    const reads = await Promise.all(
+    const reads: readonly CatalogProviderRead[] = await Promise.all(
       providers.map(async provider => {
         try {
           const listed = await resolution.adapter.listModels(provider.id)

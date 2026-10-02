@@ -318,7 +318,7 @@ export interface SchedulerTaskCandidate {
 /**
  * One queued review the scheduler may assign (§18.3, §27).
  *
- * This is deliberately a scheduler reference rather than the full {@link Review}
+ * This is deliberately a scheduler reference rather than the full domain Review
  * aggregate. A queued review has no reviewer yet — choosing one is the decision
  * this scheduler is about to make — while the domain Review aggregate requires
  * the reviewer that owns an already-claimed review. Keeping only the identifiers
