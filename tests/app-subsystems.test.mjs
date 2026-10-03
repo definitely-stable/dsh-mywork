@@ -70,9 +70,11 @@ test('start() brings the five subsystems up, in order, on the injected clock', a
   assert.equal(lease.info().instanceId, 'test-instance')
   assert.equal(lease.isWriter(), true, 'a single controller must hold the lease')
 
-  // Planner and saga: constructed over the controller store and the registry.
+  // Planner, claim saga and review queue: constructed over controller.sqlite.
   assert.equal(typeof app.planner, 'object')
   assert.equal(typeof app.saga, 'object')
+  assert.equal(typeof app.reviewQueue, 'object')
+  assert.deepEqual(app.reviewQueue.liveReviews(), [], 'a fresh durable review queue is empty')
 
   // Scheduler: reachable and quiet — the root does not arm a timer that would
   // decide over an observation with no queue in it.
@@ -92,9 +94,9 @@ test('start() brings the five subsystems up, in order, on the injected clock', a
   assert.equal(written.created, true, 'the first write stores the artifact')
   assert.equal(app.evidence.artifacts.put(request).created, false, 'an identical write is idempotent')
 
-  // Versions come from the allocator bound to this database: the two schema
-  // migrations already took 7 and 8, so the next request is the one after the
-  // journal — not a number typed by hand.
+  // Versions come from the allocator bound to this database: the factory-backed
+  // migrations already occupy the journal, so the next request is one after the
+  // live schema stamp — not a number typed by hand.
   const next = app.store.schemaVersion + 1
   assert.equal(app.migrations.allocate({ key: 'subsystems-probe' }), next)
   assert.equal(app.migrations.allocate({ key: 'subsystems-probe' }), next, 'a request keeps its version')

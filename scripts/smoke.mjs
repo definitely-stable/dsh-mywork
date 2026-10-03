@@ -167,7 +167,7 @@ await step('the state database carries the canonical schema', async () => {
   //
   // The schema is the base list plus the migrations the allocator numbers, and the
   // numbers are asked for exactly as the root asks for them: a scratch database
-  // reproduces the allocation (7 and 8) without a version literal in this script.
+  // reproduces the allocation without a version literal in this script.
   const scratch = await storage.openStore({
     path: join(dshHome, 'migration-numbers.sqlite'),
     migrations: controller.MYWORK_DATABASE_MIGRATIONS,
@@ -178,16 +178,30 @@ await step('the state database carries the canonical schema', async () => {
   } finally {
     scratch.close()
   }
-  assert.deepEqual(migrations.map(migration => migration.version), [1, 2, 3, 4, 5, 6, 7, 8])
+  const versions = migrations.map(migration => migration.version)
+  assert.equal(
+    migrations.length,
+    controller.MYWORK_DATABASE_MIGRATIONS.length + 3,
+    'the root carries the canonical base plus background, retention, and review migrations',
+  )
+  assert.deepEqual(
+    migrations.slice(-3).map(migration => migration.name),
+    ['background-job', 'artifact-retention', 'review-claim'],
+  )
 
   const store = await storage.openStore({ path: stateDatabase, migrations })
   try {
-    assert.equal(store.schemaVersion, 8)
-    assert.deepEqual(store.migrations.map(migration => migration.version), [1, 2, 3, 4, 5, 6, 7, 8])
+    assert.equal(store.schemaVersion, migrations.at(-1).version)
+    assert.deepEqual(store.migrations.map(migration => migration.version), versions)
     assert.notEqual(
       store.transaction(tx => tx.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'background_job'")),
       undefined,
       'the background_job table must exist in the state database',
+    )
+    assert.notEqual(
+      store.transaction(tx => tx.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'review_claim'")),
+      undefined,
+      'the durable review_claim table must exist in the state database',
     )
     assert.notEqual(
       store.transaction(tx => tx.get("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = 'artifacts_no_delete'")),

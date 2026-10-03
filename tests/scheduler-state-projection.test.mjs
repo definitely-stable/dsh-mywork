@@ -211,7 +211,7 @@ test('the composition root exposes an unarmed scheduler that refuses an incomple
       error => {
         assert.equal(controller.isControllerRuntimeError(error), true)
         assert.equal(error.code, 'state-unavailable')
-        assert.deepEqual(error.details.missingSources, ['reviews', 'instances', 'agents', 'workspaces'])
+        assert.deepEqual(error.details.missingSources, ['instances', 'agents', 'workspaces'])
         return true
       },
     )
