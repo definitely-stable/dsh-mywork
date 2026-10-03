@@ -355,6 +355,45 @@ test('approving the same artifact twice is idempotent and writes no second artif
   }
 })
 
+test('an automatic actor cannot approve through the public queue path', async () => {
+  const h = await reviewingHarness()
+  try {
+    const before = h.queue.reviewOf(h.reviewId)
+    const beforeApprovals = approvalCount(h.store, h.reviewId)
+
+    const refused = await h.queue.approveReview({
+      reviewId: h.reviewId,
+      expectedRevision: h.revision,
+      actor: { kind: 'automatic', verdict: 'allow', autoReviewActive: true },
+      worktree: WORKTREE,
+      meta: meta('op-auto-approve'),
+    })
+    assert.equal(refused.ok, false, 'an automatic actor must never reach the approval transition')
+    assert.equal(refused.error.code, 'SECURITY_DENIED')
+    assert.equal(refused.error.details.path, 'approve')
+    assert.equal(refused.error.details.approveAllowedForAutomatic, false)
+
+    const after = h.queue.reviewOf(h.reviewId)
+    assert.deepEqual(after, before, 'a refused automatic approval must not mutate the review claim')
+    assert.equal(after.state, 'reviewing')
+    assert.equal(after.revision, h.revision)
+    assert.equal(approvalCount(h.store, h.reviewId), beforeApprovals, 'no approval artifact may be written')
+
+    const ruling = h.queue.ruleOnAutomaticVerdict({
+      reviewId: h.reviewId,
+      verdict: 'allow',
+      autoReviewActive: true,
+      meta: meta('op-auto-ruling'),
+    })
+    assert.equal(ruling.ok, true, ruling.ok ? '' : ruling.error.message)
+    assert.equal(ruling.value.ruling.kind, 'human-decision-required')
+    assert.equal(ruling.value.ruling.gate, 'security-change')
+    assert.deepEqual(ruling.value.claim, before, 'an allowing automatic verdict is advisory and leaves the claim unchanged')
+  } finally {
+    h.store.close()
+  }
+})
+
 test('STALE_APPROVAL was added additively to the error dictionary', async () => {
   const codes = [...contracts.MYWORK_ERROR_CODES]
   assert.equal(codes.length, CODES_BEFORE.length + 1, 'exactly one new code')

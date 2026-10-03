@@ -251,6 +251,52 @@ test('a rejection asks the task for changes instead of continuing', async () => 
   }
 })
 
+test('an automatic deny may request changes but an automatic allow may not', async () => {
+  const deniedHarness = await baseHarness()
+  try {
+    const { reviewId, revision } = await startReview(deniedHarness, 'A-1')
+    const denied = await deniedHarness.queue.rejectReview({
+      reviewId,
+      expectedRevision: revision,
+      actor: { kind: 'automatic', verdict: 'deny', autoReviewActive: true },
+      findings: { summary: 'automatic reviewer found a blocking problem' },
+      worktree: WORKTREE,
+      controllerEpoch: 3,
+      leaseMs: 60_000,
+      meta: meta('op-auto-deny'),
+    })
+    assert.equal(denied.ok, true, denied.ok ? '' : denied.error.message)
+    assert.equal(denied.value.claim.state, 'rejected')
+    assert.equal(denied.value.taskState, 'changes-requested')
+  } finally {
+    deniedHarness.store.close()
+  }
+
+  const allowHarness = await baseHarness()
+  try {
+    const { reviewId, revision } = await startReview(allowHarness, 'A-1')
+    const before = allowHarness.queue.reviewOf(reviewId)
+    const allowed = await allowHarness.queue.rejectReview({
+      reviewId,
+      expectedRevision: revision,
+      actor: { kind: 'automatic', verdict: 'allow', autoReviewActive: true },
+      findings: { summary: 'this must not be converted into a rejection' },
+      worktree: WORKTREE,
+      controllerEpoch: 3,
+      leaseMs: 60_000,
+      meta: meta('op-auto-allow'),
+    })
+    assert.equal(allowed.ok, false, 'an allow verdict requires a human decision rather than a synthetic reject')
+    assert.equal(allowed.error.code, 'SECURITY_DENIED')
+    assert.equal(allowed.error.details.ruling, 'human-decision-required')
+    assert.equal(allowed.error.details.gate, 'security-change')
+    assert.deepEqual(allowHarness.queue.reviewOf(reviewId), before, 'the refused allow verdict must not mutate the review')
+    assert.deepEqual(allowHarness.graph.transitions, [], 'the task must not move when a human decision is required')
+  } finally {
+    allowHarness.store.close()
+  }
+})
+
 test('the next attempt keeps the identity and the checkout, and grows the fence', async () => {
   const h = await baseHarness()
   try {
