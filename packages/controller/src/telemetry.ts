@@ -13,7 +13,7 @@
  * built before the channel is resolved.
  *
  * The platform record has a **required free-text `body`** and the package does
- * not redact caller strings (`product-telemetry-otel/README.md:103`: "Caller
+ * not redact caller strings (`product-telemetry-otel/README.md:104`: "Caller
  * selected strings are not redacted automatically"), which makes the body the
  * main leak channel by construction. It is therefore a fixed string per event
  * name, never a template over caller data: `body` cannot be reached from any
