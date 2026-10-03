@@ -1,0 +1,28 @@
+DSH-checkout: C:\Reposit\deepseek-harness\deepseek-harness; пути ниже — от его корня.
+
+1) roster.ts: `Get-ChildItem -Recurse C:\Reposit\deepseek-harness\deepseek-harness\packages -Filter roster.ts -File` → exit 0; packages/experimental/agent-team/src/roster.ts (20 312 B); второй — packages/test-support/client-runtime/src/assembly/roster.ts (не Agent Teams).
+2) childId чеканится до runtime: roster.ts:259 "const childId = brandString<SessionId>(randomUUID())"; цитаты: roster.ts:277 "await this.journal.appendAndFlush(root, 'team/member', { version: 2, teamId: TeamId(root.id), member })"; roster.ts:282 "started = await this.ctx.subagents.startContinuable({"; roster.ts:260-267 member {id: childId, name, description, provider, context, phase: 'provisioning'}. id случаен (randomUUID), не выводится из имени; занятость имени проверяется отдельно (roster.ts:271-273), коллизия id — нет.
+3) provisioning saga — TeamRoster.spawn (roster.ts:168-177) → spawnAdmitted (roster.ts:246-337):
+   1. admission: roster.ts:169 "if (this.lifecycle.disposed) throw … 'TEAM_DISPOSED'"; roster.ts:170-176 регистрирует операцию в inFlightCreations (roster.ts:59).
+   2. валидация: roster.ts:250-258 membership + role==='lead' (251-253), memberName (257), requiredText description (258), provider (264); чеканка childId + provisioning snapshot (259-267).
+   3. durable: roster.ts:269-278 journal.transact — имя занято (271-273), maxMembers (274-276), appendAndFlush 'team/member' (277).
+   4. runtime: roster.ts:282-292 startContinuable; roster.ts:292 → checkpointInitialPrompt (тело 340-389, приём по messageAccepted 351/380).
+   5. settlement: roster.ts:322 settleProvisioning (464-482) → 'active'; roster.ts:336 возврат memberView; краш-путь — reconcileProvisioning roster.ts:392-434.
+   компенсация/rollback: есть, частичная — catch roster.ts:293-313: failed-snapshot через settleProvisioning (300), stopTeammates([childId]) (301), TEAM_PROVISIONING_CONFLICT если член стал 'active' (302-308), AggregateError (310); уже записанный provisioning не откатывается (append-only), имя остаётся занятым.
+4) recovery matrix: НЕ найдена. grep "recovery matrix|Recovery matrix|recovery-matrix" по C:\Reposit\deepseek-harness\deepseek-harness → 0 совпадений; по H:\Repo\DSH-MyWork → 0. Markdown-таблицы по теме только не-recovery: packages/experimental/agent-team/README.md:49-55 (лимиты; :51 "| `maxMembers` | `16` | Maximum teammates a team may ever create, including failed ones |") и README.md:114-125 (source map; :117 "| [`src/roster.ts`](src/roster.ts) | Team identity, membership resolution, provisioning, and roster teardown |"). Recovery описан прозой: README.md:129, README.md:133; docs/subsystems/agent-team.md:24 и :28; .agents/notes/implemented/feature/2026-08-05-agent-teams.md:31-35.
+5) Mailbox:
+   queue-before-delivery: mailbox.ts:140 "await this.journal.appendAndFlush(root, 'team/message/queued', {" внутри journal.transact (mailbox.ts:117); dispatch регистрируется до выхода из транзакции (mailbox.ts:147).
+   target-side dedup: mailbox.ts:301-306 targetRecorded ("source.kind === 'team-message' && message.source.messageId === messageId"); ранний выход mailbox.ts:238-240; persisted-ветка mailbox.ts:317-331.
+   ack-after-durability: mailbox.ts:273-282 checkpointDelivered — flush (278) → targetRecorded (279) → markDelivered (280); append 'team/message/delivered' mailbox.ts:291; наблюдатель mailbox.ts:69-79.
+   тип/формат: types.ts:127-134 TeamMessageSnapshot {id, senderId, senderName, targetId, content: ContentBlock[]}; types.ts:136-143 TeamMessageSource {kind:'team-message', teamId, messageId, senderId, senderName}; видимый префикс mailbox.ts:311 "Team message ${message.id} from ${message.senderName}:".
+6) maxMembers: подтверждено. Домен 16 — packages/experimental/agent-team/src/index.ts:41 "const DEFAULT_MAX_MEMBERS = 16" (default :60; применение :80 и :96). Профиль 8 — packages/experimental/agent-team-profile/cordis.patch.yml:20 "maxMembers: 8"; те же 8: apps/web/tests/agent-team-panel.overlay.yml:18, apps/cli/tests/profiles/headless/team-snapshot.patch.yml:43, packages/experimental/agent-team-profile/tests/profile.spec.ts:46.
+7) selective teardown: admissions закрываются index.ts:253 "this.lifecycle.close()" (lifecycle.ts:44-47, abort с TEAM_DISPOSED) внутри disposeRuntime (index.ts:252-266); ожидаются только admitted операции — index.ts:257-258 (roster.pendingCreations roster.ts:183-185; mailbox.pendingDispatches mailbox.ts:104-106).
+   дренаж только roster-owned: index.ts:259 "for (const [root, childIds] of this.roster.liveChildrenByRoot())"; roster.ts:221-234 отбирает детей по "this.journal.state(root).members" (:228); roster.ts:242 "await this.lifecycle.withTimeout(this.ctx.subagents.drainContinuableChildren(root, childIds))".
+   ниже: packages/subagent/subagent/src/index.ts:359-363 → src/continuation.ts:398-399 → src/continuation-activation.ts:418-440: точный live parent (:419-421 UNAUTHORIZED), нерезидентные пропускаются (:425), чужой parent отклоняется (:426-431 UNAUTHORIZED), dispose только выбранных (:435-439).
+   admission нового spawn/send закрыт также roster.ts:169 и mailbox.ts:56; таймаут дренажа — lifecycle.ts:71-86 (disposalTimeoutMs 5000: index.ts:45, patch :24).
+не проверено:
+- ничего не запускал: pnpm install/build, tsdown, тесты не выполнялись; exit code есть только у Get-ChildItem (=0).
+- tests/team.spec.ts (77 733 B) и прочие tests/*.spec.ts, а также docs/subsystems/agent-team.md целиком не читал — только grep-совпадения.
+- .zh.md-варианты README/доков/Agent Note и docs/tool-catalog.md не читал.
+- git-ревизия checkout (commit/branch) не проверялась.
+- профили вне репозитория (пользовательский DSH home) и установленный бандл не проверялись.

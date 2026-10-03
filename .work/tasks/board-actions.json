@@ -1,0 +1,1486 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-16T17:21:32.4931126Z",
+  "apiBase": "http://127.0.0.1:3080/api/task-board",
+  "architectureSha256": "2755124CA1E678E50F12ADC269EE7AF3E586655B51C0432E840F2D099FFB71C1",
+  "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+  "model": "opencode-go/deepseek-v4.1-flash",
+  "tasks": [
+    {
+      "taskId": "MW-001",
+      "boardId": "3cad0e0a-f866-4d39-9323-31b5d4b2f614",
+      "create": {
+        "requestId": "5071326f-6e42-4f73-9ec6-6f36838f086f",
+        "action": {
+          "kind": "create",
+          "id": "3cad0e0a-f866-4d39-9323-31b5d4b2f614",
+          "input": {
+            "title": "MW-001 · Проверить целевой DSH и контракты интеграций",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: нет\nАрхитектура: §5 (строка 242), §11 (строка 560), §12 (строка 591), §21 (строка 1089), §29 (строка 1896), §37 (строка 2116), §57 (строка 2611)\n\nЗафиксировать версии и реальные API DSH/Cordis, Node/package manager, Beads, установленной Task Board и доступных memory backends. Проверить create/stop/status сессий, scoped prompt/tools, каталог моделей и OpenCode Go/deepseek-v4.1-flash. Выбрать один внешний memory adapter по подтверждённым возможностям; предпочтение установленному OpenViking.\n\nПриёмка: Матрица supported/unsupported/unverified содержит ссылки на исходники или результаты безопасных проб. Отсутствующие критические capabilities явно блокируют соответствующие задачи. Не запускать платные LLM-пробы и не чинить чужие проекты.\n\nЛокальная карточка: .work/tasks/MW-001.md\nОтчёт: .work/reports/MW-001-target-capabilities.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-001: Проверить целевой DSH и контракты интеграций.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: нет. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §5 (строка 242), §11 (строка 560), §12 (строка 591), §21 (строка 1089), §29 (строка 1896), §37 (строка 2116), §57 (строка 2611). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nЗафиксировать версии и реальные API DSH/Cordis, Node/package manager, Beads, установленной Task Board и доступных memory backends. Проверить create/stop/status сессий, scoped prompt/tools, каталог моделей и OpenCode Go/deepseek-v4.1-flash. Выбрать один внешний memory adapter по подтверждённым возможностям; предпочтение установленному OpenViking.\n\nПриёмка:\nМатрица supported/unsupported/unverified содержит ссылки на исходники или результаты безопасных проб. Отсутствующие критические capabilities явно блокируют соответствующие задачи. Не запускать платные LLM-пробы и не чинить чужие проекты.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-001-target-capabilities.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "f4a9d2e4-fcf1-4b5a-b5b6-f9edce2beed1",
+        "action": {
+          "kind": "move",
+          "taskId": "3cad0e0a-f866-4d39-9323-31b5d4b2f614",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-002",
+      "boardId": "cc19da5a-ff24-45ed-8b19-236e02b2556d",
+      "create": {
+        "requestId": "03d5d5fc-ae67-4e74-a58c-4306258febdf",
+        "action": {
+          "kind": "create",
+          "id": "cc19da5a-ff24-45ed-8b19-236e02b2556d",
+          "input": {
+            "title": "MW-002 · Создать минимальный каркас Cordis-плагина",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: MW-001\nАрхитектура: §36 (строка 2093), §38 (строка 2140), §45 (строка 2328), §46 (строка 2350), §58 (строка 2651)\n\nСоздать dsh-mywork: package manifest, TypeScript build, plugin activation/dispose и минимальные команды проверок. Сохранить границы contracts/core/adapters/controller; предложенный список пакетов не требует пустого пакета на каждый пункт. Использовать подтверждённый SDK и его правила публикации.\n\nПриёмка: Плагин собирается, упаковывается локально и активируется/выгружается в изолированном тестовом профиле. Есть один воспроизводимый smoke и основа для FakeClock/FakeRuntime без LLM. Рабочий профиль пользователя не менять.\n\nЛокальная карточка: .work/tasks/MW-002.md\nОтчёт: .work/reports/MW-002-bootstrap.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-002: Создать минимальный каркас Cordis-плагина.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-001. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §36 (строка 2093), §38 (строка 2140), §45 (строка 2328), §46 (строка 2350), §58 (строка 2651). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nСоздать dsh-mywork: package manifest, TypeScript build, plugin activation/dispose и минимальные команды проверок. Сохранить границы contracts/core/adapters/controller; предложенный список пакетов не требует пустого пакета на каждый пункт. Использовать подтверждённый SDK и его правила публикации.\n\nПриёмка:\nПлагин собирается, упаковывается локально и активируется/выгружается в изолированном тестовом профиле. Есть один воспроизводимый smoke и основа для FakeClock/FakeRuntime без LLM. Рабочий профиль пользователя не менять.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-002-bootstrap.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "9578d70c-5314-40b8-a836-06b173e27065",
+        "action": {
+          "kind": "move",
+          "taskId": "cc19da5a-ff24-45ed-8b19-236e02b2556d",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-003",
+      "boardId": "3729ad0f-d4e5-46ec-bb02-35ab4de992b8",
+      "create": {
+        "requestId": "a7144cb0-adf5-465e-b41b-f35497cef62d",
+        "action": {
+          "kind": "create",
+          "id": "3729ad0f-d4e5-46ec-bb02-35ab4de992b8",
+          "input": {
+            "title": "MW-003 · Определить доменные контракты и переходы состояний",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: MW-002\nАрхитектура: §8 (строка 407), §13 (строка 611), §17 (строка 933), §18 (строка 963), §35 (строка 2072), §36 (строка 2093), §42 (строка 2253), §43 (строка 2289)\n\nОписать Task/Attempt/Review, Agent Identity/Blueprint/Role, revisions, operation/correlation IDs, Result/Error и event envelope. Реализовать валидируемые чистые state transitions и ownership из матрицы authority; интеграции только через Ports.\n\nПриёмка: Проверки разрешённых и запрещённых переходов; завершённая Task не допускает active Attempt; stale revision/fence имеет отдельную ошибку. Доменные модули не импортируют DSH/Beads/конкретную память.\n\nЛокальная карточка: .work/tasks/MW-003.md\nОтчёт: .work/reports/MW-003-domain-contracts.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-003: Определить доменные контракты и переходы состояний.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-002. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §8 (строка 407), §13 (строка 611), §17 (строка 933), §18 (строка 963), §35 (строка 2072), §36 (строка 2093), §42 (строка 2253), §43 (строка 2289). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nОписать Task/Attempt/Review, Agent Identity/Blueprint/Role, revisions, operation/correlation IDs, Result/Error и event envelope. Реализовать валидируемые чистые state transitions и ownership из матрицы authority; интеграции только через Ports.\n\nПриёмка:\nПроверки разрешённых и запрещённых переходов; завершённая Task не допускает active Attempt; stale revision/fence имеет отдельную ошибку. Доменные модули не импортируют DSH/Beads/конкретную память.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-003-domain-contracts.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "ca4a1dd2-321d-4604-afd2-fc9b419e4e6e",
+        "action": {
+          "kind": "move",
+          "taskId": "3729ad0f-d4e5-46ec-bb02-35ab4de992b8",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-004",
+      "boardId": "70113eee-e1ce-4c84-951c-a53f2e5b2066",
+      "create": {
+        "requestId": "5c8877a5-29a9-48c9-8194-7ca7984372ab",
+        "action": {
+          "kind": "create",
+          "id": "70113eee-e1ce-4c84-951c-a53f2e5b2066",
+          "input": {
+            "title": "MW-004 · Добавить durable SQLite state и outbox/inbox",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: MW-003\nАрхитектура: §7 (строка 375), §9 (строка 440), §47 (строка 2374), §48 (строка 2409), §61 (строка 2727)\n\nХранить runtime state вне пользовательского репозитория под DSH_HOME/dsh-mywork. Ввести schemaVersion, миграции, WAL, транзакции mutation+outbox и inbox event dedup. Добавлять таблицы по реально реализованным сущностям, не создавать speculative repositories.\n\nПриёмка: Повторный event не меняет результат; restart сохраняет данные; сбой между mutation и commit не оставляет половину изменения. Тесты работают в временной директории и не используют живую DSH БД.\n\nЛокальная карточка: .work/tasks/MW-004.md\nОтчёт: .work/reports/MW-004-storage.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-004: Добавить durable SQLite state и outbox/inbox.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-003. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §7 (строка 375), §9 (строка 440), §47 (строка 2374), §48 (строка 2409), §61 (строка 2727). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nХранить runtime state вне пользовательского репозитория под DSH_HOME/dsh-mywork. Ввести schemaVersion, миграции, WAL, транзакции mutation+outbox и inbox event dedup. Добавлять таблицы по реально реализованным сущностям, не создавать speculative repositories.\n\nПриёмка:\nПовторный event не меняет результат; restart сохраняет данные; сбой между mutation и commit не оставляет половину изменения. Тесты работают в временной директории и не используют живую DSH БД.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-004-storage.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "a2f02b3e-9654-45ff-8576-a11633dd8ab8",
+        "action": {
+          "kind": "move",
+          "taskId": "70113eee-e1ce-4c84-951c-a53f2e5b2066",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-005",
+      "boardId": "d1e10b88-4e4f-4775-a6fc-c500e6069459",
+      "create": {
+        "requestId": "aad98857-bb2a-480b-8413-74b577266e9d",
+        "action": {
+          "kind": "create",
+          "id": "d1e10b88-4e4f-4775-a6fc-c500e6069459",
+          "input": {
+            "title": "MW-005 · Создать Adapter SDK, registry и conformance основу",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: MW-003\nАрхитектура: §36 (строка 2093), §37 (строка 2116), §38 (строка 2140), §39 (строка 2155), §44 (строка 2309)\n\nОпределить contracts/register/capability negotiation, version checks и единые errors. Подготовить общие contract checks и небольшие fakes основных Ports; расширять набор вместе с адаптерами.\n\nПриёмка: Несовместимая версия и ложная/отсутствующая required capability дают явный отказ. Совместимый fake регистрируется/удаляется. Core не ветвится по имени провайдера.\n\nЛокальная карточка: .work/tasks/MW-005.md\nОтчёт: .work/reports/MW-005-adapter-sdk.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-005: Создать Adapter SDK, registry и conformance основу.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-003. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §36 (строка 2093), §37 (строка 2116), §38 (строка 2140), §39 (строка 2155), §44 (строка 2309). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nОпределить contracts/register/capability negotiation, version checks и единые errors. Подготовить общие contract checks и небольшие fakes основных Ports; расширять набор вместе с адаптерами.\n\nПриёмка:\nНесовместимая версия и ложная/отсутствующая required capability дают явный отказ. Совместимый fake регистрируется/удаляется. Core не ветвится по имени провайдера.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-005-adapter-sdk.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "0ce9ebe0-afa6-473b-9548-1d70ad50a505",
+        "action": {
+          "kind": "move",
+          "taskId": "d1e10b88-4e4f-4775-a6fc-c500e6069459",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-006",
+      "boardId": "03c9e1e0-52d3-4f59-a4b5-ace94245a459",
+      "create": {
+        "requestId": "f6913bb1-f6ff-40da-b9cf-60a2e8adf1e0",
+        "action": {
+          "kind": "create",
+          "id": "03c9e1e0-52d3-4f59-a4b5-ace94245a459",
+          "input": {
+            "title": "MW-006 · Реализовать конфигурацию, Team и неизменяемые revisions",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: MW-004, MW-005\nАрхитектура: §6 (строка 330), §13 (строка 611), §14 (строка 735), §35 (строка 2072), §52 (строка 2497)\n\nВвести global/isolated/inherit с порядком overlays, Team, Role Contract/Strategy, Blueprints, Identity и ConfigRevision. Зафиксировать resolved revisions при admission Attempt; runtime/session не хранить как Identity.\n\nПриёмка: Тесты precedence, namespace isolation и frozen running revisions. Изменение Blueprint применяется лишь к будущему запуску; запрещены cross-workspace DAG edges. Role Contract отделён от обучаемой Strategy.\n\nЛокальная карточка: .work/tasks/MW-006.md\nОтчёт: .work/reports/MW-006-team-config.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-006: Реализовать конфигурацию, Team и неизменяемые revisions.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-004, MW-005. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §6 (строка 330), §13 (строка 611), §14 (строка 735), §35 (строка 2072), §52 (строка 2497). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nВвести global/isolated/inherit с порядком overlays, Team, Role Contract/Strategy, Blueprints, Identity и ConfigRevision. Зафиксировать resolved revisions при admission Attempt; runtime/session не хранить как Identity.\n\nПриёмка:\nТесты precedence, namespace isolation и frozen running revisions. Изменение Blueprint применяется лишь к будущему запуску; запрещены cross-workspace DAG edges. Role Contract отделён от обучаемой Strategy.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-006-team-config.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "b17daa1b-0573-4945-9936-4fe3e767f4a7",
+        "action": {
+          "kind": "move",
+          "taskId": "03c9e1e0-52d3-4f59-a4b5-ace94245a459",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-007",
+      "boardId": "58ec1a48-2fcf-4980-8c03-73219fe73b34",
+      "create": {
+        "requestId": "c10628c1-9aba-477f-bf23-8ae91b40b828",
+        "action": {
+          "kind": "create",
+          "id": "58ec1a48-2fcf-4980-8c03-73219fe73b34",
+          "input": {
+            "title": "MW-007 · Обеспечить runtime permissions и границы workspace",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: MW-005, MW-006\nАрхитектура: §28 (строка 1875), §31 (строка 1952), §52 (строка 2497), §60 (строка 2711)\n\nПрименять полномочия роли к filesystem/shell/network/MCP/secrets/git/task/review transitions в runtime. Reviewer по умолчанию read-only для implementation; credential references вместо секретов. Использовать штатную авторизацию DSH.\n\nПриёмка: Проверки path/worktree escape, запрета self-approval, доступа к чужому workspace и эскалации полномочий. Prompt и memory не расширяют права; неизвестная capability не даёт разрешение.\n\nЛокальная карточка: .work/tasks/MW-007.md\nОтчёт: .work/reports/MW-007-security.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-007: Обеспечить runtime permissions и границы workspace.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-005, MW-006. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §28 (строка 1875), §31 (строка 1952), §52 (строка 2497), §60 (строка 2711). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nПрименять полномочия роли к filesystem/shell/network/MCP/secrets/git/task/review transitions в runtime. Reviewer по умолчанию read-only для implementation; credential references вместо секретов. Использовать штатную авторизацию DSH.\n\nПриёмка:\nПроверки path/worktree escape, запрета self-approval, доступа к чужому workspace и эскалации полномочий. Prompt и memory не расширяют права; неизвестная capability не даёт разрешение.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-007-security.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "2c95876f-6522-4b03-a976-ef2d94916c5f",
+        "action": {
+          "kind": "move",
+          "taskId": "58ec1a48-2fcf-4980-8c03-73219fe73b34",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-008",
+      "boardId": "6b9f3654-8fdb-4422-851f-bf0976c71156",
+      "create": {
+        "requestId": "676855c8-66e9-4205-a5a4-15a2d64e0ae8",
+        "action": {
+          "kind": "create",
+          "id": "6b9f3654-8fdb-4422-851f-bf0976c71156",
+          "input": {
+            "title": "MW-008 · Добавить Artifact Store и append-only Audit",
+            "description": "Проект DSH-MyWork | 00-foundation\nЗависимости: MW-004, MW-007\nАрхитектура: §32 (строка 1983), §33 (строка 2011), §34 (строка 2048)\n\nСоздать локальный immutable artifact store с hash/ref и append-only audit. Сохранять verification/review/context/checkpoint evidence с workspace/task/attempt/correlation IDs; отделить audit от обычной ротации логов.\n\nПриёмка: Повторная запись с иным содержимым не перезаписывает artifact; хеш проверяется при чтении; секреты не попадают в метаданные. Audit переживает restart и log rotation.\n\nЛокальная карточка: .work/tasks/MW-008.md\nОтчёт: .work/reports/MW-008-evidence-audit.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-008: Добавить Artifact Store и append-only Audit.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-004, MW-007. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §32 (строка 1983), §33 (строка 2011), §34 (строка 2048). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nСоздать локальный immutable artifact store с hash/ref и append-only audit. Сохранять verification/review/context/checkpoint evidence с workspace/task/attempt/correlation IDs; отделить audit от обычной ротации логов.\n\nПриёмка:\nПовторная запись с иным содержимым не перезаписывает artifact; хеш проверяется при чтении; секреты не попадают в метаданные. Audit переживает restart и log rotation.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-008-evidence-audit.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "00-foundation"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "8ba8a369-cdcd-48b4-baea-883a2daa058c",
+        "action": {
+          "kind": "move",
+          "taskId": "6b9f3654-8fdb-4422-851f-bf0976c71156",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-009",
+      "boardId": "e3d28aba-c719-4b52-8ca5-1352eba96ae7",
+      "create": {
+        "requestId": "d588793f-46e5-4712-a016-94a018a0ebed",
+        "action": {
+          "kind": "create",
+          "id": "e3d28aba-c719-4b52-8ca5-1352eba96ae7",
+          "input": {
+            "title": "MW-009 · Реализовать Controller lease, epoch и lifecycle",
+            "description": "Проект DSH-MyWork | 01-runtime\nЗависимости: MW-004, MW-008\nАрхитектура: §5 (строка 242), §16 (строка 814), §17 (строка 933), §49 (строка 2421)\n\nРеализовать acquire/heartbeat/expire/release Controller lease через CAS и монотонный epoch. При activation открыть stores и reconcile, при dispose корректно остановить admission и освободить ресурсы.\n\nПриёмка: Два Controller не становятся writer одновременно. FakeClock проверяет expiry/failover; старый epoch не коммитит изменения после передачи leadership. Открытая вкладка не нужна для lifecycle.\n\nЛокальная карточка: .work/tasks/MW-009.md\nОтчёт: .work/reports/MW-009-controller-lease.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-009: Реализовать Controller lease, epoch и lifecycle.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-004, MW-008. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §5 (строка 242), §16 (строка 814), §17 (строка 933), §49 (строка 2421). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nРеализовать acquire/heartbeat/expire/release Controller lease через CAS и монотонный epoch. При activation открыть stores и reconcile, при dispose корректно остановить admission и освободить ресурсы.\n\nПриёмка:\nДва Controller не становятся writer одновременно. FakeClock проверяет expiry/failover; старый epoch не коммитит изменения после передачи leadership. Открытая вкладка не нужна для lifecycle.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-009-controller-lease.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "01-runtime"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "278c4309-6ad8-4e8f-9182-b38e3274814e",
+        "action": {
+          "kind": "move",
+          "taskId": "e3d28aba-c719-4b52-8ca5-1352eba96ae7",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-010",
+      "boardId": "352f3912-48ce-49da-8867-2a56dedff23f",
+      "create": {
+        "requestId": "08e7ba16-8997-473b-9004-b92a3d8c277b",
+        "action": {
+          "kind": "create",
+          "id": "352f3912-48ce-49da-8867-2a56dedff23f",
+          "input": {
+            "title": "MW-010 · Реализовать Beads TaskGraph adapter",
+            "description": "Проект DSH-MyWork | 01-runtime\nЗависимости: MW-005, MW-009\nАрхитектура: §8 (строка 407), §9 (строка 440), §11 (строка 560), §39 (строка 2155)\n\nПодключить подтверждённую версию Beads: get/ready/claim/transition/dependencies/mutatePlan. Beads владеет task graph; runtime attempts остаются в MyWork. Использовать реальные atomic/revision возможности из MW-001.\n\nПриёмка: Contract checks: concurrent claim, ready/dependencies, cycle, idempotency, revision conflict, cancel/reopen. Если required atomic operation недоступна — документированный blocker, без фиктивной atomicity.\n\nЛокальная карточка: .work/tasks/MW-010.md\nОтчёт: .work/reports/MW-010-beads-adapter.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-010: Реализовать Beads TaskGraph adapter.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-005, MW-009. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §8 (строка 407), §9 (строка 440), §11 (строка 560), §39 (строка 2155). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nПодключить подтверждённую версию Beads: get/ready/claim/transition/dependencies/mutatePlan. Beads владеет task graph; runtime attempts остаются в MyWork. Использовать реальные atomic/revision возможности из MW-001.\n\nПриёмка:\nContract checks: concurrent claim, ready/dependencies, cycle, idempotency, revision conflict, cancel/reopen. Если required atomic operation недоступна — документированный blocker, без фиктивной atomicity.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-010-beads-adapter.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "01-runtime"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "75494388-0852-4482-bfb8-b50a190f6e05",
+        "action": {
+          "kind": "move",
+          "taskId": "352f3912-48ce-49da-8867-2a56dedff23f",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-011",
+      "boardId": "261037d9-07da-4666-b410-d4bf2eb50eab",
+      "create": {
+        "requestId": "b57a6436-6729-41d1-a349-2f4472b3e4f2",
+        "action": {
+          "kind": "create",
+          "id": "261037d9-07da-4666-b410-d4bf2eb50eab",
+          "input": {
+            "title": "MW-011 · Валидировать Plan Mutation, replanning и WorkProposal",
+            "description": "Проект DSH-MyWork | 01-runtime\nЗависимости: MW-010\nАрхитектура: §9 (строка 440), §10 (строка 476), §11 (строка 560)\n\nРеализовать structured Plan Mutation с baseRevision, create/update/dependencies и atomic/idempotent apply. Классифицировать replanning изменения; running task менять только по явной policy. Worker создаёт WorkProposal, но не перестраивает DAG.\n\nПриёмка: Отклоняются cycles, stale revisions и недопустимые изменения running Task. Повтор операции не дублирует задачи. Proposal проходит отдельный путь принятия.\n\nЛокальная карточка: .work/tasks/MW-011.md\nОтчёт: .work/reports/MW-011-plan-mutations.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-011: Валидировать Plan Mutation, replanning и WorkProposal.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-010. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §9 (строка 440), §10 (строка 476), §11 (строка 560). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nРеализовать structured Plan Mutation с baseRevision, create/update/dependencies и atomic/idempotent apply. Классифицировать replanning изменения; running task менять только по явной policy. Worker создаёт WorkProposal, но не перестраивает DAG.\n\nПриёмка:\nОтклоняются cycles, stale revisions и недопустимые изменения running Task. Повтор операции не дублирует задачи. Proposal проходит отдельный путь принятия.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-011-plan-mutations.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "01-runtime"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "51472884-723c-4e8e-8ada-b3b60e47e577",
+        "action": {
+          "kind": "move",
+          "taskId": "261037d9-07da-4666-b410-d4bf2eb50eab",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-012",
+      "boardId": "428eb852-5339-4101-be6b-18d447abe313",
+      "create": {
+        "requestId": "c525db4f-201d-49e8-b4cd-03195d7ab3c3",
+        "action": {
+          "kind": "create",
+          "id": "428eb852-5339-4101-be6b-18d447abe313",
+          "input": {
+            "title": "MW-012 · Реализовать claim saga, Attempts, leases и fences",
+            "description": "Проект DSH-MyWork | 01-runtime\nЗависимости: MW-009, MW-010, MW-011\nАрхитектура: §9 (строка 440), §17 (строка 933), §18 (строка 963), §48 (строка 2409), §49 (строка 2421)\n\nДобавить ClaimIntent → graph claim → Attempt+lease → projection → completed с operationId. Все authoritative callbacks проверяют task revision, epoch и fence; определить recover/revoke для незавершённой saga.\n\nПриёмка: Fault injection после каждого шага claim не приводит к двойному execution. Late result старой попытки отклонён. У Task не более одного authoritative execution lease.\n\nЛокальная карточка: .work/tasks/MW-012.md\nОтчёт: .work/reports/MW-012-attempt-saga.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-012: Реализовать claim saga, Attempts, leases и fences.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-009, MW-010, MW-011. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §9 (строка 440), §17 (строка 933), §18 (строка 963), §48 (строка 2409), §49 (строка 2421). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nДобавить ClaimIntent → graph claim → Attempt+lease → projection → completed с operationId. Все authoritative callbacks проверяют task revision, epoch и fence; определить recover/revoke для незавершённой saga.\n\nПриёмка:\nFault injection после каждого шага claim не приводит к двойному execution. Late result старой попытки отклонён. У Task не более одного authoritative execution lease.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-012-attempt-saga.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "01-runtime"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "c7f6133d-44b9-44b0-85f6-61082170e525",
+        "action": {
+          "kind": "move",
+          "taskId": "428eb852-5339-4101-be6b-18d447abe313",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-013",
+      "boardId": "0c6bf5ac-0719-4625-be6d-d197a14b6363",
+      "create": {
+        "requestId": "a2d78c5c-af53-42f7-b89a-8077de24dfb5",
+        "action": {
+          "kind": "create",
+          "id": "0c6bf5ac-0719-4625-be6d-d197a14b6363",
+          "input": {
+            "title": "MW-013 · Добавить model routing и бюджетный admission",
+            "description": "Проект DSH-MyWork | 01-runtime\nЗависимости: MW-005, MW-006, MW-007\nАрхитектура: §14 (строка 735), §15 (строка 779), §29 (строка 1896), §30 (строка 1928), §53 (строка 2514)\n\nИспользовать реальный DSH model catalog: preferred/fallback/escalation, provider availability и context window. Добавить limits tokens/cost/attempts/review loops/planner/optimizer/workspace/provider; route записывать в provenance. Для разработки default — OpenCode Go Flash без автоматического перехода на платную frontier-модель.\n\nПриёмка: FakeProvider проверяет лимит ровно на границе, outage и отсутствие маршрута. Неизвестные cost/usage не выдаются за ноль. Исчерпание бюджета останавливает admission и выдаёт причину.\n\nЛокальная карточка: .work/tasks/MW-013.md\nОтчёт: .work/reports/MW-013-routing-budget.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-013: Добавить model routing и бюджетный admission.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-005, MW-006, MW-007. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §14 (строка 735), §15 (строка 779), §29 (строка 1896), §30 (строка 1928), §53 (строка 2514). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nИспользовать реальный DSH model catalog: preferred/fallback/escalation, provider availability и context window. Добавить limits tokens/cost/attempts/review loops/planner/optimizer/workspace/provider; route записывать в provenance. Для разработки default — OpenCode Go Flash без автоматического перехода на платную frontier-модель.\n\nПриёмка:\nFakeProvider проверяет лимит ровно на границе, outage и отсутствие маршрута. Неизвестные cost/usage не выдаются за ноль. Исчерпание бюджета останавливает admission и выдаёт причину.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-013-routing-budget.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "01-runtime"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "07638796-5b62-4878-89e8-07e6db0cb00a",
+        "action": {
+          "kind": "move",
+          "taskId": "0c6bf5ac-0719-4625-be6d-d197a14b6363",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-014",
+      "boardId": "fcffc0c3-f0df-42db-a07a-128fa9fd5dd5",
+      "create": {
+        "requestId": "1df11e69-82f4-4f25-822e-a7dd79d450eb",
+        "action": {
+          "kind": "create",
+          "id": "fcffc0c3-f0df-42db-a07a-128fa9fd5dd5",
+          "input": {
+            "title": "MW-014 · Реализовать детерминированный Scheduler и pools",
+            "description": "Проект DSH-MyWork | 01-runtime\nЗависимости: MW-012, MW-013\nАрхитектура: §14 (строка 735), §15 (строка 779), §16 (строка 814), §27 (строка 1851), §30 (строка 1928)\n\nСделать event-driven kick и safety reconcile, eligibility по role/capability/workspace/security/budget/provider, отдельные Worker/Reviewer pools, лимиты attempts/LLM/heavy tools. Добавить priority+aging и ограниченную fairness между workspace.\n\nПриёмка: Одинаковое состояние даёт одинаковое назначение; concurrency не превышает caps; dependency release будит ready задачу. Sleeping/idle не вызывает LLM; missed event восстанавливается reconcile. Advanced adaptive pools оставить за v0.1.\n\nЛокальная карточка: .work/tasks/MW-014.md\nОтчёт: .work/reports/MW-014-scheduler.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-014: Реализовать детерминированный Scheduler и pools.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-012, MW-013. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §14 (строка 735), §15 (строка 779), §16 (строка 814), §27 (строка 1851), §30 (строка 1928). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nСделать event-driven kick и safety reconcile, eligibility по role/capability/workspace/security/budget/provider, отдельные Worker/Reviewer pools, лимиты attempts/LLM/heavy tools. Добавить priority+aging и ограниченную fairness между workspace.\n\nПриёмка:\nОдинаковое состояние даёт одинаковое назначение; concurrency не превышает caps; dependency release будит ready задачу. Sleeping/idle не вызывает LLM; missed event восстанавливается reconcile. Advanced adaptive pools оставить за v0.1.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-014-scheduler.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "01-runtime"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "37f4c617-5b38-4846-ae3e-d8fc3bd26cb0",
+        "action": {
+          "kind": "move",
+          "taskId": "fcffc0c3-f0df-42db-a07a-128fa9fd5dd5",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-015",
+      "boardId": "122cfc2c-e60d-4e0c-abe8-23cb186ada2a",
+      "create": {
+        "requestId": "563087df-ad2e-466d-87e8-4fb3193f38af",
+        "action": {
+          "kind": "create",
+          "id": "122cfc2c-e60d-4e0c-abe8-23cb186ada2a",
+          "input": {
+            "title": "MW-015 · Реализовать DSH AgentRuntime и Session adapters",
+            "description": "Проект DSH-MyWork | 01-runtime\nЗависимости: MW-005, MW-007, MW-013\nАрхитектура: §21 (строка 1089), §22 (строка 1276), §29 (строка 1896), §36 (строка 2093), §39 (строка 2155)\n\nПо MW-001 реализовать create/resume/stop/status/events, model selection, scoped system prompt/dynamic context и tool surface. Использовать публичные DSH API; сохранять реальные session IDs и route.\n\nПриёмка: Contract checks покрывают stop/cancel, missing Session, duplicate/late event и restart. Scoped permissions и model binding сохраняются. Сначала FakeRuntime и keyless probe; платные проверки только по отдельному разрешению.\n\nЛокальная карточка: .work/tasks/MW-015.md\nОтчёт: .work/reports/MW-015-dsh-runtime.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-015: Реализовать DSH AgentRuntime и Session adapters.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-005, MW-007, MW-013. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §21 (строка 1089), §22 (строка 1276), §29 (строка 1896), §36 (строка 2093), §39 (строка 2155). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nПо MW-001 реализовать create/resume/stop/status/events, model selection, scoped system prompt/dynamic context и tool surface. Использовать публичные DSH API; сохранять реальные session IDs и route.\n\nПриёмка:\nContract checks покрывают stop/cancel, missing Session, duplicate/late event и restart. Scoped permissions и model binding сохраняются. Сначала FakeRuntime и keyless probe; платные проверки только по отдельному разрешению.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-015-dsh-runtime.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "01-runtime"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "6171e5c1-7b13-404d-a72f-f3728400cede",
+        "action": {
+          "kind": "move",
+          "taskId": "122cfc2c-e60d-4e0c-abe8-23cb186ada2a",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-016",
+      "boardId": "3228aed0-4319-4733-b575-8e45273fb096",
+      "create": {
+        "requestId": "e9d18c8b-d66d-456d-b31d-b763d840cf1b",
+        "action": {
+          "kind": "create",
+          "id": "3228aed0-4319-4733-b575-8e45273fb096",
+          "input": {
+            "title": "MW-016 · Построить Context Fabric и snapshots",
+            "description": "Проект DSH-MyWork | 02-context\nЗависимости: MW-005, MW-006, MW-008, MW-013\nАрхитектура: §21 (строка 1089), §35 (строка 2072), §53 (строка 2514)\n\nРеализовать discover → rank/budget → materialize, L0/L1/L2, mandatory role/task/security и working/safety reserve от выбранной модели. Snapshot фиксирует revisions, route, tools, hashes, estimates и provenance. Только Fabric вставляет контекст в prompt.\n\nПриёмка: L2 загружается по запросу; повтор материализации проверяет revision/hash. Overflow mandatory context блокирует admission. Низкодоверенные данные не становятся instructions; snapshot неизменяем.\n\nЛокальная карточка: .work/tasks/MW-016.md\nОтчёт: .work/reports/MW-016-context-fabric.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-016: Построить Context Fabric и snapshots.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-005, MW-006, MW-008, MW-013. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §21 (строка 1089), §35 (строка 2072), §53 (строка 2514). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nРеализовать discover → rank/budget → materialize, L0/L1/L2, mandatory role/task/security и working/safety reserve от выбранной модели. Snapshot фиксирует revisions, route, tools, hashes, estimates и provenance. Только Fabric вставляет контекст в prompt.\n\nПриёмка:\nL2 загружается по запросу; повтор материализации проверяет revision/hash. Overflow mandatory context блокирует admission. Низкодоверенные данные не становятся instructions; snapshot неизменяем.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-016-context-fabric.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "02-context"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "739fa87a-0bae-4b27-a228-224e665888f4",
+        "action": {
+          "kind": "move",
+          "taskId": "3228aed0-4319-4733-b575-8e45273fb096",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-017",
+      "boardId": "0e229ea3-c41a-4e85-b9fd-46d9ce86272a",
+      "create": {
+        "requestId": "96f8be68-6842-4e57-9670-59f486252537",
+        "action": {
+          "kind": "create",
+          "id": "0e229ea3-c41a-4e85-b9fd-46d9ce86272a",
+          "input": {
+            "title": "MW-017 · Реализовать Skill Registry и Context Provider",
+            "description": "Проект DSH-MyWork | 02-context\nЗависимости: MW-006, MW-016\nАрхитектура: §21 (строка 1089), §24 (строка 1615), §35 (строка 2072)\n\nДобавить версионируемые skills со scope/trust/compatibility/status и lifecycle Candidate/Active/Stale/Archived. Discover отдаёт L0/L1; body — только по materialize. Связать SkillContextProvider с Fabric.\n\nПриёмка: Проверки scope, version pinning и lazy loading. Неподдерживаемый skill не активируется; обновление не меняет running Attempt. Не превращать memory records в skills автоматически.\n\nЛокальная карточка: .work/tasks/MW-017.md\nОтчёт: .work/reports/MW-017-skills.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-017: Реализовать Skill Registry и Context Provider.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-006, MW-016. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §21 (строка 1089), §24 (строка 1615), §35 (строка 2072). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nДобавить версионируемые skills со scope/trust/compatibility/status и lifecycle Candidate/Active/Stale/Archived. Discover отдаёт L0/L1; body — только по materialize. Связать SkillContextProvider с Fabric.\n\nПриёмка:\nПроверки scope, version pinning и lazy loading. Неподдерживаемый skill не активируется; обновление не меняет running Attempt. Не превращать memory records в skills автоматически.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-017-skills.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "02-context"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "ca8a15fc-dcb7-4441-98a1-3b8520ba665f",
+        "action": {
+          "kind": "move",
+          "taskId": "0e229ea3-c41a-4e85-b9fd-46d9ce86272a",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-018",
+      "boardId": "4040ecd7-d43c-4bbb-bf20-3665c62cdc50",
+      "create": {
+        "requestId": "9d5c19d7-be35-49a7-b0b3-a234eefb08f3",
+        "action": {
+          "kind": "create",
+          "id": "4040ecd7-d43c-4bbb-bf20-3665c62cdc50",
+          "input": {
+            "title": "MW-018 · Реализовать Memory Fabric и Native Memory",
+            "description": "Проект DSH-MyWork | 02-context\nЗависимости: MW-005, MW-008, MW-016\nАрхитектура: §21 (строка 1089), §23 (строка 1407), §31 (строка 1952), §52 (строка 2497)\n\nВвести retain/recall/optional reflect, scopes/kinds/provenance/trust/validity, dedup/conflict/supersede lifecycle и один primary writer на scope. Реализовать Native и Disabled providers, MemoryContextProvider и явную degraded policy.\n\nПриёмка: Проверить изоляцию workspace, idempotent retain, конфликт/устаревание, invalid ref и timeout. Недоступность optional memory допустима только согласно policy и видна в diagnostics. Raw transcripts не копируются в prompt.\n\nЛокальная карточка: .work/tasks/MW-018.md\nОтчёт: .work/reports/MW-018-native-memory.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-018: Реализовать Memory Fabric и Native Memory.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-005, MW-008, MW-016. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §21 (строка 1089), §23 (строка 1407), §31 (строка 1952), §52 (строка 2497). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nВвести retain/recall/optional reflect, scopes/kinds/provenance/trust/validity, dedup/conflict/supersede lifecycle и один primary writer на scope. Реализовать Native и Disabled providers, MemoryContextProvider и явную degraded policy.\n\nПриёмка:\nПроверить изоляцию workspace, idempotent retain, конфликт/устаревание, invalid ref и timeout. Недоступность optional memory допустима только согласно policy и видна в diagnostics. Raw transcripts не копируются в prompt.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-018-native-memory.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "02-context"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "d9eef482-4859-4aba-b293-5d91a8dc8155",
+        "action": {
+          "kind": "move",
+          "taskId": "4040ecd7-d43c-4bbb-bf20-3665c62cdc50",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-019",
+      "boardId": "d0cdff7e-eb0a-4dd0-95cd-3a43af6924ca",
+      "create": {
+        "requestId": "c4b150cd-8d90-42b5-836f-704dcdef4595",
+        "action": {
+          "kind": "create",
+          "id": "d0cdff7e-eb0a-4dd0-95cd-3a43af6924ca",
+          "input": {
+            "title": "MW-019 · Подключить один внешний Memory adapter",
+            "description": "Проект DSH-MyWork | 02-context\nЗависимости: MW-018\nАрхитектура: §23 (строка 1407), §37 (строка 2116), §39 (строка 2155), §57 (строка 2611)\n\nРеализовать один внешний backend, выбранный в MW-001 по доступному контракту; OpenViking — предпочтительный кандидат при подтверждении API. Отразить реальные retain/recall/reflect/versioning capabilities и маршрутизацию writer.\n\nПриёмка: Conformance: scope isolation, idempotency, invalid ref, timeout/cancel, backend unavailable, contract mismatch. Не имитировать unsupported reflect; не добавлять второй внешний backend ради списка.\n\nЛокальная карточка: .work/tasks/MW-019.md\nОтчёт: .work/reports/MW-019-external-memory.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-019: Подключить один внешний Memory adapter.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-018. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §23 (строка 1407), §37 (строка 2116), §39 (строка 2155), §57 (строка 2611). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nРеализовать один внешний backend, выбранный в MW-001 по доступному контракту; OpenViking — предпочтительный кандидат при подтверждении API. Отразить реальные retain/recall/reflect/versioning capabilities и маршрутизацию writer.\n\nПриёмка:\nConformance: scope isolation, idempotency, invalid ref, timeout/cancel, backend unavailable, contract mismatch. Не имитировать unsupported reflect; не добавлять второй внешний backend ради списка.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-019-external-memory.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "02-context"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "73d6349d-f7e5-493e-83df-ac6c2c98da71",
+        "action": {
+          "kind": "move",
+          "taskId": "d0cdff7e-eb0a-4dd0-95cd-3a43af6924ca",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-020",
+      "boardId": "46799cb9-b3ae-4eed-b614-d16017ab20bf",
+      "create": {
+        "requestId": "e7b02975-4713-47d3-980d-739e9824d82c",
+        "action": {
+          "kind": "create",
+          "id": "46799cb9-b3ae-4eed-b614-d16017ab20bf",
+          "input": {
+            "title": "MW-020 · Реализовать checkpoint, session rollover и context pressure",
+            "description": "Проект DSH-MyWork | 02-context\nЗависимости: MW-008, MW-015, MW-016\nАрхитектура: §22 (строка 1276), §32 (строка 1983), §35 (строка 2072)\n\nFresh Session per Attempt/Review/planning. Capsule содержит decisions, artifacts, base/head, verification/findings, unresolved и exact anchors. Реализовать prune/offload/dematerialize/compaction/rollover; окно меняется внутри той же Attempt.\n\nПриёмка: Rollover сохраняет Attempt и anchors; retry/reject создаёт новую Attempt/Session. Не переносится полный transcript. Ошибка сохранения checkpoint не теряет evidence и не имитирует завершение.\n\nЛокальная карточка: .work/tasks/MW-020.md\nОтчёт: .work/reports/MW-020-sessions.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-020: Реализовать checkpoint, session rollover и context pressure.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-008, MW-015, MW-016. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §22 (строка 1276), §32 (строка 1983), §35 (строка 2072). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nFresh Session per Attempt/Review/planning. Capsule содержит decisions, artifacts, base/head, verification/findings, unresolved и exact anchors. Реализовать prune/offload/dematerialize/compaction/rollover; окно меняется внутри той же Attempt.\n\nПриёмка:\nRollover сохраняет Attempt и anchors; retry/reject создаёт новую Attempt/Session. Не переносится полный transcript. Ошибка сохранения checkpoint не теряет evidence и не имитирует завершение.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-020-sessions.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "02-context"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "f1c592d7-bb3c-43d3-956b-261451ca3fad",
+        "action": {
+          "kind": "move",
+          "taskId": "46799cb9-b3ae-4eed-b614-d16017ab20bf",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-021",
+      "boardId": "1589a35a-91cd-41a9-930a-65293cce9f90",
+      "create": {
+        "requestId": "367edf7f-f836-4515-a8aa-659a93b178bb",
+        "action": {
+          "kind": "create",
+          "id": "1589a35a-91cd-41a9-930a-65293cce9f90",
+          "input": {
+            "title": "MW-021 · Реализовать изоляцию Git worktrees",
+            "description": "Проект DSH-MyWork | 03-execution\nЗависимости: MW-008, MW-012\nАрхитектура: §19 (строка 1036), §31 (строка 1952), §32 (строка 1983), §52 (строка 2497)\n\nДля coding Attempt pin base SHA, создать отдельную branch/worktree, хранить base/head/diff hash и workspace binding. Cleanup/retention только по policy, с проверкой resolved paths и dirty evidence.\n\nПриёмка: Параллельные attempts не пишут в общий checkout. Нельзя выйти из разрешённого worktree; cleanup не удаляет чужую/грязную работу. Для пустого Git repo — явный precondition, без скрытого первого коммита.\n\nЛокальная карточка: .work/tasks/MW-021.md\nОтчёт: .work/reports/MW-021-worktrees.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-021: Реализовать изоляцию Git worktrees.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-008, MW-012. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §19 (строка 1036), §31 (строка 1952), §32 (строка 1983), §52 (строка 2497). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nДля coding Attempt pin base SHA, создать отдельную branch/worktree, хранить base/head/diff hash и workspace binding. Cleanup/retention только по policy, с проверкой resolved paths и dirty evidence.\n\nПриёмка:\nПараллельные attempts не пишут в общий checkout. Нельзя выйти из разрешённого worktree; cleanup не удаляет чужую/грязную работу. Для пустого Git repo — явный precondition, без скрытого первого коммита.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-021-worktrees.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "03-execution"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "d6ab82c9-0d69-40ba-87dc-a75d36cf1f3f",
+        "action": {
+          "kind": "move",
+          "taskId": "1589a35a-91cd-41a9-930a-65293cce9f90",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-022",
+      "boardId": "1924a37d-592e-4858-a290-6d1b84c3a6f5",
+      "create": {
+        "requestId": "982f2ca3-4a6d-4fe4-857d-2aa3bd911605",
+        "action": {
+          "kind": "create",
+          "id": "1924a37d-592e-4858-a290-6d1b84c3a6f5",
+          "input": {
+            "title": "MW-022 · Связать Worker execution от admission до результата",
+            "description": "Проект DSH-MyWork | 03-execution\nЗависимости: MW-014, MW-015, MW-016, MW-017, MW-018, MW-020, MW-021\nАрхитектура: §13 (строка 611), §16 (строка 814), §17 (строка 933), §19 (строка 1036), §21 (строка 1089), §22 (строка 1276), §35 (строка 2072), §66 (строка 2880)\n\nСвязать scheduler → claim → worktree → frozen context → fresh Worker Session → evidence/checkpoint → settling. Identity остаётся долговечной; sleeping после завершения не держит модель. Worker не финализирует TaskGraph Done.\n\nПриёмка: Один сценарий на fakes проходит end-to-end; failure сохраняет evidence и освобождает capacity. Restart и late callback не создают вторую authoritative попытку. Каждая попытка хранит использованные revisions.\n\nЛокальная карточка: .work/tasks/MW-022.md\nОтчёт: .work/reports/MW-022-worker-flow.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-022: Связать Worker execution от admission до результата.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-014, MW-015, MW-016, MW-017, MW-018, MW-020, MW-021. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §13 (строка 611), §16 (строка 814), §17 (строка 933), §19 (строка 1036), §21 (строка 1089), §22 (строка 1276), §35 (строка 2072), §66 (строка 2880). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nСвязать scheduler → claim → worktree → frozen context → fresh Worker Session → evidence/checkpoint → settling. Identity остаётся долговечной; sleeping после завершения не держит модель. Worker не финализирует TaskGraph Done.\n\nПриёмка:\nОдин сценарий на fakes проходит end-to-end; failure сохраняет evidence и освобождает capacity. Restart и late callback не создают вторую authoritative попытку. Каждая попытка хранит использованные revisions.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-022-worker-flow.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "03-execution"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "cc259a43-dbd0-498e-8e9d-e8b36687b84f",
+        "action": {
+          "kind": "move",
+          "taskId": "1924a37d-592e-4858-a290-6d1b84c3a6f5",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-023",
+      "boardId": "650491a3-db89-4716-abe7-d317d89482e1",
+      "create": {
+        "requestId": "ae12d819-d271-40a7-8d0c-2f5487e06ee7",
+        "action": {
+          "kind": "create",
+          "id": "650491a3-db89-4716-abe7-d317d89482e1",
+          "input": {
+            "title": "MW-023 · Добавить детерминированные verification gates",
+            "description": "Проект DSH-MyWork | 03-execution\nЗависимости: MW-022\nАрхитектура: §19 (строка 1036), §26 (строка 1812), §32 (строка 1983), §58 (строка 2651)\n\nЗапускать configured build/tests/lint/policy/artifact/base/head gates в worktree до review; результаты и exit codes хранить как artifacts. Набор проверок зависит от workspace/task.\n\nПриёмка: Failing/missing gate блокирует review admission и Done. Gates относятся к exact head и имеют bounded timeout/cancel. Нельзя превратить ошибку инструмента в PASS.\n\nЛокальная карточка: .work/tasks/MW-023.md\nОтчёт: .work/reports/MW-023-verification-gates.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-023: Добавить детерминированные verification gates.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-022. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §19 (строка 1036), §26 (строка 1812), §32 (строка 1983), §58 (строка 2651). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nЗапускать configured build/tests/lint/policy/artifact/base/head gates в worktree до review; результаты и exit codes хранить как artifacts. Набор проверок зависит от workspace/task.\n\nПриёмка:\nFailing/missing gate блокирует review admission и Done. Gates относятся к exact head и имеют bounded timeout/cancel. Нельзя превратить ошибку инструмента в PASS.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-023-verification-gates.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "03-execution"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "4fd387aa-6205-4ccf-b041-49bb4e9b8328",
+        "action": {
+          "kind": "move",
+          "taskId": "650491a3-db89-4716-abe7-d317d89482e1",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-024",
+      "boardId": "05b08a47-7f0f-4e9a-9b4a-825df16088cc",
+      "create": {
+        "requestId": "2caadca2-0c69-44b5-bb4d-a5344dc963f5",
+        "action": {
+          "kind": "create",
+          "id": "05b08a47-7f0f-4e9a-9b4a-825df16088cc",
+          "input": {
+            "title": "MW-024 · Реализовать независимый Review и reject flow",
+            "description": "Проект DSH-MyWork | 03-execution\nЗависимости: MW-015, MW-020, MW-023\nАрхитектура: §18 (строка 963), §19 (строка 1036), §22 (строка 1276), §26 (строка 1812), §27 (строка 1851), §31 (строка 1952)\n\nДобавить отдельную Review очередь/pool, fresh Session, evidence package и structured findings. Approval привязать к reviewedHeadSha/diffHash. Reject возвращает ту же Identity/worktree с новой Attempt и checkpoint/findings; лимитировать review loops.\n\nПриёмка: Self-review запрещён; Reviewer не редактирует implementation. Изменение SHA/diff отменяет approval. Reject/NeedsEvidence/Escalated корректно переходят в следующий state; превышение loops требует решения.\n\nЛокальная карточка: .work/tasks/MW-024.md\nОтчёт: .work/reports/MW-024-review.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-024: Реализовать независимый Review и reject flow.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-015, MW-020, MW-023. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §18 (строка 963), §19 (строка 1036), §22 (строка 1276), §26 (строка 1812), §27 (строка 1851), §31 (строка 1952). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nДобавить отдельную Review очередь/pool, fresh Session, evidence package и structured findings. Approval привязать к reviewedHeadSha/diffHash. Reject возвращает ту же Identity/worktree с новой Attempt и checkpoint/findings; лимитировать review loops.\n\nПриёмка:\nSelf-review запрещён; Reviewer не редактирует implementation. Изменение SHA/diff отменяет approval. Reject/NeedsEvidence/Escalated корректно переходят в следующий state; превышение loops требует решения.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-024-review.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "03-execution"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "1cfb9d77-8eb7-4e27-bb13-4aeaaab0a539",
+        "action": {
+          "kind": "move",
+          "taskId": "05b08a47-7f0f-4e9a-9b4a-825df16088cc",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-025",
+      "boardId": "da617bd1-5146-40e4-879a-ad99d3704f6d",
+      "create": {
+        "requestId": "051bb0f9-0c73-4e6d-9d2c-639a64d70fcd",
+        "action": {
+          "kind": "create",
+          "id": "da617bd1-5146-40e4-879a-ad99d3704f6d",
+          "input": {
+            "title": "MW-025 · Реализовать Integrator и завершение TaskGraph",
+            "description": "Проект DSH-MyWork | 03-execution\nЗависимости: MW-010, MW-021, MW-024\nАрхитектура: §9 (строка 440), §19 (строка 1036), §20 (строка 1067), §26 (строка 1812), §28 (строка 1875)\n\nИнтегрировать только approved immutable result: проверить base/head freshness, локально rebase/merge по policy, повторить необходимые gates, затем идемпотентно финализировать graph. Семантический conflict → human decision или явно разрешённый маршрут.\n\nПриёмка: Stale approval не интегрируется; failed verify/conflict не помечает Task Done. Повтор finalize безопасен. Тесты работают в временных репозиториях; protected remote branches не меняются.\n\nЛокальная карточка: .work/tasks/MW-025.md\nОтчёт: .work/reports/MW-025-integrator.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-025: Реализовать Integrator и завершение TaskGraph.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-010, MW-021, MW-024. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §9 (строка 440), §19 (строка 1036), §20 (строка 1067), §26 (строка 1812), §28 (строка 1875). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nИнтегрировать только approved immutable result: проверить base/head freshness, локально rebase/merge по policy, повторить необходимые gates, затем идемпотентно финализировать graph. Семантический conflict → human decision или явно разрешённый маршрут.\n\nПриёмка:\nStale approval не интегрируется; failed verify/conflict не помечает Task Done. Повтор finalize безопасен. Тесты работают в временных репозиториях; protected remote branches не меняются.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-025-integrator.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "03-execution"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "5e3500bd-27d4-42cb-8ccd-703ea40d9f21",
+        "action": {
+          "kind": "move",
+          "taskId": "da617bd1-5146-40e4-879a-ad99d3704f6d",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-026",
+      "boardId": "bee3760c-8eef-49e7-b588-0a27414e3f38",
+      "create": {
+        "requestId": "ff323f28-f8e3-4068-b158-8eabe5fa858a",
+        "action": {
+          "kind": "create",
+          "id": "bee3760c-8eef-49e7-b588-0a27414e3f38",
+          "input": {
+            "title": "MW-026 · Подключить отдельного Task Setter к DSH",
+            "description": "Проект DSH-MyWork | 03-execution\nЗависимости: MW-011, MW-015, MW-016\nАрхитектура: §10 (строка 476), §21 (строка 1089), §22 (строка 1276), §29 (строка 1896), §66 (строка 2880)\n\nPlanner получает goal/workspace/current graph, запускается в fresh Session, выдаёт validated Plan Mutation и завершает работу. Task Setter не состоит в Worker pool и не общается с исполнителями; semantic WorkProposal/replan направлять сюда.\n\nПриёмка: Невалидный/устаревший output не меняет graph. Planner не выполняет implementation и не остаётся runtime coordinator. Route настраиваемый; тесты fake/keyless, без обязательной frontier модели.\n\nЛокальная карточка: .work/tasks/MW-026.md\nОтчёт: .work/reports/MW-026-task-setter.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-026: Подключить отдельного Task Setter к DSH.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-011, MW-015, MW-016. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §10 (строка 476), §21 (строка 1089), §22 (строка 1276), §29 (строка 1896), §66 (строка 2880). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nPlanner получает goal/workspace/current graph, запускается в fresh Session, выдаёт validated Plan Mutation и завершает работу. Task Setter не состоит в Worker pool и не общается с исполнителями; semantic WorkProposal/replan направлять сюда.\n\nПриёмка:\nНевалидный/устаревший output не меняет graph. Planner не выполняет implementation и не остаётся runtime coordinator. Route настраиваемый; тесты fake/keyless, без обязательной frontier модели.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-026-task-setter.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "03-execution"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "b8a97a4d-f62c-4938-9551-46ec73848c83",
+        "action": {
+          "kind": "move",
+          "taskId": "bee3760c-8eef-49e7-b588-0a27414e3f38",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-027",
+      "boardId": "e5bdbc44-0dfe-4e0c-ab26-2b526d3d3861",
+      "create": {
+        "requestId": "cd6ce9e6-4907-4182-9cd5-826534f39314",
+        "action": {
+          "kind": "create",
+          "id": "e5bdbc44-0dfe-4e0c-ab26-2b526d3d3861",
+          "input": {
+            "title": "MW-027 · Реализовать Task Board production и Null adapters",
+            "description": "Проект DSH-MyWork | 04-control\nЗависимости: MW-005, MW-010, MW-025\nАрхитектура: §8 (строка 407), §12 (строка 591), §36 (строка 2093), §39 (строка 2155), §49 (строка 2421)\n\nПодключить существующую DSH Task Board как projection/control surface; изменения authoritative graph идут через MyWork commands. Добавить Null adapter и модель данных для встроенного Tasks. Не использовать доску разработки dsh-mywork как runtime test ledger.\n\nПриёмка: Outage Board помечает projection degraded, execution продолжается. Повтор projection не дублирует карточки. UI layout остаётся у Board, task semantic state — у TaskGraph; contract checks обоих adapters.\n\nЛокальная карточка: .work/tasks/MW-027.md\nОтчёт: .work/reports/MW-027-taskboard-adapter.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-027: Реализовать Task Board production и Null adapters.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-005, MW-010, MW-025. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §8 (строка 407), §12 (строка 591), §36 (строка 2093), §39 (строка 2155), §49 (строка 2421). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nПодключить существующую DSH Task Board как projection/control surface; изменения authoritative graph идут через MyWork commands. Добавить Null adapter и модель данных для встроенного Tasks. Не использовать доску разработки dsh-mywork как runtime test ledger.\n\nПриёмка:\nOutage Board помечает projection degraded, execution продолжается. Повтор projection не дублирует карточки. UI layout остаётся у Board, task semantic state — у TaskGraph; contract checks обоих adapters.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-027-taskboard-adapter.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "04-control"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "ebba16ce-e64b-4415-ae3a-87f7b30f7d7f",
+        "action": {
+          "kind": "move",
+          "taskId": "e5bdbc44-0dfe-4e0c-ab26-2b526d3d3861",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-028",
+      "boardId": "86f92814-522a-4761-9e3c-66f8bde03dff",
+      "create": {
+        "requestId": "bf946437-699c-4215-b2df-42c2e9f9b12b",
+        "action": {
+          "kind": "create",
+          "id": "86f92814-522a-4761-9e3c-66f8bde03dff",
+          "input": {
+            "title": "MW-028 · Поддержать Embedded и Resident Controller",
+            "description": "Проект DSH-MyWork | 04-control\nЗависимости: MW-009, MW-014, MW-022, MW-025\nАрхитектура: §5 (строка 242), §7 (строка 375), §16 (строка 814), §40 (строка 2199), §49 (строка 2421)\n\nЗапускать Controller от lifecycle плагина в embedded и отдельном поддерживаемом DSH profile в resident/headless. Один application слой, внешний state directory, graceful shutdown и reconnect клиентов.\n\nПриёмка: Закрытие браузера не останавливает resident execution. Два deployment не нарушают single-controller invariant. Restart делает reconcile до admission; профиль проверяется отдельно от живой установки пользователя.\n\nЛокальная карточка: .work/tasks/MW-028.md\nОтчёт: .work/reports/MW-028-deployment-modes.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-028: Поддержать Embedded и Resident Controller.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-009, MW-014, MW-022, MW-025. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §5 (строка 242), §7 (строка 375), §16 (строка 814), §40 (строка 2199), §49 (строка 2421). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nЗапускать Controller от lifecycle плагина в embedded и отдельном поддерживаемом DSH profile в resident/headless. Один application слой, внешний state directory, graceful shutdown и reconnect клиентов.\n\nПриёмка:\nЗакрытие браузера не останавливает resident execution. Два deployment не нарушают single-controller invariant. Restart делает reconcile до admission; профиль проверяется отдельно от живой установки пользователя.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-028-deployment-modes.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "04-control"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "89758589-7e4c-438d-a5b7-0780a1c47c8a",
+        "action": {
+          "kind": "move",
+          "taskId": "86f92814-522a-4761-9e3c-66f8bde03dff",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-029",
+      "boardId": "025a73a1-a348-41c6-9846-2fef20f3ee81",
+      "create": {
+        "requestId": "6c4f732f-5386-44fc-baf2-41afe7821a63",
+        "action": {
+          "kind": "create",
+          "id": "025a73a1-a348-41c6-9846-2fef20f3ee81",
+          "input": {
+            "title": "MW-029 · Открыть Application API, HTTP/SSE и CLI",
+            "description": "Проект DSH-MyWork | 04-control\nЗависимости: MW-018, MW-026, MW-027, MW-028\nАрхитектура: §40 (строка 2199), §41 (строка 2216), §42 (строка 2253), §43 (строка 2289)\n\nОдин application service обслуживает Cordis, local HTTP/Web RPC и минимальный CLI. Реализовать versioned /v1 endpoints из §41, command idempotency и events cursor; loopback/access checks и bounded inputs. MCP только внешний surface при необходимости, не внутренняя шина.\n\nПриёмка: Повтор mutation возвращает тот же эффект; stale revision даёт typed error. Cursor reconnect не теряет логические события. Unauthorized/invalid requests не меняют state; transport не дублирует бизнес-логику.\n\nЛокальная карточка: .work/tasks/MW-029.md\nОтчёт: .work/reports/MW-029-application-api.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-029: Открыть Application API, HTTP/SSE и CLI.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-018, MW-026, MW-027, MW-028. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §40 (строка 2199), §41 (строка 2216), §42 (строка 2253), §43 (строка 2289). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nОдин application service обслуживает Cordis, local HTTP/Web RPC и минимальный CLI. Реализовать versioned /v1 endpoints из §41, command idempotency и events cursor; loopback/access checks и bounded inputs. MCP только внешний surface при необходимости, не внутренняя шина.\n\nПриёмка:\nПовтор mutation возвращает тот же эффект; stale revision даёт typed error. Cursor reconnect не теряет логические события. Unauthorized/invalid requests не меняют state; transport не дублирует бизнес-логику.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-029-application-api.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "04-control"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "330aaa34-00c4-41f0-9806-b6c9fd5fb5d7",
+        "action": {
+          "kind": "move",
+          "taskId": "025a73a1-a348-41c6-9846-2fef20f3ee81",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-030",
+      "boardId": "6d13316a-29a6-433d-931a-50fa8b8b76c2",
+      "create": {
+        "requestId": "a6266637-3714-4f6b-8404-ae5e52bb6b4c",
+        "action": {
+          "kind": "create",
+          "id": "6d13316a-29a6-433d-931a-50fa8b8b76c2",
+          "input": {
+            "title": "MW-030 · Добавить human gates, pause/cancel/retry/reassign",
+            "description": "Проект DSH-MyWork | 04-control\nЗависимости: MW-007, MW-012, MW-020, MW-029\nАрхитектура: §28 (строка 1875), §30 (строка 1928), §31 (строка 1952), §51 (строка 2474)\n\nРеализовать autonomy L0–L3 и operation gates для миграций/security/release/production. Команды Pause/Cancel/StopAfterCurrentTool/Reassign/Retry: revoke lease, fence++, stop runtime, checkpoint/evidence, retention и graph transition.\n\nПриёмка: Cancel при активном tool и позднем result не коммитит stale изменения. Pause не теряет работу; retry идемпотентен. Human override аудируется; повышение автономности не возникает из prompt/learning.\n\nЛокальная карточка: .work/tasks/MW-030.md\nОтчёт: .work/reports/MW-030-human-control.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-030: Добавить human gates, pause/cancel/retry/reassign.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-007, MW-012, MW-020, MW-029. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §28 (строка 1875), §30 (строка 1928), §31 (строка 1952), §51 (строка 2474). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nРеализовать autonomy L0–L3 и operation gates для миграций/security/release/production. Команды Pause/Cancel/StopAfterCurrentTool/Reassign/Retry: revoke lease, fence++, stop runtime, checkpoint/evidence, retention и graph transition.\n\nПриёмка:\nCancel при активном tool и позднем result не коммитит stale изменения. Pause не теряет работу; retry идемпотентен. Human override аудируется; повышение автономности не возникает из prompt/learning.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-030-human-control.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "04-control"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "581598be-ac5b-4ffc-8e6f-5062ab3c26e7",
+        "action": {
+          "kind": "move",
+          "taskId": "6d13316a-29a6-433d-931a-50fa8b8b76c2",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-031",
+      "boardId": "6eb5bb23-baf6-4260-b885-a66cc3431230",
+      "create": {
+        "requestId": "5cdaff7f-4607-42f7-9d3e-c91ef25b70d6",
+        "action": {
+          "kind": "create",
+          "id": "6eb5bb23-baf6-4260-b885-a66cc3431230",
+          "input": {
+            "title": "MW-031 · Реализовать recovery и обнаружение застрявшей работы",
+            "description": "Проект DSH-MyWork | 04-control\nЗависимости: MW-012, MW-014, MW-020, MW-025, MW-030\nАрхитектура: §16 (строка 814), §49 (строка 2421), §50 (строка 2449), §51 (строка 2474)\n\nReconcile claim без Attempt, Attempt без runtime, expired leases, Controller failover, lost events, Board/Memory outage. Выявлять unschedulable/review loop/repeated failure/orphan/budget/provider blockers и выдавать NeedsAttention с причиной.\n\nПриёмка: Fault injection/restart для каждого сценария §49. Reconcile повторяем и не дублирует запуск. Detector не расходует LLM в цикле; восстановление memory лишь по explicit degraded policy.\n\nЛокальная карточка: .work/tasks/MW-031.md\nОтчёт: .work/reports/MW-031-recovery.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-031: Реализовать recovery и обнаружение застрявшей работы.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-012, MW-014, MW-020, MW-025, MW-030. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §16 (строка 814), §49 (строка 2421), §50 (строка 2449), §51 (строка 2474). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nReconcile claim без Attempt, Attempt без runtime, expired leases, Controller failover, lost events, Board/Memory outage. Выявлять unschedulable/review loop/repeated failure/orphan/budget/provider blockers и выдавать NeedsAttention с причиной.\n\nПриёмка:\nFault injection/restart для каждого сценария §49. Reconcile повторяем и не дублирует запуск. Detector не расходует LLM в цикле; восстановление memory лишь по explicit degraded policy.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-031-recovery.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "04-control"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "16a658ec-c2b6-4258-83a3-c373a3b63dd7",
+        "action": {
+          "kind": "move",
+          "taskId": "6eb5bb23-baf6-4260-b885-a66cc3431230",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-032",
+      "boardId": "92e48d64-4b12-44a6-80d2-8f837b019e7f",
+      "create": {
+        "requestId": "c58cde56-b12d-44f3-b87d-c347ff7b84a2",
+        "action": {
+          "kind": "create",
+          "id": "92e48d64-4b12-44a6-80d2-8f837b019e7f",
+          "input": {
+            "title": "MW-032 · Добавить Fast Role Learner с bounded candidates",
+            "description": "Проект DSH-MyWork | 05-learning\nЗависимости: MW-017, MW-018, MW-024\nАрхитектура: §23 (строка 1407), §24 (строка 1615), §25 (строка 1648), §31 (строка 1952), §34 (строка 2048)\n\nОтдельная reflection Session по значимому result/reject; вход — versioned Role, evidence/tests/findings/feedback. Выход No learning либо scoped memory/skill/strategy patch candidate; provenance/trust/conflict validation.\n\nПриёмка: Candidate не меняет Role Contract/security автоматически. Повтор события не создаёт duplicate learning. Malicious tool/web content остаётся low-trust; learner ограничен бюджетом и не работает на idle ticks.\n\nЛокальная карточка: .work/tasks/MW-032.md\nОтчёт: .work/reports/MW-032-fast-learner.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-032: Добавить Fast Role Learner с bounded candidates.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-017, MW-018, MW-024. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §23 (строка 1407), §24 (строка 1615), §25 (строка 1648), §31 (строка 1952), §34 (строка 2048). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nОтдельная reflection Session по значимому result/reject; вход — versioned Role, evidence/tests/findings/feedback. Выход No learning либо scoped memory/skill/strategy patch candidate; provenance/trust/conflict validation.\n\nПриёмка:\nCandidate не меняет Role Contract/security автоматически. Повтор события не создаёт duplicate learning. Malicious tool/web content остаётся low-trust; learner ограничен бюджетом и не работает на idle ticks.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-032-fast-learner.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "05-learning"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "8253ec2d-c541-4223-b4d0-dcb6cd3b8a8e",
+        "action": {
+          "kind": "move",
+          "taskId": "92e48d64-4b12-44a6-80d2-8f837b019e7f",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-033",
+      "boardId": "1f2ee8a9-f8b0-4981-b6bb-0999d22ce97f",
+      "create": {
+        "requestId": "12117167-14f0-4b74-9941-c0ffa94e5cae",
+        "action": {
+          "kind": "create",
+          "id": "1f2ee8a9-f8b0-4981-b6bb-0999d22ce97f",
+          "input": {
+            "title": "MW-033 · Реализовать Sleep Optimizer, curator и promotion",
+            "description": "Проект DSH-MyWork | 05-learning\nЗависимости: MW-006, MW-013, MW-032\nАрхитектура: §25 (строка 1648), §30 (строка 1928), §35 (строка 2072)\n\nBaseline ручного/планового optimizer run по batch history: small strategy/skill diffs, dedup/stale/conflict curator. Реализовать Draft→Offline Evaluation→Shadow→Canary→Stable и Reject/Rollback, сохранять metrics и revision history.\n\nПриёмка: RBAC/Role Contract не переписываются; candidate воспроизводим от evidence. Promotion требует policy gates, rollback возвращает прошлую revision только для будущих attempts. Daily optimizer budget enforced.\n\nЛокальная карточка: .work/tasks/MW-033.md\nОтчёт: .work/reports/MW-033-sleep-optimizer.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-033: Реализовать Sleep Optimizer, curator и promotion.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-006, MW-013, MW-032. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §25 (строка 1648), §30 (строка 1928), §35 (строка 2072). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nBaseline ручного/планового optimizer run по batch history: small strategy/skill diffs, dedup/stale/conflict curator. Реализовать Draft→Offline Evaluation→Shadow→Canary→Stable и Reject/Rollback, сохранять metrics и revision history.\n\nПриёмка:\nRBAC/Role Contract не переписываются; candidate воспроизводим от evidence. Promotion требует policy gates, rollback возвращает прошлую revision только для будущих attempts. Daily optimizer budget enforced.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-033-sleep-optimizer.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "05-learning"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "8aa78734-7072-434c-9cea-6bf66d13b1ce",
+        "action": {
+          "kind": "move",
+          "taskId": "1f2ee8a9-f8b0-4981-b6bb-0999d22ce97f",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-034",
+      "boardId": "55c5025b-bb5d-4f7b-b96c-f21d194a035a",
+      "create": {
+        "requestId": "cf174e32-f97d-4e1c-88a5-825ed221683b",
+        "action": {
+          "kind": "create",
+          "id": "55c5025b-bb5d-4f7b-b96c-f21d194a035a",
+          "input": {
+            "title": "MW-034 · Добавить token/context/cost metrics и observability",
+            "description": "Проект DSH-MyWork | 05-learning\nЗависимости: MW-013, MW-016, MW-020, MW-025, MW-032\nАрхитектура: §15 (строка 779), §30 (строка 1928), §33 (строка 2011), §53 (строка 2514)\n\nУчитывать system/role/task/workspace/memory/skills/history/tools/cached/output, input peak, retrieval/offload/compaction/rollover. Добавить queue/utilization/latency/repair/provider metrics с correlation IDs и раздельными estimate/actual.\n\nПриёмка: Суммы проверены на synthetic events, duplicate не удваивает usage. Unknown cost явно unknown; секретов и полного prompt в metrics нет. Можно объяснить стоимость конкретной Attempt.\n\nЛокальная карточка: .work/tasks/MW-034.md\nОтчёт: .work/reports/MW-034-observability.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-034: Добавить token/context/cost metrics и observability.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-013, MW-016, MW-020, MW-025, MW-032. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §15 (строка 779), §30 (строка 1928), §33 (строка 2011), §53 (строка 2514). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nУчитывать system/role/task/workspace/memory/skills/history/tools/cached/output, input peak, retrieval/offload/compaction/rollover. Добавить queue/utilization/latency/repair/provider metrics с correlation IDs и раздельными estimate/actual.\n\nПриёмка:\nСуммы проверены на synthetic events, duplicate не удваивает usage. Unknown cost явно unknown; секретов и полного prompt в metrics нет. Можно объяснить стоимость конкретной Attempt.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-034-observability.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "05-learning"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "fbb7f63a-cee7-4949-8d89-ec9a815d0a9d",
+        "action": {
+          "kind": "move",
+          "taskId": "55c5025b-bb5d-4f7b-b96c-f21d194a035a",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-035",
+      "boardId": "d66573e0-720f-419f-ba72-a8a0bfe2d50f",
+      "create": {
+        "requestId": "c7bbe304-2c2d-4a54-bdc8-59ff321fcc54",
+        "action": {
+          "kind": "create",
+          "id": "d66573e0-720f-419f-ba72-a8a0bfe2d50f",
+          "input": {
+            "title": "MW-035 · Создать My Work UI: Overview и Tasks",
+            "description": "Проект DSH-MyWork | 06-ui\nЗависимости: MW-027, MW-029, MW-034\nАрхитектура: §12 (строка 591), §41 (строка 2216), §54 (строка 2548)\n\nВстроиться в существующий DSH UI: navigation shell, overview queues/cost/health, Tasks projection/detail/dependencies/evidence. Работать через Application API/events, не запускать scheduler из UI. Loading/empty/error/degraded и keyboard access.\n\nПриёмка: Без внешнего Board Tasks usable. Reconnect обновляет данные без duplicate; task status принадлежит graph. Проверить сценарий просмотра task→attempt→review→evidence и доступность основных контролов.\n\nЛокальная карточка: .work/tasks/MW-035.md\nОтчёт: .work/reports/MW-035-ui-tasks.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-035: Создать My Work UI: Overview и Tasks.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-027, MW-029, MW-034. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §12 (строка 591), §41 (строка 2216), §54 (строка 2548). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nВстроиться в существующий DSH UI: navigation shell, overview queues/cost/health, Tasks projection/detail/dependencies/evidence. Работать через Application API/events, не запускать scheduler из UI. Loading/empty/error/degraded и keyboard access.\n\nПриёмка:\nБез внешнего Board Tasks usable. Reconnect обновляет данные без duplicate; task status принадлежит graph. Проверить сценарий просмотра task→attempt→review→evidence и доступность основных контролов.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-035-ui-tasks.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "06-ui"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "046a8339-1011-4f3a-b97a-cb1cca50e219",
+        "action": {
+          "kind": "move",
+          "taskId": "d66573e0-720f-419f-ba72-a8a0bfe2d50f",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-036",
+      "boardId": "cccb16bb-73ae-457a-814f-2b75cafb5cda",
+      "create": {
+        "requestId": "d2e9e3e1-298a-4c2a-a635-b20692eb90f9",
+        "action": {
+          "kind": "create",
+          "id": "cccb16bb-73ae-457a-814f-2b75cafb5cda",
+          "input": {
+            "title": "MW-036 · Создать Team Work, Roles, Workflows и Settings",
+            "description": "Проект DSH-MyWork | 06-ui\nЗависимости: MW-006, MW-029, MW-030, MW-035\nАрхитектура: §6 (строка 330), §13 (строка 611), §14 (строка 735), §28 (строка 1875), §54 (строка 2548), §55 (строка 2567)\n\nTeam показывает Agent/Role/Model/State/Workspace/Current и отдельные pool counters. Минимальные редакторы Roles/Blueprints/workflows/config overlays с revision preview и validation; settings для adapters/limits/autonomy.\n\nПриёмка: UI сохраняет новую revision, не меняя frozen running Attempt. Permission/limits видны до сохранения; invalid config даёт понятную ошибку. Проверить global/isolated/inherit и пустую sleeping Team.\n\nЛокальная карточка: .work/tasks/MW-036.md\nОтчёт: .work/reports/MW-036-ui-team-settings.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-036: Создать Team Work, Roles, Workflows и Settings.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-006, MW-029, MW-030, MW-035. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §6 (строка 330), §13 (строка 611), §14 (строка 735), §28 (строка 1875), §54 (строка 2548), §55 (строка 2567). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nTeam показывает Agent/Role/Model/State/Workspace/Current и отдельные pool counters. Минимальные редакторы Roles/Blueprints/workflows/config overlays с revision preview и validation; settings для adapters/limits/autonomy.\n\nПриёмка:\nUI сохраняет новую revision, не меняя frozen running Attempt. Permission/limits видны до сохранения; invalid config даёт понятную ошибку. Проверить global/isolated/inherit и пустую sleeping Team.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-036-ui-team-settings.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "06-ui"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "28630a95-493a-47f7-b5fb-3c021fa37076",
+        "action": {
+          "kind": "move",
+          "taskId": "cccb16bb-73ae-457a-814f-2b75cafb5cda",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-037",
+      "boardId": "82c39792-856d-4168-82a4-3bbb71571e8d",
+      "create": {
+        "requestId": "cd7e0620-a0a1-4e52-844e-7d61fb722ab2",
+        "action": {
+          "kind": "create",
+          "id": "82c39792-856d-4168-82a4-3bbb71571e8d",
+          "input": {
+            "title": "MW-037 · Создать Role Lab, Activity и Audit UI",
+            "description": "Проект DSH-MyWork | 06-ui\nЗависимости: MW-033, MW-034, MW-035\nАрхитектура: §25 (строка 1648), §34 (строка 2048), §54 (строка 2548), §56 (строка 2593)\n\nПоказать role/skill revision history, learning/optimizer runs, candidate diff/evaluation/shadow/canary, controlled promote/rollback. Activity/Audit дают фильтры и ссылки по correlation без загрузки raw transcripts по умолчанию.\n\nПриёмка: Права проверяются сервером; stale candidate нельзя продвинуть поверх новой revision. Audit не редактируется UI; error/empty/paging состояния и клавиатура проверены.\n\nЛокальная карточка: .work/tasks/MW-037.md\nОтчёт: .work/reports/MW-037-ui-role-lab.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-037: Создать Role Lab, Activity и Audit UI.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-033, MW-034, MW-035. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §25 (строка 1648), §34 (строка 2048), §54 (строка 2548), §56 (строка 2593). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nПоказать role/skill revision history, learning/optimizer runs, candidate diff/evaluation/shadow/canary, controlled promote/rollback. Activity/Audit дают фильтры и ссылки по correlation без загрузки raw transcripts по умолчанию.\n\nПриёмка:\nПрава проверяются сервером; stale candidate нельзя продвинуть поверх новой revision. Audit не редактируется UI; error/empty/paging состояния и клавиатура проверены.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-037-ui-role-lab.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "06-ui"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "1fa15e86-efe2-4447-a87e-daf8840bdeda",
+        "action": {
+          "kind": "move",
+          "taskId": "82c39792-856d-4168-82a4-3bbb71571e8d",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-038",
+      "boardId": "a4edddc3-d7b6-4f39-9b89-c6489c026933",
+      "create": {
+        "requestId": "ba3dcffe-9097-4905-a276-2e899b27df06",
+        "action": {
+          "kind": "create",
+          "id": "a4edddc3-d7b6-4f39-9b89-c6489c026933",
+          "input": {
+            "title": "MW-038 · Добавить Doctor и полный adapter conformance",
+            "description": "Проект DSH-MyWork | 07-acceptance\nЗависимости: MW-010, MW-015, MW-019, MW-027, MW-029, MW-031\nАрхитектура: §37 (строка 2116), §39 (строка 2155), §57 (строка 2611)\n\nDoctor показывает installed/contract versions, required capabilities, connectivity/authentication, scopes/events/timeout/recovery по каждому adapter. Прогнать обязательные suites для TaskGraph, Runtime, Memory и остальных реализованных Ports.\n\nПриёмка: Критически неподдерживаемый контракт блокирует admission с точной причиной. Report машиночитаем и доступен в Diagnostics UI/CLI; optional degradation отличима от pass. Не тратить LLM tokens для health checks.\n\nЛокальная карточка: .work/tasks/MW-038.md\nОтчёт: .work/reports/MW-038-doctor-conformance.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-038: Добавить Doctor и полный adapter conformance.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-010, MW-015, MW-019, MW-027, MW-029, MW-031. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §37 (строка 2116), §39 (строка 2155), §57 (строка 2611). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nDoctor показывает installed/contract versions, required capabilities, connectivity/authentication, scopes/events/timeout/recovery по каждому adapter. Прогнать обязательные suites для TaskGraph, Runtime, Memory и остальных реализованных Ports.\n\nПриёмка:\nКритически неподдерживаемый контракт блокирует admission с точной причиной. Report машиночитаем и доступен в Diagnostics UI/CLI; optional degradation отличима от pass. Не тратить LLM tokens для health checks.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-038-doctor-conformance.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "07-acceptance"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "bfce2ab8-46ce-46bb-95ba-b417eeaeca03",
+        "action": {
+          "kind": "move",
+          "taskId": "a4edddc3-d7b6-4f39-9b89-c6489c026933",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-039",
+      "boardId": "c51ae89d-6f5d-49bf-8ebd-8822e10d2e28",
+      "create": {
+        "requestId": "114811e6-e03e-4596-b0f5-ab77f45d2423",
+        "action": {
+          "kind": "create",
+          "id": "c51ae89d-6f5d-49bf-8ebd-8822e10d2e28",
+          "input": {
+            "title": "MW-039 · Проверить invariants, crash recovery и security",
+            "description": "Проект DSH-MyWork | 07-acceptance\nЗависимости: MW-007, MW-024, MW-025, MW-030, MW-031, MW-033, MW-038\nАрхитектура: §58 (строка 2651), §59 (строка 2685), §60 (строка 2711)\n\nСобрать deterministic интеграционные/fault/property checks для всех invariants §59 и угроз §60. Использовать FakeClock/Runtime/Provider, временные DB/repos и реальные adapter contract suites; устранить найденные нарушения в пределах задач.\n\nПриёмка: Покрыты single lease, stale fence, Done/no active Attempt, self-review, stale approval, frozen revisions, memory scope, Board outage и duplicate event. Security cases имеют реальное запрещённое действие и доказательство отказа.\n\nЛокальная карточка: .work/tasks/MW-039.md\nОтчёт: .work/reports/MW-039-invariants-security.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-039: Проверить invariants, crash recovery и security.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-007, MW-024, MW-025, MW-030, MW-031, MW-033, MW-038. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §58 (строка 2651), §59 (строка 2685), §60 (строка 2711). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nСобрать deterministic интеграционные/fault/property checks для всех invariants §59 и угроз §60. Использовать FakeClock/Runtime/Provider, временные DB/repos и реальные adapter contract suites; устранить найденные нарушения в пределах задач.\n\nПриёмка:\nПокрыты single lease, stale fence, Done/no active Attempt, self-review, stale approval, frozen revisions, memory scope, Board outage и duplicate event. Security cases имеют реальное запрещённое действие и доказательство отказа.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-039-invariants-security.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "07-acceptance"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "68fa384d-37c8-4d24-8da0-06ee61383422",
+        "action": {
+          "kind": "move",
+          "taskId": "c51ae89d-6f5d-49bf-8ebd-8822e10d2e28",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-040",
+      "boardId": "7daa2fc9-9b07-42b4-9b45-4a42861c0ca4",
+      "create": {
+        "requestId": "19b025e5-ed42-4d23-b3c9-a632465d8bdb",
+        "action": {
+          "kind": "create",
+          "id": "7daa2fc9-9b07-42b4-9b45-4a42861c0ca4",
+          "input": {
+            "title": "MW-040 · Завершить upgrade, export/import и repair",
+            "description": "Проект DSH-MyWork | 07-acceptance\nЗависимости: MW-004, MW-039\nАрхитектура: §35 (строка 2072), §47 (строка 2374), §61 (строка 2727)\n\nСделать backup→migrate→verify→activate, migration journal, export/import и безопасный repair с документированной rollback policy. Проверять schema/adapter contract versions; исключить silent empty-state recovery.\n\nПриёмка: Фикстуры прежней/текущей/повреждённой схемы: проверяемая миграция и явный отказ без потери оригинала. Export/import round-trip сохраняет IDs/revisions/audit; прерванная миграция восстанавливается по journal.\n\nЛокальная карточка: .work/tasks/MW-040.md\nОтчёт: .work/reports/MW-040-migration-upgrade.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-040: Завершить upgrade, export/import и repair.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-004, MW-039. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §35 (строка 2072), §47 (строка 2374), §61 (строка 2727). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nСделать backup→migrate→verify→activate, migration journal, export/import и безопасный repair с документированной rollback policy. Проверять schema/adapter contract versions; исключить silent empty-state recovery.\n\nПриёмка:\nФикстуры прежней/текущей/повреждённой схемы: проверяемая миграция и явный отказ без потери оригинала. Export/import round-trip сохраняет IDs/revisions/audit; прерванная миграция восстанавливается по journal.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-040-migration-upgrade.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "07-acceptance"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "d35298fd-f131-499c-bc7b-5d8d5bed1273",
+        "action": {
+          "kind": "move",
+          "taskId": "7daa2fc9-9b07-42b4-9b45-4a42861c0ca4",
+          "status": "backlog"
+        }
+      }
+    },
+    {
+      "taskId": "MW-041",
+      "boardId": "d61d6871-0fe1-402f-b965-2557a7da5352",
+      "create": {
+        "requestId": "84aba23d-cfa1-4168-8737-48e4f09674f5",
+        "action": {
+          "kind": "create",
+          "id": "d61d6871-0fe1-402f-b965-2557a7da5352",
+          "input": {
+            "title": "MW-041 · Проверить и упаковать полный operational v0.1",
+            "description": "Проект DSH-MyWork | 07-acceptance\nЗависимости: MW-028, MW-035, MW-036, MW-037, MW-038, MW-039, MW-040\nАрхитектура: §5 (строка 242), §62 (строка 2750), §63 (строка 2798), §64 (строка 2813), §66 (строка 2880)\n\nСверить все 39 требований §62 с реализацией/evidence. Выполнить isolated install/activate/upgrade и сценарий goal→planner→worker→gates→reject/repair→approve→integrate→Done плюс restart/closed UI. Подготовить локальный пакет, README и инструкции Embedded/Resident для Windows/Linux/macOS.\n\nПриёмка: Матрица §62 не содержит скрытых gaps: неподтверждённая платформа или live integration явно blocked/unverified. Pack не включает .work/secrets/runtime state. Не публиковать npm/GitHub release, не push/merge без отдельного разрешения.\n\nЛокальная карточка: .work/tasks/MW-041.md\nОтчёт: .work/reports/MW-041-v01-acceptance.md\nЗапуск вручную; зависимости не блокируются доской автоматически.",
+            "prompt": "Выполни только MW-041: Проверить и упаковать полный operational v0.1.\nПроект: H:\\Repo\\DSH-MyWork. Модель: OpenCode Go / DeepSeek V4.1 Flash.\nСначала прочитай .work/README.md и .work/EXECUTION-PLAN.md, проверь git status и текущие инструкции проекта. Не меняй чужую незавершённую работу.\nЗависимости: MW-028, MW-035, MW-036, MW-037, MW-038, MW-039, MW-040. Проверь их результаты по исходникам и отчётам; если они не приняты, остановись с BLOCKED и точной причиной.\nАрхитектура: .work/architecture/DSH-My-Work-Architecture-v0.1.md. Нужные разделы: §5 (строка 242), §62 (строка 2750), §63 (строка 2798), §64 (строка 2813), §66 (строка 2880). Не загружай весь документ без необходимости; примеры API сверяй с реальным SDK.\n\nОбъём:\nСверить все 39 требований §62 с реализацией/evidence. Выполнить isolated install/activate/upgrade и сценарий goal→planner→worker→gates→reject/repair→approve→integrate→Done плюс restart/closed UI. Подготовить локальный пакет, README и инструкции Embedded/Resident для Windows/Linux/macOS.\n\nПриёмка:\nМатрица §62 не содержит скрытых gaps: неподтверждённая платформа или live integration явно blocked/unverified. Pack не включает .work/secrets/runtime state. Не публиковать npm/GitHub release, не push/merge без отдельного разрешения.\n\nОграничения исполнения: одна карточка за запуск; не переходи к следующей. Используй существующие patterns/DSH API/stdlib, без speculative scaffolding. Сначала узкая проверка, затем расширение по риску. Не запускай субагентов, платные LLM-пробы или другую модель автоматически. Не меняй живой DSH profile, чужие проекты или доску разработки. При неоднозначности поведения, architecture или security задай пользователю короткий вопрос; не выдумывай fallback.\nНе выполняй push/merge/publish/release без отдельного запроса. Commit — только если пользователь отдельно поручил; для отчёта достаточно diff и base SHA. Не отмечай работу принятой только по self-review.\nСохрани результат в .work/reports/MW-041-v01-acceptance.md: сделано, изменённые файлы, команды и exit codes, evidence, ограничения и статус READY_FOR_REVIEW/BLOCKED. Кратко ответь по-русски.",
+            "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+            "model": "opencode-go/deepseek-v4.1-flash",
+            "permission": "workspace-write",
+            "reuseSession": false,
+            "tags": [
+              {
+                "name": "DSH-MyWork"
+              },
+              {
+                "name": "07-acceptance"
+              }
+            ]
+          }
+        }
+      },
+      "move": {
+        "requestId": "1b943e77-84a0-4da6-bac8-9e508a69d904",
+        "action": {
+          "kind": "move",
+          "taskId": "d61d6871-0fe1-402f-b965-2557a7da5352",
+          "status": "backlog"
+        }
+      }
+    }
+  ]
+}

@@ -1,4 +1,7 @@
-/.work/
+# `.work/` is tracked on purpose since 2026-10-03 (owner decision): the plan
+# corpus is the input of `pnpm run check:plan`, and a gitignored corpus left the
+# corpus half of that gate unreachable everywhere but the author's machine
+# (defect R-54). Only scratch stays out.
 /.tmp/
 /.pnpm-store/
 /.dsh/

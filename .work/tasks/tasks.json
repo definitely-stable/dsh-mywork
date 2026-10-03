@@ -1,0 +1,1466 @@
+{
+  "schemaVersion": 1,
+  "planRevision": 2,
+  "project": "DSH-MyWork",
+  "repository": "https://github.com/definitely-stable/dsh-mywork",
+  "workspace": "H:\\Repo\\DSH-MyWork",
+  "workspaceId": "3fc33afb-e9c6-4bf2-b561-4388c8ad0e09",
+  "existingProjectSessionId": "session-c9b415f6-e372-43b0-a829-df291a2a35b9",
+  "model": "opencode-go/deepseek-v4.1-flash",
+  "architecture": ".work/architecture/DSH-My-Work-Architecture-v0.1.md",
+  "sourceVersion": "v0.2",
+  "executionStarted": false,
+  "tasks": [
+    {
+      "id": "MW-001",
+      "phase": "00-foundation",
+      "title": "Проверить целевой DSH и контракты интеграций",
+      "sections": [
+        5,
+        11,
+        12,
+        21,
+        29,
+        37,
+        57
+      ],
+      "dependsOn": [],
+      "status": "planned",
+      "scope": "Зафиксировать версии и реальные API DSH/Cordis, Node/package manager, Beads, установленной Task Board и доступных memory backends. Проверить create/stop/status сессий, scoped prompt/tools, каталог моделей и OpenCode Go/deepseek-v4.1-flash. Выбрать один внешний memory adapter по подтверждённым возможностям; предпочтение установленному OpenViking.",
+      "acceptance": "Матрица supported/unsupported/unverified содержит ссылки на исходники или результаты безопасных проб. Отсутствующие критические capabilities явно блокируют соответствующие задачи. Не запускать платные LLM-пробы и не чинить чужие проекты.",
+      "report": ".work/reports/MW-001-target-capabilities.md",
+      "baselineItems": [],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-002",
+      "phase": "00-foundation",
+      "title": "Создать минимальный каркас Cordis-плагина",
+      "sections": [
+        36,
+        38,
+        45,
+        46,
+        58
+      ],
+      "dependsOn": [
+        "MW-001"
+      ],
+      "status": "planned",
+      "scope": "Создать dsh-mywork: package manifest, TypeScript build, plugin activation/dispose и минимальные команды проверок. Сохранить границы contracts/core/adapters/controller; предложенный список пакетов не требует пустого пакета на каждый пункт. Использовать подтверждённый SDK и его правила публикации.",
+      "acceptance": "Плагин собирается, упаковывается локально и активируется/выгружается в изолированном тестовом профиле. Есть один воспроизводимый smoke и основа для FakeClock/FakeRuntime без LLM. Рабочий профиль пользователя не менять.",
+      "report": ".work/reports/MW-002-bootstrap.md",
+      "baselineItems": [],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-003",
+      "phase": "00-foundation",
+      "title": "Определить доменные контракты и переходы состояний",
+      "sections": [
+        8,
+        13,
+        17,
+        18,
+        35,
+        36,
+        42,
+        43
+      ],
+      "dependsOn": [
+        "MW-002"
+      ],
+      "status": "planned",
+      "scope": "Описать Task/Attempt/Review, Agent Identity/Blueprint/Role, revisions, operation/correlation IDs, Result/Error и event envelope. Реализовать валидируемые чистые state transitions и ownership из матрицы authority; интеграции только через Ports.",
+      "acceptance": "Проверки разрешённых и запрещённых переходов; завершённая Task не допускает active Attempt; stale revision/fence имеет отдельную ошибку. Доменные модули не импортируют DSH/Beads/конкретную память.",
+      "report": ".work/reports/MW-003-domain-contracts.md",
+      "baselineItems": [
+        32
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-004",
+      "phase": "00-foundation",
+      "title": "Добавить durable SQLite state и outbox/inbox",
+      "sections": [
+        7,
+        9,
+        47,
+        48,
+        61
+      ],
+      "dependsOn": [
+        "MW-003"
+      ],
+      "status": "planned",
+      "scope": "Хранить runtime state вне пользовательского репозитория под DSH_HOME/dsh-mywork. Ввести schemaVersion, миграции, WAL, транзакции mutation+outbox и inbox event dedup. Добавлять таблицы по реально реализованным сущностям, не создавать speculative repositories.",
+      "acceptance": "Повторный event не меняет результат; restart сохраняет данные; сбой между mutation и commit не оставляет половину изменения. Тесты работают в временной директории и не используют живую DSH БД.",
+      "report": ".work/reports/MW-004-storage.md",
+      "baselineItems": [],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-005",
+      "phase": "00-foundation",
+      "title": "Создать Adapter SDK, registry и conformance основу",
+      "sections": [
+        36,
+        37,
+        38,
+        39,
+        44
+      ],
+      "dependsOn": [
+        "MW-003"
+      ],
+      "status": "planned",
+      "scope": "Определить contracts/register/capability negotiation, version checks и единые errors. Подготовить общие contract checks и небольшие fakes основных Ports; расширять набор вместе с адаптерами.",
+      "acceptance": "Несовместимая версия и ложная/отсутствующая required capability дают явный отказ. Совместимый fake регистрируется/удаляется. Core не ветвится по имени провайдера.",
+      "report": ".work/reports/MW-005-adapter-sdk.md",
+      "baselineItems": [
+        32,
+        33,
+        34
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-006",
+      "phase": "00-foundation",
+      "title": "Реализовать конфигурацию, Team и неизменяемые revisions",
+      "sections": [
+        6,
+        13,
+        14,
+        35,
+        52
+      ],
+      "dependsOn": [
+        "MW-004",
+        "MW-005"
+      ],
+      "status": "planned",
+      "scope": "Ввести global/isolated/inherit с порядком overlays, Team, Role Contract/Strategy, Blueprints, Identity и ConfigRevision. Зафиксировать resolved revisions при admission Attempt; runtime/session не хранить как Identity.",
+      "acceptance": "Тесты precedence, namespace isolation и frozen running revisions. Изменение Blueprint применяется лишь к будущему запуску; запрещены cross-workspace DAG edges. Role Contract отделён от обучаемой Strategy.",
+      "report": ".work/reports/MW-006-team-config.md",
+      "baselineItems": [
+        4,
+        5,
+        6,
+        29
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-007",
+      "phase": "00-foundation",
+      "title": "Обеспечить runtime permissions и границы workspace",
+      "sections": [
+        28,
+        31,
+        52,
+        60
+      ],
+      "dependsOn": [
+        "MW-005",
+        "MW-006"
+      ],
+      "status": "planned",
+      "scope": "Применять полномочия роли к filesystem/shell/network/MCP/secrets/git/task/review transitions в runtime. Reviewer по умолчанию read-only для implementation; credential references вместо секретов. Использовать штатную авторизацию DSH.",
+      "acceptance": "Проверки path/worktree escape, запрета self-approval, доступа к чужому workspace и эскалации полномочий. Prompt и memory не расширяют права; неизвестная capability не даёт разрешение.",
+      "report": ".work/reports/MW-007-security.md",
+      "baselineItems": [
+        39
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-008",
+      "phase": "00-foundation",
+      "title": "Добавить Artifact Store и append-only Audit",
+      "sections": [
+        32,
+        33,
+        34
+      ],
+      "dependsOn": [
+        "MW-004",
+        "MW-007"
+      ],
+      "status": "planned",
+      "scope": "Создать локальный immutable artifact store с hash/ref и append-only audit. Сохранять verification/review/context/checkpoint evidence с workspace/task/attempt/correlation IDs; отделить audit от обычной ротации логов.",
+      "acceptance": "Повторная запись с иным содержимым не перезаписывает artifact; хеш проверяется при чтении; секреты не попадают в метаданные. Audit переживает restart и log rotation.",
+      "report": ".work/reports/MW-008-evidence-audit.md",
+      "baselineItems": [
+        30,
+        31
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-009",
+      "phase": "01-runtime",
+      "title": "Реализовать Controller lease, epoch и lifecycle",
+      "sections": [
+        5,
+        16,
+        17,
+        49
+      ],
+      "dependsOn": [
+        "MW-004",
+        "MW-008"
+      ],
+      "status": "planned",
+      "scope": "Реализовать acquire/heartbeat/expire/release Controller lease через CAS и монотонный epoch. При activation открыть stores и reconcile, при dispose корректно остановить admission и освободить ресурсы.",
+      "acceptance": "Два Controller не становятся writer одновременно. FakeClock проверяет expiry/failover; старый epoch не коммитит изменения после передачи leadership. Открытая вкладка не нужна для lifecycle.",
+      "report": ".work/reports/MW-009-controller-lease.md",
+      "baselineItems": [
+        1,
+        3
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-010",
+      "phase": "01-runtime",
+      "title": "Реализовать Beads TaskGraph adapter с capability negotiation",
+      "sections": [
+        8,
+        9,
+        11,
+        39,
+        48
+      ],
+      "dependsOn": [
+        "MW-005",
+        "MW-009"
+      ],
+      "status": "planned",
+      "scope": "Подключить подтверждённую версию Beads 1.3.0 через capability-aware адаптер: CLI-only (bd create --graph как атомарный composite с cycle-check, bd batch как одна транзакция, включая dep add и dep remove, bd update --if-status/--if-assignee как guard с exit 13, bd update --claim, bd heartbeat, bd reclaim, bd events tail --since). bd serve не поднимается: HTTP-транспорт остаётся спроектированным, но не построенным портом с capability http=false, поэтому guard expected_version на composite недоступен, и composite с ожидаемой ревизией идёт через staged-мутацию, а не эмулируется. Реализовать get/ready/claim/transition/dependencies/mutatePlan, mapping статусов и приоритетов, reconciliation loop и поведение при outage. Beads владеет task graph; attempts, leases, reviews и git refs остаются в MyWork. Воркспейс уже инициализирован владельцем: .beads в корне репозитория, backend dolt, режим embedded, prefix mw (id вида mw-<hash>), каталог скрыт через .git/info/exclude. Связь карточки с задачей идёт через external_ref вида mw-card:MW-0XX. Адаптер не выполняет bd init и не зависит от Dolt-remote: origin недоступен из этой среды, поэтому bd dolt push/pull вне scope.",
+      "acceptance": "AdapterCapabilityManifest перечисляет http, graph-apply, batch, batch-dep-remove, guarded-batch, metadata-set, events-journal, claim-lease, heartbeat, reclaim, и отсутствующая возможность даёт типизированный отказ, а не эмуляцию. Инверсия приоритета проверена round-trip на 0..4 и на отсутствующем значении (Beads 0 — высший, MyWork — higher first). cancelled и superseded отображаются в frozen-статусы и НЕ удовлетворяют зависимость: зависимый остаётся заблокированным, пока MyWork не потребует явного решения. draft и planned отображаются в wip-статусы и не появляются в bd ready; ready отображается в open. Review находится в wip-категории. Metadata пишется только ключевыми операциями, документная замена не используется. При отсутствии beads-воркспейса адаптер отказывает fail closed и выдаёт точную команду инициализации, не выполняя bd init. Concurrent claim: ровно один выигрывает. Cycle и stale revision отвергаются. Повтор операции идемпотентен. Journal читается курсором и после sync выполняется re-baseline. Адаптер работает на существующем воркспейсе .beads с prefix mw и не создаёт его сам. Готовность читается только из bd ready и bd blocked: поля is_blocked в bd list --json нет ни у одной задачи, включая заблокированные, поэтому опираться на него запрещено. status.custom должен содержать полный набор из ADR023 (десять статусов); неполный набор даёт предупреждение Doctor, а не молчаливую работу. Доказано экспериментом: frozen-блокер оставляет зависимого заблокированным, wip-статусы не появляются в bd ready, единственный ready-статус — open. Контрактные тесты работают на воркспейсе ВНЕ дерева репозитория: bd отказывается создавать вложенный воркспейс, а любая команда из подкаталога репозитория попадает в воркспейс предка. Journal-курсор инвалидируется не только после bd dolt pull, но и при смене Dolt-ветки. Worktree разделяет базу через git common directory discovery, ручной redirect не нужен и не должен появляться. Write-путь проверен под ограниченной песочницей (create/list/delete — exit 0), поэтому недоступность Dolt-корня должна давать ADAPTER_UNAVAILABLE и Doctor-пункт, а не молчаливый повтор. bd init при недоступном Dolt-корне падает паникой (exit 2) вместо чистой ошибки — этот случай обязан распознаваться по exit code и stderr. Doctor проверяет полноту status.custom: набор из десяти статусов ADR023 вместе с их категориями, и при неполном наборе предупреждает, перечисляя отсутствующие.",
+      "report": ".work/reports/MW-010-beads-adapter.md",
+      "baselineItems": [
+        10
+      ],
+      "adrs": [
+        "ADR023",
+        "ADR024"
+      ],
+      "supersededBy": null
+    },
+    {
+      "id": "MW-011",
+      "phase": "01-runtime",
+      "title": "Валидировать Plan Mutation, staged activation и replanning",
+      "sections": [
+        9,
+        10,
+        11,
+        18
+      ],
+      "dependsOn": [
+        "MW-010"
+      ],
+      "status": "planned",
+      "scope": "Реализовать structured Plan Mutation с baseRevision, create/update/dependencies и классификацией изменений (unchanged, modified, cancelled, superseded, newly-created). Для composite-мутации, которая не выражается одним примитивом Beads (dep_remove вместе с metadata/labels), реализовать staged operation: admission pause, запись staged-записи, раздельное применение, integrity verification и recovery state. Реализовать additive-only классификатор, которым L3 решает, можно ли утвердить план без человека. Worker создаёт WorkProposal и не перестраивает DAG. Плюс производный BlockerResolutionGate: он открыт ровно тогда, когда существует frozen-блокер с неудовлетворённым зависимым, и персистится только решение; действия void, keep-blocking и supersede-dependent. Плюс операторский выход из PLAN_MUTATION_RECOVERY: resume, revert (только для шагов, помеченных обратимыми) и отчёт целостности, доступные и без UI, потому что доска сама может быть недоступна.",
+      "acceptance": "Отклоняются cycles, stale revisions и недопустимые изменения running Task: running task меняется только по явной policy. Composite-мутация с dep_remove проходит через staged: новые admission приостановлены, staged-запись сохранена, при ошибке на середине состояние становится PLAN_MUTATION_RECOVERY и ни один зависимый не стартует, при успехе integrity verification подтверждает отсутствие циклов и целостность DAG до возобновления очереди. Частично невидимого DAG не возникает ни в одном сценарии. additiv-only классификатор возвращает true только для create и dep_add и false при любом update, removal, смене scope или приоритета. Повтор staged не дублирует задачи. Proposal проходит отдельный путь принятия. Отмена блокера с двумя зависимыми даёт гейт ровно на этих двух; void снимает оба ребра через staged и переводит зависимых в ready; keep-blocking оставляет причину в audit; supersede-dependent переводит обоих в superseded; блокер в done гейта не порождает. После kill контроллера в середине применения recovery и пауза admission сохраняются; resume доводит план с пройденной integrity verification; revert восстанавливает прежний набор зависимостей; ни один путь не оставляет частично видимого DAG.",
+      "report": ".work/reports/MW-011-plan-mutations.md",
+      "baselineItems": [
+        9
+      ],
+      "adrs": [
+        "ADR019",
+        "ADR024"
+      ],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-012",
+      "phase": "01-runtime",
+      "title": "Реализовать claim saga, Attempts, leases и fences",
+      "sections": [
+        9,
+        17,
+        18,
+        48,
+        49
+      ],
+      "dependsOn": [
+        "MW-009",
+        "MW-010",
+        "MW-011"
+      ],
+      "status": "planned",
+      "scope": "Добавить ClaimIntent → graph claim → Attempt+lease → projection → completed с operationId. Все authoritative callbacks проверяют task revision, epoch и fence; определить recover/revoke для незавершённой saga.",
+      "acceptance": "Fault injection после каждого шага claim не приводит к двойному execution. Late result старой попытки отклонён. У Task не более одного authoritative execution lease.",
+      "report": ".work/reports/MW-012-attempt-saga.md",
+      "baselineItems": [
+        13
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-013",
+      "phase": "01-runtime",
+      "title": "Добавить model routing и бюджетный admission",
+      "sections": [
+        14,
+        15,
+        29,
+        30,
+        53
+      ],
+      "dependsOn": [
+        "MW-005",
+        "MW-006",
+        "MW-007"
+      ],
+      "status": "planned",
+      "scope": "Использовать реальный DSH model catalog: preferred/fallback/escalation, provider availability и context window. Добавить limits tokens/cost/attempts/review loops/planner/optimizer/workspace/provider; route записывать в provenance. Для разработки default — OpenCode Go Flash без автоматического перехода на платную frontier-модель.",
+      "acceptance": "FakeProvider проверяет лимит ровно на границе, outage и отсутствие маршрута. Неизвестные cost/usage не выдаются за ноль. Исчерпание бюджета останавливает admission и выдаёт причину.",
+      "report": ".work/reports/MW-013-routing-budget.md",
+      "baselineItems": [
+        7,
+        38
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-014",
+      "phase": "01-runtime",
+      "title": "Реализовать детерминированный Scheduler и pools",
+      "sections": [
+        14,
+        15,
+        16,
+        27,
+        30
+      ],
+      "dependsOn": [
+        "MW-012",
+        "MW-013"
+      ],
+      "status": "planned",
+      "scope": "Сделать event-driven kick и safety reconcile, eligibility по role/capability/workspace/security/budget/provider, отдельные Worker/Reviewer pools, лимиты attempts/LLM/heavy tools. Добавить priority+aging и ограниченную fairness между workspace.",
+      "acceptance": "Одинаковое состояние даёт одинаковое назначение; concurrency не превышает caps; dependency release будит ready задачу. Sleeping/idle не вызывает LLM; missed event восстанавливается reconcile. Advanced adaptive pools оставить за v0.1.",
+      "report": ".work/reports/MW-014-scheduler.md",
+      "baselineItems": [
+        5,
+        8,
+        12
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-015",
+      "phase": "01-runtime",
+      "title": "Реализовать DSH AgentRuntime и Session adapters",
+      "sections": [
+        21,
+        22,
+        29,
+        36,
+        39
+      ],
+      "dependsOn": [
+        "MW-005",
+        "MW-007",
+        "MW-013"
+      ],
+      "status": "planned",
+      "scope": "По MW-001 реализовать create/resume/stop/status/events, model selection, scoped system prompt/dynamic context и tool surface. Использовать публичные DSH API; сохранять реальные session IDs и route.",
+      "acceptance": "Contract checks покрывают stop/cancel, missing Session, duplicate/late event и restart. Scoped permissions и model binding сохраняются. Сначала FakeRuntime и keyless probe; платные проверки только по отдельному разрешению.",
+      "report": ".work/reports/MW-015-dsh-runtime.md",
+      "baselineItems": [
+        7,
+        22
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-016",
+      "phase": "02-context",
+      "title": "Построить Context Fabric и snapshots",
+      "sections": [
+        21,
+        35,
+        53
+      ],
+      "dependsOn": [
+        "MW-005",
+        "MW-006",
+        "MW-008",
+        "MW-013"
+      ],
+      "status": "planned",
+      "scope": "Реализовать discover → rank/budget → materialize, L0/L1/L2, mandatory role/task/security и working/safety reserve от выбранной модели. Snapshot фиксирует revisions, route, tools, hashes, estimates и provenance. Только Fabric вставляет контекст в prompt.",
+      "acceptance": "L2 загружается по запросу; повтор материализации проверяет revision/hash. Overflow mandatory context блокирует admission. Низкодоверенные данные не становятся instructions; snapshot неизменяем.",
+      "report": ".work/reports/MW-016-context-fabric.md",
+      "baselineItems": [
+        19,
+        20,
+        21
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-017",
+      "phase": "02-context",
+      "title": "Реализовать Skill Registry и Context Provider",
+      "sections": [
+        21,
+        24,
+        35
+      ],
+      "dependsOn": [
+        "MW-006",
+        "MW-016"
+      ],
+      "status": "planned",
+      "scope": "Добавить версионируемые skills со scope/trust/compatibility/status и lifecycle Candidate/Active/Stale/Archived. Discover отдаёт L0/L1; body — только по materialize. Связать SkillContextProvider с Fabric.",
+      "acceptance": "Проверки scope, version pinning и lazy loading. Неподдерживаемый skill не активируется; обновление не меняет running Attempt. Не превращать memory records в skills автоматически.",
+      "report": ".work/reports/MW-017-skills.md",
+      "baselineItems": [
+        20
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-018",
+      "phase": "02-context",
+      "title": "Реализовать Memory Fabric и Native Memory",
+      "sections": [
+        21,
+        23,
+        31,
+        52
+      ],
+      "dependsOn": [
+        "MW-005",
+        "MW-008",
+        "MW-016"
+      ],
+      "status": "planned",
+      "scope": "Ввести retain/recall/optional reflect, scopes/kinds/provenance/trust/validity, dedup/conflict/supersede lifecycle и один primary writer на scope. Реализовать Native и Disabled providers, MemoryContextProvider и явную degraded policy.",
+      "acceptance": "Проверить изоляцию workspace, idempotent retain, конфликт/устаревание, invalid ref и timeout. Недоступность optional memory допустима только согласно policy и видна в diagnostics. Raw transcripts не копируются в prompt.",
+      "report": ".work/reports/MW-018-native-memory.md",
+      "baselineItems": [
+        20,
+        24,
+        25
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-019",
+      "phase": "02-context",
+      "title": "Подключить один внешний Memory adapter",
+      "sections": [
+        23,
+        37,
+        39,
+        57
+      ],
+      "dependsOn": [
+        "MW-018"
+      ],
+      "status": "planned",
+      "scope": "Реализовать один внешний backend, выбранный в MW-001 по доступному контракту; OpenViking — предпочтительный кандидат при подтверждении API. Отразить реальные retain/recall/reflect/versioning capabilities и маршрутизацию writer.",
+      "acceptance": "Conformance: scope isolation, idempotency, invalid ref, timeout/cancel, backend unavailable, contract mismatch. Не имитировать unsupported reflect; не добавлять второй внешний backend ради списка.",
+      "report": ".work/reports/MW-019-external-memory.md",
+      "baselineItems": [
+        26
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-020",
+      "phase": "02-context",
+      "title": "Реализовать checkpoint, session rollover и context pressure",
+      "sections": [
+        22,
+        32,
+        35
+      ],
+      "dependsOn": [
+        "MW-008",
+        "MW-015",
+        "MW-016"
+      ],
+      "status": "planned",
+      "scope": "Fresh Session per Attempt/Review/planning. Capsule содержит decisions, artifacts, base/head, verification/findings, unresolved и exact anchors. Реализовать prune/offload/dematerialize/compaction/rollover; окно меняется внутри той же Attempt.",
+      "acceptance": "Rollover сохраняет Attempt и anchors; retry/reject создаёт новую Attempt/Session. Не переносится полный transcript. Ошибка сохранения checkpoint не теряет evidence и не имитирует завершение.",
+      "report": ".work/reports/MW-020-sessions.md",
+      "baselineItems": [
+        17,
+        22,
+        23
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-021",
+      "phase": "03-execution",
+      "title": "Реализовать изоляцию Git worktrees",
+      "sections": [
+        19,
+        31,
+        32,
+        52
+      ],
+      "dependsOn": [
+        "MW-008",
+        "MW-012"
+      ],
+      "status": "planned",
+      "scope": "Для coding Attempt pin base SHA, создать отдельную branch/worktree, хранить base/head/diff hash и workspace binding. Cleanup/retention только по policy, с проверкой resolved paths и dirty evidence.",
+      "acceptance": "Параллельные attempts не пишут в общий checkout. Нельзя выйти из разрешённого worktree; cleanup не удаляет чужую/грязную работу. Для пустого Git repo — явный precondition, без скрытого первого коммита.",
+      "report": ".work/reports/MW-021-worktrees.md",
+      "baselineItems": [
+        14
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-022",
+      "phase": "03-execution",
+      "title": "Связать Worker execution от admission до результата",
+      "sections": [
+        13,
+        16,
+        17,
+        19,
+        21,
+        22,
+        35,
+        66
+      ],
+      "dependsOn": [
+        "MW-014",
+        "MW-015",
+        "MW-016",
+        "MW-017",
+        "MW-018",
+        "MW-020",
+        "MW-021"
+      ],
+      "status": "planned",
+      "scope": "Связать scheduler → claim → worktree → frozen context → fresh Worker Session → evidence/checkpoint → settling. Identity остаётся долговечной; sleeping после завершения не держит модель. Worker не финализирует TaskGraph Done.",
+      "acceptance": "Один сценарий на fakes проходит end-to-end; failure сохраняет evidence и освобождает capacity. Restart и late callback не создают вторую authoritative попытку. Каждая попытка хранит использованные revisions.",
+      "report": ".work/reports/MW-022-worker-flow.md",
+      "baselineItems": [
+        5
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-023",
+      "phase": "03-execution",
+      "title": "Добавить детерминированные verification gates",
+      "sections": [
+        19,
+        26,
+        32,
+        58
+      ],
+      "dependsOn": [
+        "MW-022"
+      ],
+      "status": "planned",
+      "scope": "Запускать configured build/tests/lint/policy/artifact/base/head gates в worktree до review; результаты и exit codes хранить как artifacts. Набор проверок зависит от workspace/task.",
+      "acceptance": "Failing/missing gate блокирует review admission и Done. Gates относятся к exact head и имеют bounded timeout/cancel. Нельзя превратить ошибку инструмента в PASS.",
+      "report": ".work/reports/MW-023-verification-gates.md",
+      "baselineItems": [
+        15
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-024",
+      "phase": "03-execution",
+      "title": "Реализовать независимый Review и reject flow",
+      "sections": [
+        18,
+        19,
+        22,
+        26,
+        27,
+        31
+      ],
+      "dependsOn": [
+        "MW-015",
+        "MW-020",
+        "MW-023"
+      ],
+      "status": "planned",
+      "scope": "Добавить отдельную Review очередь/pool, fresh Session, evidence package и structured findings. Approval привязать к reviewedHeadSha/diffHash. Reject возвращает ту же Identity/worktree с новой Attempt и checkpoint/findings; лимитировать review loops.",
+      "acceptance": "Self-review запрещён; Reviewer не редактирует implementation. Изменение SHA/diff отменяет approval. Reject/NeedsEvidence/Escalated корректно переходят в следующий state; превышение loops требует решения.",
+      "report": ".work/reports/MW-024-review.md",
+      "baselineItems": [
+        8,
+        16,
+        17
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-025",
+      "phase": "03-execution",
+      "title": "Реализовать Integrator и завершение TaskGraph",
+      "sections": [
+        9,
+        19,
+        20,
+        26,
+        28
+      ],
+      "dependsOn": [
+        "MW-010",
+        "MW-021",
+        "MW-024"
+      ],
+      "status": "planned",
+      "scope": "Интегрировать только approved immutable result: проверить base/head freshness, локально rebase/merge по policy, повторить необходимые gates, затем идемпотентно финализировать graph. Семантический conflict → human decision или явно разрешённый маршрут.",
+      "acceptance": "Stale approval не интегрируется; failed verify/conflict не помечает Task Done. Повтор finalize безопасен. Тесты работают в временных репозиториях; protected remote branches не меняются. Интегратор пишет ссылку на задачу в тело коммита строкой Refs: mw-<hash>, и тест проверяет её наличие в коммите, созданном интегратором; связь не зависит от установленных git-хуков Beads, которые в этом воркспейсе сознательно не ставились.",
+      "report": ".work/reports/MW-025-integrator.md",
+      "baselineItems": [
+        18
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-026",
+      "phase": "03-execution",
+      "title": "Подключить отдельного Task Setter к DSH",
+      "sections": [
+        10,
+        21,
+        22,
+        29,
+        66
+      ],
+      "dependsOn": [
+        "MW-011",
+        "MW-015",
+        "MW-016"
+      ],
+      "status": "planned",
+      "scope": "Planner получает goal/workspace/current graph, запускается в fresh Session, выдаёт validated Plan Mutation и завершает работу. Task Setter не состоит в Worker pool и не общается с исполнителями; semantic WorkProposal/replan направлять сюда. Плюс роль planner из реестра, модель по ModelPolicy воркспейса, права read-only, выход — artifact planner-dag и структурированный PlanMutation. Planner выдаёт только additive: создание задач и рёбер между новыми; изменение существующей задачи — отдельная ReplanCommand со своим approval, и смешение запрещено типом. Утверждение — предпросмотр структурой (задачи, рёбра, claims, work type, вычисленный класс мутации) с действиями Comment, Approve и Reject; правка плана в UI в объём не входит.",
+      "acceptance": "Невалидный/устаревший output не меняет graph. Planner не выполняет implementation и не остаётся runtime coordinator. Route настраиваемый; тесты fake/keyless, без обязательной frontier модели. Мутация с update существующей задачи отклоняется с PLANNER_SCOPE_DENIED и граф не меняется. Сессия Planner не может писать в workspace. Отклонённый план не оставляет ни задач, ни artifact planner-dag в применённом состоянии.",
+      "report": ".work/reports/MW-026-task-setter.md",
+      "baselineItems": [
+        9
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-027",
+      "phase": "04-control",
+      "title": "Реализовать Task Board production и Null adapters",
+      "sections": [
+        8,
+        12,
+        36,
+        39,
+        49
+      ],
+      "dependsOn": [
+        "MW-005",
+        "MW-010",
+        "MW-025"
+      ],
+      "status": "superseded",
+      "scope": "Подключить существующую DSH Task Board как projection/control surface; изменения authoritative graph идут через MyWork commands. Добавить Null adapter и модель данных для встроенного Tasks. Не использовать доску разработки dsh-mywork как runtime test ledger.",
+      "acceptance": "Outage Board помечает projection degraded, execution продолжается. Повтор projection не дублирует карточки. UI layout остаётся у Board, task semantic state — у TaskGraph; contract checks обоих adapters.",
+      "report": ".work/reports/MW-027-taskboard-adapter.md",
+      "baselineItems": [
+        11
+      ],
+      "supersededBy": [
+        "MW-042",
+        "MW-047",
+        "MW-048"
+      ],
+      "supersededReason": "Формулировка «подключить существующую доску как опциональную проекцию» недостаточна: по решению владельца доска MyWork — first-party control surface с собственной доменной моделью, projection backend, нативными слотами DSH и мастером импорта. Роль MW-027 разделена между MW-042 (контракты и проекция), MW-047 (backend проекции), MW-048 (native host) и MW-050 (взаимодействие).",
+      "adrs": []
+    },
+    {
+      "id": "MW-028",
+      "phase": "04-control",
+      "title": "Поддержать Embedded и Resident Controller",
+      "sections": [
+        5,
+        7,
+        16,
+        40,
+        49
+      ],
+      "dependsOn": [
+        "MW-009",
+        "MW-014",
+        "MW-022",
+        "MW-025"
+      ],
+      "status": "planned",
+      "scope": "Запускать Controller от lifecycle плагина в embedded и отдельном поддерживаемом DSH profile в resident/headless. Один application слой, внешний state directory, graceful shutdown и reconnect клиентов.",
+      "acceptance": "Закрытие браузера не останавливает resident execution. Два deployment не нарушают single-controller invariant. Restart делает reconcile до admission; профиль проверяется отдельно от живой установки пользователя.",
+      "report": ".work/reports/MW-028-deployment-modes.md",
+      "baselineItems": [
+        1,
+        2
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-029",
+      "phase": "04-control",
+      "title": "Открыть Application API, HTTP/SSE и CLI",
+      "sections": [
+        40,
+        41,
+        42,
+        43
+      ],
+      "dependsOn": [
+        "MW-018",
+        "MW-026",
+        "MW-028",
+        "MW-043",
+        "MW-047"
+      ],
+      "status": "planned",
+      "scope": "Одна application-логика обслуживает Cordis, локальный HTTP/Web RPC и минимальный CLI. Реализовать versioned /v1 endpoints из §41 и базовую board-поверхность: board/snapshot, board/views, ideas, tasks/{id}/commands, workflows, import/preview, import/commit, events?after=<cursor>. Маршруты обсуждения и steering регистрирует MW-046 поверх этого API. Регистрация через ctx.webServer.register с защитой loopback-адресом сокета, allowlist Host, проверкой Origin/Same-Site и обязательным idempotency key на не-GET. Management-токен Beads в браузер не передаётся.",
+      "acceptance": "Маршруты регистрируются через connection.fetch.register точными путями /api/mywork/... и наследуют Host/Origin-проверки и browser-session-аутентификацию client-connection; своего Host/Origin-guard нет. Установлено по коду: client-connection держит единственный prefix-маршрут /api, который сперва вызывает requestRejection и лишь затем передаёт запрос в общий fetch-обработчик, а тот ищет точный путь среди зарегистрированных, поэтому наследование возможно и является единственным разрешённым путём. Повтор mutation возвращает тот же эффект; stale revision даёт типизированную ошибку. Cursor reconnect не теряет логические события и не дублирует их. Unauthorized или invalid запросы не меняют state. Transport не дублирует бизнес-логику: тот же сценарий через Cordis, HTTP и CLI даёт идентичный результат. SSE-кадр не содержит карточек. Запрос без idempotency key на мутирующий маршрут отвергается. Прямой доступ браузера к Beads или scheduler отсутствует, и ни один ответ не содержит management-токен. Запрос с чужим Host или без browser-auth отвергается до попадания в обработчик MyWork. Дубликат точного пути бросает. Выгрузка плагина снимает все маршруты MyWork. Первым шагом проверено, проходит ли http-bridge потоковый ответ: если нет, канал событий уходит на собственный prefix webServer и это зафиксировано вместе с моделью угроз.",
+      "report": ".work/reports/MW-029-application-api.md",
+      "baselineItems": [],
+      "adrs": [
+        "ADR021",
+        "ADR023"
+      ],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-030",
+      "phase": "04-control",
+      "title": "Добавить human gates, pause/cancel/retry/reassign",
+      "sections": [
+        28,
+        30,
+        31,
+        51
+      ],
+      "dependsOn": [
+        "MW-007",
+        "MW-012",
+        "MW-020",
+        "MW-029"
+      ],
+      "status": "planned",
+      "scope": "Реализовать autonomy L0–L3 и operation gates для миграций/security/release/production. Команды Pause/Cancel/StopAfterCurrentTool/Reassign/Retry: revoke lease, fence++, stop runtime, checkpoint/evidence, retention и graph transition. Плюс контракт AutonomyLevel (L0–L3 по §28), при этом шкала progressive disclosure контекста из §21.2 переименовывается в D0/D1/D2, чтобы одна нотация не означала две разные вещи. Плюс TaskClaims { paths, labels } и PlanMutationClass (additive-only, modifying, destructive) с детерминированным вычислением. Плюс команда task.stop-and-cancel как композиция трёх существующих переходов: attempt → cancelled (требует текущий fence), task executing → ready, task ready → cancelled с причиной; diff worktree сохраняется как artifact diff до отмены, и при неудачной записи artifact команда отказывает. Плюс каталог NeedsAttentionReason с детерминированными условиями и названным источником для каждого триггера.",
+      "acceptance": "Cancel при активном tool и позднем result не коммитит stale изменения. Pause не теряет работу; retry идемпотентен. Human override аудируется; повышение автономности не возникает из prompt/learning. Stop-and-cancel на running-задаче даёт ровно одну попытку в cancelled, задачу в cancelled и artifact diff. Неудачная запись artifact оставляет задачу в executing. Устаревший fence даёт STALE_FENCE и ничего не меняет. Cancel без композиции на running-задаче отвергается типизированной ошибкой с именем легальной команды. Каждый из семи триггеров needs-attention достижим тестом, проверяющим и состояние, и точную причину; ни один путь не ставит needs-attention без причины.",
+      "report": ".work/reports/MW-030-human-control.md",
+      "baselineItems": [
+        39
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-031",
+      "phase": "04-control",
+      "title": "Реализовать recovery и обнаружение застрявшей работы",
+      "sections": [
+        16,
+        49,
+        50,
+        51
+      ],
+      "dependsOn": [
+        "MW-012",
+        "MW-014",
+        "MW-020",
+        "MW-025",
+        "MW-030"
+      ],
+      "status": "planned",
+      "scope": "Reconcile claim без Attempt, Attempt без runtime, expired leases, Controller failover, lost events, Board/Memory outage. Выявлять unschedulable/review loop/repeated failure/orphan/budget/provider blockers и выдавать NeedsAttention с причиной.",
+      "acceptance": "Fault injection/restart для каждого сценария §49. Reconcile повторяем и не дублирует запуск. Detector не расходует LLM в цикле; восстановление memory лишь по explicit degraded policy.",
+      "report": ".work/reports/MW-031-recovery.md",
+      "baselineItems": [
+        3,
+        12,
+        37
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-032",
+      "phase": "05-learning",
+      "title": "Добавить Fast Role Learner с bounded candidates",
+      "sections": [
+        23,
+        24,
+        25,
+        31,
+        34
+      ],
+      "dependsOn": [
+        "MW-017",
+        "MW-018",
+        "MW-024"
+      ],
+      "status": "planned",
+      "scope": "Отдельная reflection Session по значимому result/reject; вход — versioned Role, evidence/tests/findings/feedback. Выход No learning либо scoped memory/skill/strategy patch candidate; provenance/trust/conflict validation.",
+      "acceptance": "Candidate не меняет Role Contract/security автоматически. Повтор события не создаёт duplicate learning. Malicious tool/web content остаётся low-trust; learner ограничен бюджетом и не работает на idle ticks.",
+      "report": ".work/reports/MW-032-fast-learner.md",
+      "baselineItems": [
+        27
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-033",
+      "phase": "05-learning",
+      "title": "Реализовать Sleep Optimizer, curator и promotion",
+      "sections": [
+        25,
+        30,
+        35
+      ],
+      "dependsOn": [
+        "MW-006",
+        "MW-013",
+        "MW-032"
+      ],
+      "status": "planned",
+      "scope": "Baseline ручного/планового optimizer run по batch history: small strategy/skill diffs, dedup/stale/conflict curator. Реализовать Draft→Offline Evaluation→Shadow→Canary→Stable и Reject/Rollback, сохранять metrics и revision history.",
+      "acceptance": "RBAC/Role Contract не переписываются; candidate воспроизводим от evidence. Promotion требует policy gates, rollback возвращает прошлую revision только для будущих attempts. Daily optimizer budget enforced.",
+      "report": ".work/reports/MW-033-sleep-optimizer.md",
+      "baselineItems": [
+        28
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-034",
+      "phase": "05-learning",
+      "title": "Добавить token/context/cost metrics и observability",
+      "sections": [
+        15,
+        30,
+        33,
+        53
+      ],
+      "dependsOn": [
+        "MW-013",
+        "MW-016",
+        "MW-020",
+        "MW-025",
+        "MW-032"
+      ],
+      "status": "planned",
+      "scope": "Учитывать system/role/task/workspace/memory/skills/history/tools/cached/output, input peak, retrieval/offload/compaction/rollover. Добавить queue/utilization/latency/repair/provider metrics с correlation IDs и раздельными estimate/actual.",
+      "acceptance": "Суммы проверены на synthetic events, duplicate не удваивает usage. Unknown cost явно unknown; секретов и полного prompt в metrics нет. Можно объяснить стоимость конкретной Attempt.",
+      "report": ".work/reports/MW-034-observability.md",
+      "baselineItems": [
+        36
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-035",
+      "phase": "06-ui",
+      "title": "Создать My Work UI: Overview и Tasks",
+      "sections": [
+        12,
+        41,
+        54
+      ],
+      "dependsOn": [
+        "MW-027",
+        "MW-029",
+        "MW-034"
+      ],
+      "status": "superseded",
+      "scope": "Встроиться в существующий DSH UI: navigation shell, overview queues/cost/health, Tasks projection/detail/dependencies/evidence. Работать через Application API/events, не запускать scheduler из UI. Loading/empty/error/degraded и keyboard access.",
+      "acceptance": "Без внешнего Board Tasks usable. Reconnect обновляет данные без duplicate; task status принадлежит graph. Проверить сценарий просмотра task→attempt→review→evidence и доступность основных контролов.",
+      "report": ".work/reports/MW-035-ui-tasks.md",
+      "baselineItems": [],
+      "supersededBy": [
+        "MW-048",
+        "MW-049",
+        "MW-050",
+        "MW-053"
+      ],
+      "supersededReason": "Состав MW-035 (Overview и Tasks внутри DSH UI) — подмножество board-работы. Экран Tasks заменён девятизонной доской (MW-049), Overview и состояние loading/empty/error/degraded входят в MW-048, взаимодействие с карточкой — в MW-050, тема и доступность — в MW-053.",
+      "adrs": []
+    },
+    {
+      "id": "MW-036",
+      "phase": "06-ui",
+      "title": "Создать Team Work, Roles и Settings",
+      "sections": [
+        6,
+        13,
+        14,
+        28,
+        54,
+        55
+      ],
+      "dependsOn": [
+        "MW-006",
+        "MW-029",
+        "MW-030",
+        "MW-048"
+      ],
+      "status": "planned",
+      "scope": "Team показывает Agent/Role/Model/State/Workspace/Current и отдельные pool counters. Минимальные редакторы Roles/Blueprints и config overlays с revision preview и validation; settings для adapters/limits/autonomy. Редактор workflow из этой карточки исключён и вынесен в MW-051.",
+      "acceptance": "UI сохраняет новую revision, не меняя frozen running Attempt. Permission и лимиты видны до сохранения; invalid config даёт понятную ошибку и не сохраняется. Проверены режимы global/isolated/inherit и пустая sleeping Team. Редактор workflow в этой карточке отсутствует.",
+      "report": ".work/reports/MW-036-ui-team-settings.md",
+      "baselineItems": [],
+      "adrs": [
+        "ADR020"
+      ],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-037",
+      "phase": "06-ui",
+      "title": "Создать Role Lab, Activity и Audit UI",
+      "sections": [
+        25,
+        34,
+        54,
+        56
+      ],
+      "dependsOn": [
+        "MW-033",
+        "MW-034",
+        "MW-048"
+      ],
+      "status": "planned",
+      "scope": "Показать role/skill revision history, learning/optimizer runs, candidate diff/evaluation/shadow/canary, controlled promote/rollback. Activity/Audit дают фильтры и ссылки по correlation без загрузки raw transcripts по умолчанию.",
+      "acceptance": "Права проверяются сервером; stale candidate нельзя продвинуть поверх новой revision. Audit не редактируется UI; error/empty/paging состояния и клавиатура проверены.",
+      "report": ".work/reports/MW-037-ui-role-lab.md",
+      "baselineItems": [],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-038",
+      "phase": "07-acceptance",
+      "title": "Добавить Doctor и полный adapter conformance",
+      "sections": [
+        37,
+        39,
+        57
+      ],
+      "dependsOn": [
+        "MW-010",
+        "MW-015",
+        "MW-019",
+        "MW-027",
+        "MW-029",
+        "MW-031"
+      ],
+      "status": "planned",
+      "scope": "Doctor показывает installed/contract versions, required capabilities, connectivity/authentication, scopes/events/timeout/recovery по каждому adapter. Прогнать обязательные suites для TaskGraph, Runtime, Memory и остальных реализованных Ports.",
+      "acceptance": "Критически неподдерживаемый контракт блокирует admission с точной причиной. Report машиночитаем и доступен в Diagnostics UI/CLI; optional degradation отличима от pass. Не тратить LLM tokens для health checks.",
+      "report": ".work/reports/MW-038-doctor-conformance.md",
+      "baselineItems": [
+        34,
+        35
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-039",
+      "phase": "07-acceptance",
+      "title": "Проверить invariants, crash recovery и security",
+      "sections": [
+        58,
+        59,
+        60
+      ],
+      "dependsOn": [
+        "MW-007",
+        "MW-024",
+        "MW-025",
+        "MW-030",
+        "MW-031",
+        "MW-033",
+        "MW-038"
+      ],
+      "status": "planned",
+      "scope": "Собрать deterministic интеграционные/fault/property checks для всех invariants §59 и угроз §60. Использовать FakeClock/Runtime/Provider, временные DB/repos и реальные adapter contract suites; устранить найденные нарушения в пределах задач.",
+      "acceptance": "Покрыты single lease, stale fence, Done/no active Attempt, self-review, stale approval, frozen revisions, memory scope, Board outage и duplicate event. Security cases имеют реальное запрещённое действие и доказательство отказа.",
+      "report": ".work/reports/MW-039-invariants-security.md",
+      "baselineItems": [
+        3,
+        37,
+        39
+      ],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-040",
+      "phase": "07-acceptance",
+      "title": "Завершить upgrade, export/import и repair",
+      "sections": [
+        35,
+        47,
+        61
+      ],
+      "dependsOn": [
+        "MW-004",
+        "MW-039"
+      ],
+      "status": "planned",
+      "scope": "Сделать backup→migrate→verify→activate, migration journal, export/import и безопасный repair с документированной rollback policy. Проверять schema/adapter contract versions; исключить silent empty-state recovery.",
+      "acceptance": "Фикстуры прежней/текущей/повреждённой схемы: проверяемая миграция и явный отказ без потери оригинала. Export/import round-trip сохраняет IDs/revisions/audit; прерванная миграция восстанавливается по journal.",
+      "report": ".work/reports/MW-040-migration-upgrade.md",
+      "baselineItems": [],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-041",
+      "phase": "07-acceptance",
+      "title": "Проверить и упаковать полный operational v0.1",
+      "sections": [
+        5,
+        62,
+        63,
+        64,
+        66
+      ],
+      "dependsOn": [
+        "MW-028",
+        "MW-036",
+        "MW-037",
+        "MW-038",
+        "MW-039",
+        "MW-040",
+        "MW-055"
+      ],
+      "status": "planned",
+      "scope": "Сверить все 39 требований §62 с реализацией/evidence. Выполнить isolated install/activate/upgrade и сценарий goal→planner→worker→gates→reject/repair→approve→integrate→Done плюс restart/closed UI. Подготовить локальный пакет, README и инструкции Embedded/Resident для Windows/Linux/macOS.",
+      "acceptance": "Матрица §62 не содержит скрытых gaps: неподтверждённая платформа или live integration явно blocked/unverified. Pack не включает .work/secrets/runtime state. Не публиковать npm/GitHub release, не push/merge без отдельного разрешения.",
+      "report": ".work/reports/MW-041-v01-acceptance.md",
+      "baselineItems": [],
+      "adrs": [],
+      "supersededBy": []
+    },
+    {
+      "id": "MW-042",
+      "phase": "01b-board",
+      "title": "Определить board-контракты, проекцию зон и placement v2",
+      "sections": [
+        8,
+        12,
+        18,
+        42,
+        43
+      ],
+      "adrs": [
+        "ADR017",
+        "ADR018"
+      ],
+      "dependsOn": [
+        "MW-003"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Добавить packages/contracts/src/board.ts (BoardZone, BOARD_ZONES, ZONE_BY_STATE, BoardViewMode, BoardView, BoardPlacement, DropIntent, CardCommand, CardInteraction, DegradedProjection, EvidenceSummary, SessionLink) и packages/contracts/src/theme.ts (ThemeCapability, SurfacePolicy), расширить authority/operation/events/revisions, заменить TaskBoardPlacement на BoardPlacement. В packages/core добавить чистые board.ts (projectTaskZone, zoneOfState, assertSinglePlacement, legalDropTargets, boardOrdering) и theme.ts (resolveSurfacePolicy).",
+      "acceptance": "Каждый из 16 TaskState отображается ровно в одну из девяти зон, и property-тест перебирает все 16. projectTaskZone не может вернуть зону done для состояния, отличного от done. assertSinglePlacement отвергает снимок с одним taskId в двух зонах. legalDropTargets(state) равен allowedTaskTransitions(state) без рёбер, доступных только через admitAttempt. BoardPlacement.order — строка, и вставка между двумя соседями изменяет только вставленную строку. Ни одного hex-литерала в core/theme.ts. tests/boundaries.test.mjs расширен на board/idea/workflow/worktype/import/theme и падает при импорте bd, http, react или DSH из contracts/core. AutonomyLevel, PlanMutationClass, TaskClaims, BlockerResolutionGate, NeedsAttentionReason и BoardPanelState объявлены в контрактах и покрыты проверкой исчерпываемости. Порядок карточек тотален: (orderKey, taskId), midpoint-вставка по base-62 переписывает не более одной строки, отсутствие промежутка даёт ORDER_RENUMBER_REQUIRED вместо равных ключей, а тысяча последовательных вставок между одними соседями заканчивается именно им. Ревизия объявлена на (viewId, zone), и move с несовпадающим expectedColumnRevision даёт STALE_COLUMN_REVISION.",
+      "report": ".work/reports/MW-042-board-projection.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-043",
+      "phase": "04b-board",
+      "title": "Реализовать Idea Bank, быструю задачу и минимальный approved-plan flow",
+      "sections": [
+        8,
+        9,
+        10,
+        18,
+        42
+      ],
+      "adrs": [
+        "ADR019",
+        "ADR024"
+      ],
+      "dependsOn": [
+        "MW-042",
+        "MW-011",
+        "MW-026"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Добавить Idea как отдельную сущность MyWork DB (contracts/src/idea.ts, core/src/idea.ts, миграция storage idea-bank, строка authority idea.bank) с действиями «Разработать план» (PlanMutation через Task Setter) и «Создать быструю задачу». Быстрая задача проходит минимальный approved-plan flow и обычные проверки запуска. Идея не имеет attempt, не участвует в admission и никогда не запускается автоматически. Planner обязан выдавать TaskClaims для каждой новой задачи, а отсутствие claims делает план неавтоутверждаемым. Плюс IdeaPromotion { ideaId, planMutationId, taskIds[], promotedAt, promotedBy?, approvedBy }: одна идея может породить несколько задач, история promote-ов append-only, повторный promote требует нового expectedIdeaRevision и явного действия, dropped-идея не промоутится.",
+      "acceptance": "Идея не может получить attempt ни через API, ни через bulk: вызов admission для IdeaId возвращает UNSCHEDULABLE и не создаёт записей. «Разработать план» создаёт PlanMutation и не создаёт attempt. Быстрая задача без утверждённого плана отвергается типизированной ошибкой. Устаревший expectedIdeaRevision даёт STALE_REVISION и не меняет состояние. Повтор promote с тем же operationId идемпотентен. Promote пишет строку audit. План без claims помечается как неавтоутверждаемый под L3. Двойной promote даёт две записи и непересекающиеся наборы задач. История promote-ов append-only. Dropped-идея не промоутится.",
+      "report": ".work/reports/MW-043-idea-bank.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-044",
+      "phase": "04b-board",
+      "title": "Реализовать workflow engine поверх resident controller",
+      "sections": [
+        9,
+        16,
+        18,
+        28,
+        35,
+        43,
+        49
+      ],
+      "adrs": [
+        "ADR020",
+        "ADR026",
+        "ADR027"
+      ],
+      "dependsOn": [
+        "MW-011",
+        "MW-014",
+        "MW-022",
+        "MW-025"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Добавить декларативный WorkflowRevision (contracts/src/workflow.ts) и core/src/workflow.ts: типизированные узлы (start, step, verify, ai-review, human-approval, integrate, retry, branch, parallel/join, escalate, end), закрытый язык условий с каталогом полей, валидатор без escape hatch. Реализовать один engine внутри resident controller: frozen workflow revision на attempt, L2 по умолчанию, L3 с авто-утверждением только additive-планов, human gates, bounded retries, timeout, escalation, recovery после restart, идемпотентные node generations, отсутствие дубля старта после SSE reconnect.",
+      "acceptance": "Engine не адмитит сам: счётчик admission-вызовов показывает scheduler единственным адмитером. validateWorkflow отвергает неизвестный node kind, неизвестный VerificationId, неизвестное поле условия, цикл и любой документ с ключом shell/command/exec. evaluateCondition тотально определена на закрытом каталоге полей и не содержит eval. После restart посередине workflow engine возобновляется в верном узле и не создаёт дублирующих attempts. L3 авто-утверждает только additive-мутацию (create + dep_add) и записывает классификацию в audit; не-additive план под L3 поднимает human gate. Ни один HUMAN_GATES не закрывается автоматически. Reviewer с тем же agentId, что и worker, отвергается с SECURITY_DENIED. Предикат автоутверждения L3 — чистая функция (класс additive-only, непустые claims у каждой новой задачи, отсутствие пересечений с существующими, work type из разрешённого набора, ни одного HUMAN_GATES) и монотонен: property-тест показывает, что удаление или пересекающийся claim переводят только true→false, но никогда обратно. План без claims под L3 поднимает гейт и называет непройденное условие. review.request-evidence без findings отвергается; новая попытка несёт типизированное поле evidenceRequest и расходует retry-бюджет; исчерпание бюджета даёт needs-attention с причиной retry-exhausted; escalated не переоткрывается и всегда порождает human gate.",
+      "report": ".work/reports/MW-044-workflow-engine.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-045",
+      "phase": "04b-board",
+      "title": "Реализовать work types, finish criteria и интеграторы без Git",
+      "sections": [
+        8,
+        19,
+        20,
+        32,
+        35
+      ],
+      "adrs": [
+        "ADR026",
+        "ADR028"
+      ],
+      "dependsOn": [
+        "MW-044",
+        "MW-023",
+        "MW-025"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Добавить contracts/src/worktype.ts (WorkType, FinishCriteria, FINISH_CRITERIA) и core/src/worktype.ts (resolveFinishCriteria, assertFinishCriteriaSatisfied) для типов code, research, document, manual, analysis, non-git-ops. Расширить ARTIFACT_KINDS на manual-receipt, web-citation, design-doc. Реализовать стратегии интегратора git-merge, artifact-publish, manual-receipt и none.",
+      "acceptance": "Переход в done без обязательного evidence отвергается с FINISH_CRITERIA_UNMET и называет отсутствующий ArtifactKind. Для каждого из шести work types resolveFinishCriteria возвращает различный набор. non-git-ops не создаёт worktree (проверяется отсутствием вызова worktree-порта). manual требует receipt-артефакт. Интегратор artifact-publish записывает получателя в evidence. Существующие ArtifactKind сохраняют прежнее значение и ни одно сохранённое значение не переинтерпретируется.",
+      "report": ".work/reports/MW-045-finish-criteria.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-046",
+      "phase": "04b-board",
+      "title": "Реализовать обсуждение карточки и безопасный steering активной попытки",
+      "sections": [
+        17,
+        22,
+        28,
+        34,
+        43
+      ],
+      "adrs": [
+        "ADR026",
+        "ADR027"
+      ],
+      "dependsOn": [
+        "MW-012",
+        "MW-022",
+        "MW-030"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Добавить DiscussionMessage (comment, decision, question, steer, system), миграцию storage discussion, типизированную команду attempt.steer для безопасного направления активной попытки, ссылку на полную DSH-сессию и audit для решений. Маршруты /v1/tasks/{id}/discussion и /v1/attempts/{id}/steer регистрирует эта карточка поверх Application API, открытого MW-029, через ctx.webServer. Полный чат в карточку не копируется: только ссылки, краткие сообщения, решения и audit trail.",
+      "acceptance": "Steering активной попытки идёт только типизированной командой, проверенной по permissions и frozen revisions; прямой записи в session store нет. Steer по не-running attempt отвергается типизированной ошибкой и не имеет эффекта. Ни один тест не находит транскрипт сессии в строках карточки или сообщения. Повтор steer с тем же operationId даёт один эффект. decision-сообщение пишет строку audit. Ссылка на несуществующую сессию даёт SESSION_NOT_FOUND.",
+      "report": ".work/reports/MW-046-discussion.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-047",
+      "phase": "04b-board",
+      "title": "Реализовать backend проекции доски: snapshot, SSE, degraded, Null adapter",
+      "sections": [
+        8,
+        12,
+        36,
+        39,
+        43,
+        48,
+        49
+      ],
+      "adrs": [
+        "ADR017",
+        "ADR021",
+        "ADR023"
+      ],
+      "dependsOn": [
+        "MW-042",
+        "MW-010",
+        "MW-011",
+        "MW-025"
+      ],
+      "status": "planned",
+      "baselineItems": [
+        11
+      ],
+      "scope": "Реализовать TaskBoardPort и проектор доски в resident controller: производный snapshot с монотонной boardRevision и курсором, SSE-инвалидация, деградированная проекция при недоступности Beads, per-card результат для bulk-операций, Null adapter и read-only legacy adapter как объявление. Изменения графа идут только через MyWork commands; доска разработки dsh-mywork не используется как runtime test ledger.",
+      "acceptance": "Повторная проекция не дублирует карточки. Потеря проекции не изменяет Task Graph: удаление и пересборка snapshot даёт тот же граф. SSE-кадр не содержит карточек, только revision/projectionRevision/cursor/degraded. Повторный кадр с той же revision не вызывает refetch у клиента. При недоступности Beads активные попытки доводятся до конца, новые admission отвергаются fail closed, доска отдаёт DegradedProjection с причиной и временем. Null adapter проходит contract checks. Bulk из N команд возвращает N результатов и не является all-or-nothing. Readiness берётся из bd ready и bd blocked, а не из поля is_blocked: в bd list --json этого поля нет даже у заблокированных задач, и проекция не должна его выдумывать. Ревизия колонки проверяется CAS: конкурентный move в тот же промежуток оставляет ровно одного победителя, проигравший не пишет ни одной строки. Проекция не пишет audit: пятьдесят перемещений внутри зоны дают ноль audit-строк и пятьдесят бампов ревизии. Проекция отдаёт BoardPanelState, включая unavailable, degraded со временем снимка и paused с причиной.",
+      "report": ".work/reports/MW-047-board-backend.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-048",
+      "phase": "06-ui",
+      "title": "Создать @dsh-mywork/web: пакет, client bundle, native slots, theme bridge",
+      "sections": [
+        40,
+        41,
+        54,
+        55
+      ],
+      "adrs": [
+        "ADR016",
+        "ADR021",
+        "ADR022"
+      ],
+      "dependsOn": [
+        "MW-029"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Создать packages/web (@dsh-mywork/web) с exports[\"./client\"], манифестом dsh.client (platform web) и собственной сборкой lazy-CJS формата (banner window.__ModuleLoader__.load). Модульные externals берутся из PLATFORM_MODULES (react, react/jsx-runtime, react-dom, react-dom/client, @deepseek-ai/cordis, dsh-client-store, dsh-client-ui-slots, dsh-client-ui-primitives, dsh-client-ui-dockkit) и из dsh.client.external для всего остального; dsh.client.inject — это ребро порядка загрузки бандлов, а не объявление externals, и react в нём не значится. Зарегистрировать native слоты main (key mywork) и sidebar.panellist (id mywork) с навигацией через ctx.layout.selectPanel, полным dispose, мостом токенов --dsw-* -> --mw-*, рантайм-определением ThemeCapability и локалями ru/en. Экраны loading/empty/error/degraded.",
+      "acceptance": "Bundle загружается страницей без пересборки web-приложения и без правок DSH. Выгрузка плагина убирает панель, иконку, маршруты и CSS; повторный mount/unmount не оставляет следов. Занят ключ main=mywork, ключ conversation не занимается. Build-gate отклоняет value-импорт другого плагина. В бандле нет hex-литералов. ThemeCapability различает light, dark, wallpaper, high-contrast и reduced-motion на живом GUI. Переключение ru/en не вызывает ре-mount панели. Ни один модуль не резолвится через dsh.client.inject: react и cordis-сервисы приходят из PLATFORM_MODULES, а всё прочее объявляется в dsh.client.external, и попытка получить модуль иначе падает на build-gate, а не в рантайме.",
+      "report": ".work/reports/MW-048-web-shell.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-049",
+      "phase": "06-ui",
+      "title": "Реализовать доску: сетка 3x3, горизонтальная полоса, зоны, карточка",
+      "sections": [
+        12,
+        54
+      ],
+      "adrs": [
+        "ADR018",
+        "ADR022"
+      ],
+      "dependsOn": [
+        "MW-048",
+        "MW-042"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Реализовать раскладку grid-3x3 по умолчанию (девять независимых панелей с sticky-заголовком, count, collapse и overflow) и strip-horizontal как альтернативу, включаемую вручную и автоматически при ширине панели менее 1100 px. Анатомия карточки, чипы роли/приоритета/попытки/проверок/комментариев/возраста, индикаторы WIP и stale, виртуализация для 1000+ карточек, представление list. Плюс сворачиваемая полоса Overview над сеткой: счётчики зон, активные агенты против лимитов пулов, глубина очереди review, blocked и needs-attention, расход и слоты баннеров degraded, recovery, paused и legacy-cutover; на узких ширинах полоса сворачивается до счётчиков и баннеров.",
+      "acceptance": "По умолчанию рендерятся ровно девять панелей в сетке 3x3, и ни одна карточка не появляется в двух зонах. При ширине панели менее 1100 px раскладка переключается на strip-horizontal. Заголовок каждой зоны несёт иконку, подпись и count. WIP-индикатор отображается, но не блокирует admission. Stale-индикатор читается без цвета. На 2000 карточках в DOM не более 1.5× узлов от 1000, задержка фильтрации на 2000 не более 2× от 1000. Числа производительности не выдуманы: отчёт фиксирует число DOM-узлов, время рендера и p50/p95 фильтрации на 100, 500, 1000 и 2000 карточках. Порог переключения раскладки измерен с реальным содержимым на 900, 1024, 1100, 1280, 1440 и 1920 и записан вместе с причиной; на пороге минус 1 px раскладка strip-horizontal, на пороге — grid-3x3, и текст заголовка зоны не обрезан ни в одном режиме. Все четыре вида баннеров рендерятся в полосе и достижимы с клавиатуры; на 1024×768 полоса не вытесняет сетку за пределы первого экрана. list-view сортируется и пагинируется.",
+      "report": ".work/reports/MW-049-board-ui.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-050",
+      "phase": "06-ui",
+      "title": "Реализовать взаимодействие с карточкой: выбор, bulk, клавиатура, DnD, detail panel",
+      "sections": [
+        12,
+        41,
+        54,
+        55
+      ],
+      "adrs": [
+        "ADR018",
+        "ADR027"
+      ],
+      "dependsOn": [
+        "MW-049",
+        "MW-046"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Реализовать selection и multi-select, bulk-команды с per-card результатом, полную клавиатурную модель, drag-and-drop с подсветкой только легальных целей и обязательной причиной для error/blocked/cancelled, command palette «Переместить…», detail panel (Обзор, Обсуждение, Попытки, Review, Evidence, Зависимости, Workflow, История, Сессии), поиск, фильтры, saved views, dependency preview, рендер review/evidence/blocked и ссылки на полные DSH-сессии.",
+      "acceptance": "Keyboard-only проход выполняет все действия: выбор, перемещение, bulk, открытие detail, поиск. DnD не пишет board state напрямую и подсвечивает только легальные цели. Drop в error/blocked/cancelled без выбранной причины отклоняется. Два одинаковых DropIntent с разными operationId не меняют состояние дважды. Bulk move предлагает только цели, легальные для всех выбранных, и возвращает результат по каждой карточке. Saved view сохраняется и восстанавливается с density, layout, фильтрами и сортировкой. Detail panel закрыт по умолчанию. Dependency preview показывает зоны и состояния прямых соседей. Session link открывает реальную DSH-сессию. «Остановить и отменить» доступно только на running-карточке и отличимо от «Отменить»; после него в карточке виден artifact diff. Баннеры blocker-void и staged-recovery рендерятся в полосе, а три действия recovery доступны и без UI. Карточка показывает конкретный NeedsAttentionReason, а не общее «требует внимания».",
+      "report": ".work/reports/MW-050-card-interaction.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-051",
+      "phase": "06-ui",
+      "title": "Создать визуальный редактор workflow и декларативные правила",
+      "sections": [
+        13,
+        28,
+        54
+      ],
+      "adrs": [
+        "ADR020",
+        "ADR027"
+      ],
+      "dependsOn": [
+        "MW-044",
+        "MW-045",
+        "MW-048"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Создать визуальный редактор WorkflowRevision поверх того же валидатора, что использует engine: типизированные узлы, ветвления, условия, approval gates, bounded retries и human gates. Добавить декларативные правила trigger/condition/action с закрытыми каталогами. Редактор создаёт декларативный документ и не имеет произвольного shell/code escape hatch.",
+      "acceptance": "Редактор не может сохранить документ, который отвергает валидатор, потому что вызывает тот же валидатор. В схеме узла нет поля, способного выразить shell, command, executable или код. Preview показывает diff против frozen revision. Trigger, condition и action берутся из закрытых каталогов, и неизвестное значение отвергается. Срабатывание правила пишет audit с вычисленным условием. Невалидный документ даёт понятную ошибку и не сохраняется.",
+      "report": ".work/reports/MW-051-workflow-editor.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-052",
+      "phase": "06-ui",
+      "title": "Реализовать graph/dependency view, calendar и опциональный timeline",
+      "sections": [
+        12,
+        16,
+        54
+      ],
+      "adrs": [
+        "ADR018"
+      ],
+      "dependsOn": [
+        "MW-049",
+        "MW-042"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Реализовать представление зависимостей (DAG), calendar по due/defer и опциональный timeline по startedAt/settledAt на собственной SVG-раскладке по слоям, без новых npm-зависимостей. Доступность узлов и рёбер для клавиатуры и для assistive technology.",
+      "acceptance": "Ни одной новой npm-зависимости в package.json затронутых пакетов. Узлы и рёбра достижимы с клавиатуры (roving tabindex) и имеют текстовые имена для screen reader. Цикл не рисуется как валидный граф: отказ отображается явным сообщением. Calendar строится по due и defer и совпадает с данными карточек. Граф на 1000 узлов не блокирует UI (окно по уровням или пагинация).",
+      "report": ".work/reports/MW-052-views.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-053",
+      "phase": "06-ui",
+      "title": "Проверить тему, доступность и режимы раскладки",
+      "sections": [
+        54
+      ],
+      "adrs": [
+        "ADR022"
+      ],
+      "dependsOn": [
+        "MW-050"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Проверить и зафиксировать матрицу light, dark, wallpaper, high-contrast и пользовательских DSH-web skins: адаптивная непрозрачность поверхностей, контраст WCAG AA, focus state, reduced motion, keyboard-only проход, screen-reader имена, поведение при фоновом изображении и совместимость с skin-center.",
+      "acceptance": "Матрица из пяти режимов проходит, и результат каждого записан с измеренным коэффициентом контраста. При wallpaper alpha поверхностей равна 1, и фоновое изображение не видно внутри карточек и sticky-заголовков. Текст не ниже AA, нетекстовые границы не ниже 3:1, focus ring не ниже 3:1 и никогда не снимается. prefers-reduced-motion убирает анимации DnD и переходы. Каждая зона и каждая карточка имеют осмысленное имя для screen reader. Keyboard-only сценарий проходит целиком. Активная тема skin-center не ломает доску.",
+      "report": ".work/reports/MW-053-theme-a11y.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-054",
+      "phase": "07-migration",
+      "title": "Реализовать DSH-web compatibility adapter и мастер импорта",
+      "sections": [
+        7,
+        8,
+        12,
+        61
+      ],
+      "adrs": [
+        "ADR021",
+        "ADR025"
+      ],
+      "dependsOn": [
+        "MW-047",
+        "MW-029",
+        "MW-030"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Реализовать read-only legacy adapter с preview, выбором карточек и commit, сохранением source ID, истории, execution links и provenance. Источник — файл ledger-v2.json, читаемый напрямую: GET /api/task-board/state используется только пока плагин смонтирован, а после cutover строка web-ui-task-board убирается из профиля, поэтому архив обязан читаться из файла, а не по HTTP. Правило выбора карточек: карточка eligible, если её workspaceId равен workspaceId MyWork И статус не done; в реальном леджере эти два критерия совпадают (6 done-карточек лежат в отдельном воркспейсе 47b14762, 35 незавершённых — в 3fc33afb). Мастер показывает потери и ссылки, находит открытые исполнения и предлагает дождаться завершения либо явно отменить. done-карточки не импортируются и остаются legacy-архивом. Перед cutover проверяется, что legacy autoRunTodo выключен и расписаний на мигрированных карточках нет, иначе проект получит двух исполнителей. Отключение старых запусков и расписаний выполняется только после верифицированного cutover и явного подтверждения.",
+      "acceptance": "Ни одной записи в legacy-ledger: хеш файла до и после мастера совпадает. done-карточки не выбираются и не появляются в колонке «Готово». Открытый execution блокирует commit и предлагает wait либо cancel без автоотмены. Повтор commit идемпотентен по sourceId и не дублирует карточки. Не-MyWork проект не затронут: хеш чужого проекта неизменен. При отсутствии безопасного hook-а доска показывает read-only ссылку и НЕ утверждает, что legacy-scheduler остановлен. Ни одно legacy-исполнение не превращается в Attempt. Архив читается без запущенного legacy-плагина: тест прогоняет preview и открытие архивной ссылки при отсутствующей строке web-ui-task-board. Preview явно показывает карточки, у которых доска и артефакты расходятся (например MW-001 помечен failed, хотя отчёты существуют), и не конвертирует их автоматически. Cutover не начинается, пока legacy autoRunTodo не выключен и на мигрированных карточках нет расписаний. Формы TaskProvenance, LegacySourceRef и ExternalExecutionRef объявлены в контрактах. Импортированная задача имеет origin=imported-legacy, непустые externalExecutions и ноль попыток; ни один attempt id не совпадает ни с одним external execution id; импортированная задача не может стать done без MyWork-review.",
+      "report": ".work/reports/MW-054-import-wizard.md",
+      "supersededBy": []
+    },
+    {
+      "id": "MW-055",
+      "phase": "07-acceptance",
+      "title": "Провести приёмку доски и верификацию миграции",
+      "sections": [
+        49,
+        50,
+        59,
+        60,
+        61
+      ],
+      "adrs": [
+        "ADR016",
+        "ADR017",
+        "ADR018",
+        "ADR019",
+        "ADR020",
+        "ADR021",
+        "ADR022",
+        "ADR023",
+        "ADR024",
+        "ADR025",
+        "ADR026",
+        "ADR027",
+        "ADR028"
+      ],
+      "dependsOn": [
+        "MW-053",
+        "MW-054",
+        "MW-031",
+        "MW-038",
+        "MW-039"
+      ],
+      "status": "planned",
+      "baselineItems": [],
+      "scope": "Прогнать матрицу из 33 сценариев приёмки доски и миграции, зафиксировать evidence с командой и тестом на каждый сценарий, проверить инварианты (нет false Done, нет исполнения из Idea, reviewer не подтверждает сам себя, raw shell gate отвергнут, неавторизованная команда отвергнута) и прогнать миграцию на копии реального ledger без изменения оригинала.",
+      "acceptance": "Каждый из 33 сценариев имеет evidence с командой, exit code и наблюдаемым результатом; сценарий без evidence считается непройденным. Инвариант «нет false Done до review и интеграции» доказан тестом, который падает при его нарушении. Reviewer self-approve отвергнут с SECURITY_DENIED. Документ с raw shell gate отвергнут. Неавторизованная команда карточки отвергнута без изменения графа. Прогон мастера импорта на копии реального ledger из 41 карточки не изменил оригинальный файл.",
+      "report": ".work/reports/MW-055-board-acceptance.md",
+      "supersededBy": []
+    }
+  ],
+  "architectureAdrs": ".work/architecture/DSH-My-Work-Architecture-v0.2-decisions.md"
+}

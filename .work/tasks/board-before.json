@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 3,
+  "revision": 0,
+  "tasks": [],
+  "scheduler": {
+    "timeZone": "Asia/Yekaterinburg",
+    "ledgerId": "21d3414b-b542-4dd7-9c5a-51a6dcebb156",
+    "lastTickAt": 1789579332837
+  },
+  "power": {
+    "platform": "win32",
+    "phase": "disabled",
+    "enabled": false,
+    "runningSessions": 1,
+    "armedSchedules": 0,
+    "sessionStateKnown": true
+  },
+  "sessionDefaultPermission": "read-only"
+}

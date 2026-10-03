@@ -1,0 +1,15 @@
+{
+  "verifiedAt": "2026-09-16T17:23:14.0795105Z",
+  "taskCount": 41,
+  "boardTaskCount": 41,
+  "cardFileCount": 41,
+  "architectureHash": "2755124CA1E678E50F12ADC269EE7AF3E586655B51C0432E840F2D099FFB71C1",
+  "dependencyGraph": "PASS: unique IDs, all references exist, acyclic topological order",
+  "scopeCoverage": "PASS: all 39 items of architecture section 62",
+  "boardBindings": "PASS: correct workspace, model, prompt, description, permission",
+  "executionState": "PASS: backlog; no executions or scheduled launches",
+  "gitignore": "PASS: /.work/",
+  "remote": "https://github.com/definitely-stable/dsh-mywork.git",
+  "head": "209a92d486ce71e8207349cf7ffe68ed0e2d6315",
+  "published": false
+}
