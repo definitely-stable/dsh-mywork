@@ -133,7 +133,8 @@ const STALE_COMMIT_PATTERN = /(?<![\w/])c7c4c725(?![\w/])/
 /**
  * Parse the CLI arguments this script understands.
  * @param {string[]} argv - process arguments after the script path.
- * @returns {{ planDir: string, dshCheckout: string | undefined, json: boolean }} the options.
+ * @returns {{ planDir: string, planDirExplicit: boolean, dshCheckout: string | undefined, json: boolean }} the options,
+ *   where `planDirExplicit` tells a typo (a requested directory that is missing) from a scope (the default one is absent).
  */
 function parseArgs(argv) {
   const options = {
@@ -303,10 +304,11 @@ function scanFile(planDir, relative) {
 
 const options = parseArgs(process.argv.slice(2))
 
-// The plan corpus lives under `.work/`, which the repository ignores: a CI
-// checkout never carries it. Absence is therefore a scope, not an error — but
-// only for the default path. An explicitly requested directory that is missing
-// is a typo, and a typo must not turn every rule green (review finding F-4).
+// The plan corpus lives under `.work/plan-v0.3`, which is tracked since
+// 2026-10-03 (R-54) but may be absent from a copy of the repository. Absence is
+// therefore a scope, not an error — but only for the default path. An explicitly
+// requested directory that is missing is a typo, and a typo must not turn every
+// rule green (review finding F-4).
 const corpusPresent = existsSync(options.planDir) && statSync(options.planDir).isDirectory()
 if (!corpusPresent && options.planDirExplicit) {
   console.error(`check-plan-citations: plan directory not found: ${options.planDir} (requested explicitly, fail-closed)`)
