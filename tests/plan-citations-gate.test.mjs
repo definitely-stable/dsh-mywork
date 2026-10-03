@@ -50,7 +50,7 @@ after(() => {
 
 /**
  * Build a throwaway repository root holding the gate and its tracked surfaces.
- * @param {{ readme?: string, commit?: string, version?: string, corpus?: boolean, deltaNamesVersion?: boolean }} [options]
+ * @param {{ readme?: string, commit?: string, version?: string, corpus?: boolean, deltaNamesVersion?: boolean, corpusStale?: boolean, manifestStale?: boolean }} [options]
  *   surface text and corpus shape.
  * @returns {{ root: string, run: (args: string[]) => { status: number | undefined, stdout: string, stderr: string } }}
  *   the root and a runner that executes the copied gate inside it.
@@ -71,12 +71,23 @@ function fixture(options = {}) {
   writeFileSync(join(root, 'README.md'), options.readme ?? '# fixture\n\nNo platform citations here.\n')
   for (const manifest of ['packages/controller/package.json', 'packages/web/package.json']) {
     mkdirSync(join(root, dirname(manifest)), { recursive: true })
-    writeFileSync(join(root, manifest), '{\n  "name": "fixture",\n  "version": "1.0.0"\n}\n')
+    const stale = options.manifestStale === true && manifest === 'packages/controller/package.json'
+    writeFileSync(
+      join(root, manifest),
+      stale
+        ? `{\n  "name": "fixture",\n  "version": "1.0.0",\n  "peer": "${SUPERSEDED_RANGE}"\n}\n`
+        : '{\n  "name": "fixture",\n  "version": "1.0.0"\n}\n',
+    )
   }
   if (options.corpus === true) {
     const planDir = join(root, '.work', 'plan-v0.3')
     mkdirSync(planDir, { recursive: true })
-    writeFileSync(join(planDir, '01-MASTER-PLAN.md'), '# fixture master\n\n## 1.4 Delta\n\nSee §1.4.\n')
+    writeFileSync(
+      join(planDir, '01-MASTER-PLAN.md'),
+      options.corpusStale === true
+        ? `# fixture master\n\n## §1.4 Delta\n\nThe peer range ${SUPERSEDED_RANGE} is in force.\n`
+        : '# fixture master\n\n## 1.4 Delta\n\nSee §1.4.\n',
+    )
     writeFileSync(
       join(planDir, '02-PLATFORM-DELTA-test.md'),
       options.deltaNamesVersion === false
@@ -137,4 +148,19 @@ test('full scope fails when the delta document stops naming the runtime version'
   assert.equal(result.status, 1, result.stdout)
   assert.match(result.stdout, /control: the delta document does not name the current version 0\.0\.0-test/)
   assert.match(result.stdout, /FAIL \(0 findings, 1 control failures\)/)
+})
+
+test('full scope still fails on a stale citation inside the corpus', () => {
+  const { run } = fixture({ corpus: true, corpusStale: true })
+  const result = run([])
+  assert.equal(result.status, 1, result.stdout)
+  assert.match(result.stdout, /superseded-range: 01-MASTER-PLAN\.md:5/)
+  assert.match(result.stdout, /FAIL \(1 findings, 0 control failures\)/)
+})
+
+test('the workspace manifests are scanned in either scope', () => {
+  const { run } = fixture({ manifestStale: true })
+  const result = run([])
+  assert.equal(result.status, 1, result.stdout)
+  assert.match(result.stdout, /superseded-range: packages\/controller\/package\.json:4/)
 })
