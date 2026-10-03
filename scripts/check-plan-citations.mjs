@@ -30,6 +30,21 @@
  *   node scripts/check-plan-citations.mjs --plan-dir .work/plan-v0.3 \
  *     --dsh-checkout C:\Reposit\deepseek-harness\deepseek-harness
  *
+ * Two scopes, and the difference is reported on every run:
+ *
+ *   `scope=full` — the plan corpus was found and every rule above ran. That is
+ *     what CI runs since 2026-10-03: `.work/plan-v0.3` is tracked, so a checkout
+ *     carries the corpus (defect R-54 — while it was gitignored, the corpus half
+ *     of this gate could not run anywhere but the author's machine).
+ *   `scope=repository-only` — the corpus is absent, which is what a copy without
+ *     `.work/` gets. The gate still checks the surfaces that ARE tracked
+ *     (`README.md` and the two package manifests) and reports the corpus
+ *     dependent positive controls as skipped — a green line never hides that
+ *     half of the gate did not run (R-52): the README carries the same version
+ *     citations as the plan, and it was the surface a previous review found
+ *     unscanned. An explicitly requested `--plan-dir` that is missing stays a
+ *     hard error, because that is a typo rather than a scope.
+ *
  * Exit codes: 0 — clean; 1 — findings; 2 — usage/environment error.
  */
 
@@ -121,11 +136,17 @@ const STALE_COMMIT_PATTERN = /(?<![\w/])c7c4c725(?![\w/])/
  * @returns {{ planDir: string, dshCheckout: string | undefined, json: boolean }} the options.
  */
 function parseArgs(argv) {
-  const options = { planDir: join(repoRoot, '.work', 'plan-v0.3'), dshCheckout: undefined, json: false }
+  const options = {
+    planDir: join(repoRoot, '.work', 'plan-v0.3'),
+    planDirExplicit: false,
+    dshCheckout: undefined,
+    json: false,
+  }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--plan-dir') {
       options.planDir = resolve(argv[index + 1] ?? '')
+      options.planDirExplicit = true
       index += 1
     } else if (arg === '--dsh-checkout') {
       options.dshCheckout = resolve(argv[index + 1] ?? '')
@@ -282,19 +303,32 @@ function scanFile(planDir, relative) {
 
 const options = parseArgs(process.argv.slice(2))
 
-if (!existsSync(options.planDir) || !statSync(options.planDir).isDirectory()) {
-  console.error(`check-plan-citations: plan directory not found: ${options.planDir}`)
+// The plan corpus lives under `.work/`, which the repository ignores: a CI
+// checkout never carries it. Absence is therefore a scope, not an error — but
+// only for the default path. An explicitly requested directory that is missing
+// is a typo, and a typo must not turn every rule green (review finding F-4).
+const corpusPresent = existsSync(options.planDir) && statSync(options.planDir).isDirectory()
+if (!corpusPresent && options.planDirExplicit) {
+  console.error(`check-plan-citations: plan directory not found: ${options.planDir} (requested explicitly, fail-closed)`)
   process.exit(2)
 }
+const scope = corpusPresent ? 'full' : 'repository-only'
 
 const version = currentVersion(options.dshCheckout)
 const commit = currentCommit(options.dshCheckout)
 const findings = []
 const advisory = []
-for (const relative of markdownFiles(options.planDir)) {
-  const scanned = scanFile(options.planDir, relative)
-  findings.push(...scanned.findings)
-  advisory.push(...scanned.advisory)
+if (corpusPresent) {
+  for (const relative of markdownFiles(options.planDir)) {
+    const scanned = scanFile(options.planDir, relative)
+    findings.push(...scanned.findings)
+    advisory.push(...scanned.advisory)
+  }
+} else {
+  console.log(
+    `check-plan-citations: plan corpus not present (${options.planDir}) — scope=repository-only;`
+    + ' README.md and the workspace manifests are still checked',
+  )
 }
 // The repository README carries the same version citations as the plan and is
 // part of the surface this gate protects (review finding F-2: without this,
@@ -324,28 +358,38 @@ for (const manifest of ['packages/controller/package.json', 'packages/web/packag
   })
 }
 
-// Positive controls: a plan that deleted every citation must not pass.
-const delta = join(options.planDir, '02-PLATFORM-DELTA-0.2.0-rc.2.md')
+// Positive controls: a plan that deleted every citation must not pass. They need
+// the corpus, so an absent one reports them as skipped instead of satisfied.
 const controls = []
-if (!existsSync(delta)) {
-  controls.push('the delta document 02-PLATFORM-DELTA-0.2.0-rc.2.md is missing')
+const skippedControls = []
+if (corpusPresent) {
+  const delta = join(options.planDir, '02-PLATFORM-DELTA-0.2.0-rc.2.md')
+  if (!existsSync(delta)) {
+    controls.push('the delta document 02-PLATFORM-DELTA-0.2.0-rc.2.md is missing')
+  } else {
+    const text = readFileSync(delta, 'utf8')
+    if (!text.includes(commit)) controls.push(`the delta document does not name the current commit ${commit}`)
+    if (!text.includes(version)) controls.push(`the delta document does not name the current version ${version}`)
+  }
+  const master = join(options.planDir, '01-MASTER-PLAN.md')
+  if (!existsSync(master) || !readFileSync(master, 'utf8').includes('§1.4')) {
+    controls.push('01-MASTER-PLAN.md has no §1.4 platform-delta section')
+  }
 } else {
-  const text = readFileSync(delta, 'utf8')
-  if (!text.includes(commit)) controls.push(`the delta document does not name the current commit ${commit}`)
-  if (!text.includes(version)) controls.push(`the delta document does not name the current version ${version}`)
-}
-const master = join(options.planDir, '01-MASTER-PLAN.md')
-if (!existsSync(master) || !readFileSync(master, 'utf8').includes('§1.4')) {
-  controls.push('01-MASTER-PLAN.md has no §1.4 platform-delta section')
+  skippedControls.push(
+    'positive controls need the plan corpus: the delta document names the commit and version, and §1.4 of the master plan',
+  )
 }
 
 const report = {
   planDir: options.planDir,
+  scope,
   currentVersion: version,
   currentCommit: commit,
   findings: findings.length,
   advisory: advisory.length,
   controls,
+  skippedControls,
   detail: findings,
   advisoryDetail: advisory,
 }
@@ -353,13 +397,14 @@ const report = {
 if (options.json) {
   console.log(JSON.stringify(report, null, 2))
 } else {
-  console.log(`check-plan-citations: plan=${options.planDir} version=${version} commit=${commit}`)
+  console.log(`check-plan-citations: scope=${scope} plan=${options.planDir} version=${version} commit=${commit}`)
   for (const finding of findings) {
     console.log(`  ${finding.rule}: ${finding.file}:${finding.line}: ${finding.text.slice(0, 160)}`)
   }
   for (const control of controls) console.log(`  control: ${control}`)
+  for (const control of skippedControls) console.log(`  control(skipped): ${control}`)
   console.log(findings.length === 0 && controls.length === 0
-    ? 'check-plan-citations: PASS'
+    ? `check-plan-citations: PASS (scope=${scope})`
     : `check-plan-citations: FAIL (${findings.length} findings, ${controls.length} control failures)`)
   if (advisory.length > 0) {
     console.log(`check-plan-citations: advisory — ${advisory.length} line references to other plan documents (canon §15.6 prefers step/card IDs; not enforced here)`)

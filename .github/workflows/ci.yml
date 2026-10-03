@@ -41,6 +41,14 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
       - name: Typecheck
         run: corepack pnpm -r run typecheck
+      # F-64/R-52: the citation gate stayed manual until now, and the drift it
+      # exists to catch lives in tracked files (README.md and the two package
+      # manifests) as well as in the plan corpus. The corpus is tracked too since
+      # 2026-10-03 (R-54), so this checkout carries it and the run reports
+      # `scope=full`; a copy without `.work/` reports `scope=repository-only` and
+      # still fails on a stale citation in those tracked surfaces.
+      - name: Plan citation gate
+        run: node scripts/check-plan-citations.mjs
       - name: Build
         run: corepack pnpm -r run build
       - name: Smoke

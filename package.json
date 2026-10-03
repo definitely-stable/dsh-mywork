@@ -14,7 +14,7 @@
     "typecheck": "pnpm -r run typecheck",
     "smoke": "node scripts/smoke.mjs",
     "test": "node scripts/run-tests.mjs \"tests/**/*.test.mjs\"",
-    "check": "pnpm run typecheck && pnpm run build && pnpm run smoke && pnpm run test",
+    "check": "pnpm run typecheck && pnpm run build && pnpm run smoke && pnpm run test && pnpm run check:plan",
     "check:plan": "node scripts/check-plan-citations.mjs",
     "pack:local": "pnpm run build && node scripts/pack.mjs",
     "verify:profile": "pnpm run build && node scripts/verify-profile.mjs"
