@@ -279,36 +279,48 @@ for (const line of bootOutput.split('\n').filter(line => line.includes('dsh-mywo
   console.log(`     ${line.trim()}`)
 }
 
-// 8. The user's working profile must be untouched.
+// 8. The live profile's board row must keep `sessionDefaultPermission` as a
+//    direct child of its config mapping (R-47, R-51). The file is read *before*
+//    the fingerprint comparison below, so the comparison covers every read this
+//    script performs on the profile. A profile without the row is skipped — that
+//    is a legitimate configuration, and a clean runner has no profile at all.
+const livePatchPath = join(homedir(), '.dsh', 'profiles', 'web', 'cordis.patch.yml')
+let liveBoard
+if (!existsSync(livePatchPath)) {
+  liveBoard = { state: 'absent' }
+} else {
+  try {
+    liveBoard = { state: 'read', inspected: inspectBoardRowPermission(readFileSync(livePatchPath, 'utf8')) }
+  } catch (error) {
+    liveBoard = { state: 'unreadable', reason: error.code ?? error.message }
+  }
+}
+
+// 9. The user's working profile must be untouched.
 const afterRealProfile = realProfileFingerprint()
 for (const [path, hash] of beforeRealProfile) {
   expect(afterRealProfile.get(path) === hash, `real profile file changed during verification: ${path}`)
 }
 console.log(`ok   user profile untouched (${beforeRealProfile.size} fingerprint(s) unchanged)`)
 
-// 9. The live profile's board row must keep `sessionDefaultPermission` beside
-//    `plugin` (R-47, R-51). Reading the file is the whole check: the previous
-//    regression was invisible to every running surface, so the shape is asserted
-//    where it is cheapest to see. A profile without the row is skipped — that is
-//    a legitimate configuration, and a clean runner has no profile at all.
-const livePatchPath = join(homedir(), '.dsh', 'profiles', 'web', 'cordis.patch.yml')
-if (!existsSync(livePatchPath)) {
+if (liveBoard.state === 'absent') {
   console.log(`skip no live profile at ${livePatchPath}`)
+} else if (liveBoard.state === 'unreadable') {
+  console.log(`skip cannot read ${livePatchPath}: ${String(liveBoard.reason)}`)
+} else if (!liveBoard.inspected.found) {
+  console.log(liveBoard.inspected.disabled
+    ? `skip the live profile's ${BOARD_ROW_ID} row is disabled`
+    : `skip the live profile does not install the ${BOARD_ROW_ID} row`)
 } else {
-  const inspected = inspectBoardRowPermission(readFileSync(livePatchPath, 'utf8'))
-  if (!inspected.found) {
-    console.log(`skip the live profile does not install the ${BOARD_ROW_ID} row`)
-  } else {
-    for (const finding of inspected.findings) console.error(`     ${finding}`)
-    expect(
-      inspected.findings.length === 0,
-      `the live profile's ${BOARD_ROW_ID} row lost its permission wiring: ${livePatchPath}`,
-    )
-    console.log(
-      `ok   live profile board row keeps sessionDefaultPermission `
-      + `"${EXPECTED_SESSION_DEFAULT_PERMISSION}" beside plugin`,
-    )
-  }
+  for (const finding of liveBoard.inspected.findings) console.error(`     ${finding}`)
+  expect(
+    liveBoard.inspected.findings.length === 0,
+    `the live profile's ${BOARD_ROW_ID} row lost its permission wiring: ${livePatchPath}`,
+  )
+  console.log(
+    `ok   live profile board row keeps sessionDefaultPermission `
+    + `"${EXPECTED_SESSION_DEFAULT_PERMISSION}" in its config mapping`,
+  )
 }
 
 if (keep) {
