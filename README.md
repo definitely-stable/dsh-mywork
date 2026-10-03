@@ -350,7 +350,7 @@ Runtime-данные не лежат в репозитории: `@dsh-mywork/sto
 
 - Node.js >= 22.18 (проверено на 24.19.0)
 - pnpm 12.4.2 (пин в `packageManager`)
-- DSH 0.1.7-rc.2 — для `verify:profile` (фактическая версия CLI; здесь ранее было указано 0.1.5-rc.2)
+- DSH 0.2.0-rc.2 — для `verify:profile` (фактическая версия CLI; пин в `.github/workflows/ci.yml`; здесь ранее были указаны 0.1.5-rc.2 и 0.1.7-rc.2)
 
 ## Команды
 

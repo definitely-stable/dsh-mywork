@@ -3,14 +3,18 @@ packages:
 
 # The controller and the web package declare `@deepseek-ai/dsh` as a peer so the
 # platform's compatibility gate actually evaluates them
-# (`packages/boot/app-boot/src/plugin-compatibility.ts` reads peerDependencies
-# only). Auto-installing that peer would pull the whole DSH CLI into this
-# workspace, and the lockfile would then depend on a registry the build does not
-# need: the bundle is delivered as a tarball, and `scripts/verify-profile.mjs`
-# proves it mounts. DSH writes the same setting into its own profiles
-# (`packages/boot/app-boot/src/profile.ts`), so the delivery channel is
-# unaffected. Without this, `pnpm install --frozen-lockfile` fails with
-# ERR_PNPM_OUTDATED_LOCKFILE for a dependency that must never be installed.
+# (`packages/boot/app-boot/src/plugin-compatibility.ts:68,75,77` reads
+# peerDependencies only, with `includePrerelease: true`; the same evaluation runs
+# as an admission preflight in `.../src/compatibility-preflight.ts:79-83`).
+# The declared range was revised on 2026-10-03 to `>=0.1.7-rc.2 <0.3.0-0`: the
+# old `<0.2.0` admitted the running 0.2.0-rc.2 only through `includePrerelease`
+# and refused `0.2.0` itself. Auto-installing that peer would pull the whole DSH
+# CLI into this workspace, and the lockfile would then depend on a registry the
+# build does not need: the bundle is delivered as a tarball, and
+# `scripts/verify-profile.mjs` proves it mounts. DSH writes the same setting into
+# its own profiles (`packages/boot/app-boot/src/profile.ts`), so the delivery
+# channel is unaffected. Without this, `pnpm install --frozen-lockfile` fails
+# with ERR_PNPM_OUTDATED_LOCKFILE for a dependency that must never be installed.
 autoInstallPeers: false
 
 # `packages/execution` outgrew Node's default old-space ceiling while the E-stage

@@ -26,10 +26,16 @@
  * `~0.1.7` and `>=0.1.7 <0.2.0` all refuse the running prerelease, and only the
  * probe against the platform's semver can state that.
  *
- * Known, deliberate gap (owner decision D04, review A's F-3): the pinned range
- * admits `0.2.0-rc.1`, because a prerelease sorts below its release. Tightening
- * to `<0.2.0-0` is the owner's call; the alternative is exercised below rather
- * than applied.
+ * Owner decision D04 was revisited on 2026-10-03 (platform delta `0.1.7-rc.2 →
+ * 0.2.0-rc.2`): the pinned range is `>=0.1.7-rc.2 <0.3.0-0`. The old
+ * `>=0.1.7-rc.2 <0.2.0` admitted the running `0.2.0-rc.2` only because the gate
+ * passes `includePrerelease: true` (`plugin-compatibility.ts:77`) and refused
+ * `0.2.0` itself; `<0.2.0-0` was rejected because it refuses the runtime this
+ * repository actually runs on. The `-0` upper bound is what refuses
+ * `0.3.0-rc.1` — without it the range would admit it. Every verdict below was
+ * measured against the platform's own semver (`semver 7.8.5`, the copy
+ * `app-boot` imports), and the measurement is recorded in
+ * `02-PLATFORM-DELTA-0.2.0-rc.2.md` §5.1.
  */
 
 import assert from 'node:assert/strict'
@@ -41,8 +47,8 @@ import { fileURLToPath } from 'node:url'
 /** Repository root, derived here so the suite does not need a built workspace. */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** The range F-48 pins: the running prerelease through the last 0.1.x release. */
-const PINNED_RANGE = '>=0.1.7-rc.2 <0.2.0'
+/** The range F-48 pins, as revised 2026-10-03: the 0.1.7 prerelease through the whole 0.2.x line. */
+const PINNED_RANGE = '>=0.1.7-rc.2 <0.3.0-0'
 
 /** The packages whose peer is supposed to turn the gate on, by name. */
 const CARRIERS = ['@dsh-mywork/controller', '@dsh-mywork/web']
@@ -52,9 +58,11 @@ const PINNED_NODE = '^22.19.0 || >=24.0.0'
 
 /**
  * Verdicts for the pinned range, measured by the probe against the platform's
- * own semver and its real gate (`foundation-48-peer-contract.md` §3–§4). The
- * comparison in this file must reproduce them; `0.2.0-rc.1` is the gap the
- * header records.
+ * own semver and its real gate (`foundation-48-peer-contract.md` §3–§4, revised
+ * in `02-PLATFORM-DELTA-0.2.0-rc.2.md` §5.1). The comparison in this file must
+ * reproduce them. `0.2.1-alpha.1` is admitted deliberately: the range declares
+ * the whole 0.2.x line, and the 0.2.1 migrations are recorded in the delta
+ * document instead of being encoded in the range.
  */
 const MEASURED_BY_PROBE = [
   ['0.1.7-rc.2', true],
@@ -62,7 +70,12 @@ const MEASURED_BY_PROBE = [
   ['0.1.8', true],
   ['0.1.8-rc.1', true],
   ['0.2.0-rc.1', true],
-  ['0.2.0', false],
+  ['0.2.0-rc.2', true],
+  ['0.2.0', true],
+  ['0.2.1-alpha.1', true],
+  ['0.3.0-0', false],
+  ['0.3.0-rc.1', false],
+  ['0.3.0', false],
 ]
 
 /** Every package manifest of the workspace, with its path for failure messages. */
@@ -215,7 +228,7 @@ test('the pinned range cannot be neutralized by a workspace or wildcard range', 
     `"${declaredRange}" would be substituted with the runtime version`)
   assert.notEqual(declaredRange, '*', `"${declaredRange}" would accept any runtime`)
   assert.equal(declaredRange.includes('-rc.2'), true,
-    `"${declaredRange}" must admit the running prerelease, not only releases`)
+    `"${declaredRange}" must keep the prerelease lower bound, not a release-only form`)
 })
 
 test('the declared range accepts the built-against version and refuses the next major', () => {
@@ -242,9 +255,12 @@ test('the declared range accepts the built-against version and refuses the next 
   assert.equal(satisfiesRange('>=0.1.7 <0.2.0', '0.1.7-rc.2'), false)
   assert.equal(satisfiesRange('~0.1.7', '0.1.7-rc.2'), undefined, 'tilde/caret forms stay probe-only')
   assert.equal(satisfiesRange('^0.1.7', '0.1.7-rc.2'), undefined, 'caret forms stay probe-only')
-  // The open D04 decision, exercised but NOT applied: the alternative upper bound
-  // review A's F-3 proposes would refuse `0.2.0-rc.1`, where today's range does not.
-  assert.equal(satisfiesRange('>=0.1.7-rc.2 <0.2.0-0', '0.2.0-rc.1'), false)
+  // The boundaries the 2026-10-03 revision turns on: `-0` is what refuses the
+  // next line's prerelease, and `<0.2.0-0` is the bound that was rejected for
+  // refusing the runtime this repository actually runs on.
+  assert.equal(satisfiesRange('>=0.1.7-rc.2 <0.3.0-0', '0.3.0-rc.1'), false)
+  assert.equal(satisfiesRange('>=0.1.7-rc.2 <0.3.0', '0.3.0-rc.1'), true, 'without -0 the next prerelease slips in')
+  assert.equal(satisfiesRange('>=0.1.7-rc.2 <0.2.0-0', '0.2.0-rc.2'), false, 'the rejected bound refuses the running runtime')
 })
 
 test('no manifest pulls the platform in as a dependency, only the carriers peer on it', () => {
