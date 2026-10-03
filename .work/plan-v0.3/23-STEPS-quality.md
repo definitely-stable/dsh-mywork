@@ -654,14 +654,14 @@ Q-47 (матрица приёмки) — после всего, что попа�
 - **Усилие:** M · **Риск:** высокий (иначе агент правит харнесс) · **Откат:** revert
 - **Цель:** worker-сессия физически не может вызвать `cordis_*`, dynamic-плагины и `plugin_manager`; попытка приводит к отказу, а не к обходу.
 - **Факты:** в MyWork списка запретов нет вообще (`workerSurface`, `allowedTools`, `toolAllowList`, `forbiddenTools`, `cordis_` — все exit 1, `quality-09:20`); архитектура MyWork прямо говорит «per-session tool allow-list нет», скоуп задаётся agent preset'ом (`packages/contracts/src/agent-runtime.ts:57`); механизм платформы: `tools.restrict(filter)` требует scoped-контекста (`agent.ctx`) и бросает на context-global (`packages/core/tools/src/index.ts:1095-1100,1105,1114-1117`), `tools.guard(guard)` даёт монотонный запрет, который **не может** форсировать allow (`:1127-1140`).
-- **Файлы:** Modify `packages/controller/src/invariant.ts`, Create `tests/worker-surface.test.mjs` (сам фильтр и его место — в `F-56`/`E-…`, здесь не дублируются)
+- **Файлы:** Modify `packages/controller/src/invariant.ts`; **переиспользовать** канонический `tests/worker-surface.test.mjs`, созданный F-56 и расширяемый E-39. Q-37 не создаёт второй носитель и не задаёт собственный total pass-count.
 - **Шаги:**
   1. Тест (падающий): на живом фильтре `F-56` в `visible`-поверхности worker-агента нет ни одного имени из запретного списка.
      Команда: `node --test --test-isolation=none tests/worker-surface.test.mjs` → FAIL.
   2. Тест (падающий): вызов запретного инструмента из worker-сессии → отказ; монотонный `guard` срабатывает **после** `tools/pre-execute` и не отменяется allow'ом.
   3. Тест: в root-сессии те же инструменты доступны — запрет адресный, а не глобальное отключение.
   4. Инвариант (связка с Q-36): «поверхность worker-сессии не пересекается с запретным списком» — проверяется на авторитетном потоке `tools/registered`-событий.
-  5. Команда: `node --test --test-isolation=none tests/worker-surface.test.mjs` → `pass 3 / fail 0`.
+  5. Команда: `node --test --test-isolation=none tests/worker-surface.test.mjs` → `fail 0`; приёмка Q-37 — наличие трёх именованных свойств выше, не общее число тестов файла.
 - **Гейт:** тест зелёный; в отчёте — ссылка на шаг `F-56` и доказательство, что проверяется фактический `visible`-набор.
 - **Риски:** запрет только «по имени» обходится алиасом — тест обязан проверять фактический `visible`-набор, а не конфиг.
 
@@ -669,13 +669,13 @@ Q-47 (матрица приёмки) — после всего, что попа�
 - **Карточка:** MW-039 (инвариант и тест) · **Механика правила — `F-57`** · **Решение:** D15 · **Усилие:** S · **Риск:** средний · **Откат:** revert
 - **Базовая линия (исправлено по R-22):** `auto-review` **активен** в профиле (`enabled: true`, строка `include: auto-review`, `fiberPhase: active`). Прежняя формулировка «по умолчанию выключен» **снята как неверная**. При этом **режима deny в пакете нет**: решения — только low+allow / medium+allow|deny / high+deny, `allow` исполняется сразу с Full access, Auto-preset = Full access + `ask` (`packages/experimental/auto-review/src/index.ts:64-67` — перечень решений `AutoReviewDecision`; `:715-716` — `allow` проходит сразу, `deny` уходит в `ask`; `:723-732` — регистрация Auto и возврат сессий к `danger-full-access`; «Full access + `ask`» — `packages/interaction/permission-presets/src/index.ts:89-91`; **переякорено 2026-10-03** на `0.2.0-rc.2`/`639ed0153`: прежний указатель `:124-126` был неверен — там `export const name`/`export const inject`; `quality-05:34-38`). RT-4 («обход review через LLM-аппрувер») подтверждён.
 - **Следствие:** «только deny» — правило **MyWork**, а не настройка пакета. Запрет approve-пути и изоляция от worker-сессии — `F-57`; здесь инвариант и тест.
-- **Файлы:** Modify `packages/controller/src/invariant.ts`, Create `tests/auto-review-policy.test.mjs`
+- **Файлы:** Modify `packages/controller/src/invariant.ts`; **переиспользовать**: `tests/auto-review-deny-only.test.mjs` (F-57, core vocabulary), `tests/auto-review-policy.test.mjs` (E-40, session/preset policy) и production queue-boundary regressions `tests/review-staleness.test.mjs` / `tests/review-reject.test.mjs`. Q-38 не создаёт четвёртый конкурирующий носитель.
 - **Шаги:**
   1. Тест (падающий): `allow` от `auto-review` **не** превращается в одобрение MyWork-гейта — решение человека всё равно требуется, `answeredBy.kind === 'human'`.
      Команда: `node --test --test-isolation=none tests/auto-review-policy.test.mjs` → FAIL.
   2. Тест (инвариант): в аудите нет строки `gate.decided`, у которой `answeredBy` — агент.
   3. Тест: при активном `auto-review` worker-поверхность не получает инструментов самомодификации (`F-56`/Q-37) — проверка на фактической базовой линии профиля, а не на предположении.
-  4. Команда: `node --test --test-isolation=none tests/auto-review-policy.test.mjs` → `pass 3 / fail 0`.
+  4. Команда: `node --test --test-isolation=none tests/auto-review-deny-only.test.mjs tests/auto-review-policy.test.mjs tests/review-staleness.test.mjs tests/review-reject.test.mjs` → `fail 0`; общий pass-count не является контрактом.
 - **Гейт:** тест зелёный; в отчёте — фактическая базовая линия профиля (`enabled`/`fiberPhase`) с путём и строкой.
 - **Риски:** аргумент «сегодня и так выключен» больше не работает; правило обязано быть верным именно потому, что пакет активен.
 
