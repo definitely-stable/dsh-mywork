@@ -8,6 +8,12 @@
  * `DSH_HOME` pointing at a fresh directory under `.tmp/`, and the script hashes
  * the real profile manifests before and after to prove they did not change.
  *
+ * One assertion does read the real profile, read-only: the board row's
+ * `sessionDefaultPermission` must stay beside `plugin`, the shape whose loss
+ * (R-47) silently put the board back on the `read-only` default and blocked
+ * every card that pins a wider permission. It is skipped when the profile or the
+ * row is absent, which is what a clean runner looks like.
+ *
  * Usage: node scripts/verify-profile.mjs [--dsh-bin <path-or-command>] [--keep]
  */
 
@@ -19,6 +25,11 @@ import { fileURLToPath } from 'node:url'
 
 import { packController, packUi, repoRoot } from './pack.mjs'
 import { quoteCommandArg, resolveCommandOnPath, runCaptured } from './lib/process.mjs'
+import {
+  BOARD_ROW_ID,
+  EXPECTED_SESSION_DEFAULT_PERMISSION,
+  inspectBoardRowPermission,
+} from './lib/profile-permission.mjs'
 
 /** Profile name created inside the isolated home. */
 const PROFILE = 'mywork-verify'
@@ -274,6 +285,31 @@ for (const [path, hash] of beforeRealProfile) {
   expect(afterRealProfile.get(path) === hash, `real profile file changed during verification: ${path}`)
 }
 console.log(`ok   user profile untouched (${beforeRealProfile.size} fingerprint(s) unchanged)`)
+
+// 9. The live profile's board row must keep `sessionDefaultPermission` beside
+//    `plugin` (R-47, R-51). Reading the file is the whole check: the previous
+//    regression was invisible to every running surface, so the shape is asserted
+//    where it is cheapest to see. A profile without the row is skipped — that is
+//    a legitimate configuration, and a clean runner has no profile at all.
+const livePatchPath = join(homedir(), '.dsh', 'profiles', 'web', 'cordis.patch.yml')
+if (!existsSync(livePatchPath)) {
+  console.log(`skip no live profile at ${livePatchPath}`)
+} else {
+  const inspected = inspectBoardRowPermission(readFileSync(livePatchPath, 'utf8'))
+  if (!inspected.found) {
+    console.log(`skip the live profile does not install the ${BOARD_ROW_ID} row`)
+  } else {
+    for (const finding of inspected.findings) console.error(`     ${finding}`)
+    expect(
+      inspected.findings.length === 0,
+      `the live profile's ${BOARD_ROW_ID} row lost its permission wiring: ${livePatchPath}`,
+    )
+    console.log(
+      `ok   live profile board row keeps sessionDefaultPermission `
+      + `"${EXPECTED_SESSION_DEFAULT_PERMISSION}" beside plugin`,
+    )
+  }
+}
 
 if (keep) {
   console.log(`kept: ${workDir}`)
